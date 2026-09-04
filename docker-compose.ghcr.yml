@@ -1,0 +1,25 @@
+# Run a prebuilt image instead of compiling locally.
+#
+#   docker compose -f docker-compose.ghcr.yml pull
+#   docker compose -f docker-compose.ghcr.yml up -d
+#
+# The image is published by .github/workflows/docker.yml on every push to main.
+# GHCR packages start out private, so either make the package public once
+# (repo -> Packages -> lanobe -> Package settings -> Change visibility) or run:
+#
+#   echo <a-PAT-with-read:packages> | docker login ghcr.io -u RifkyHernanda --password-stdin
+
+services:
+  lanobe:
+    image: ghcr.io/rifkyhernanda/lanobe:latest
+    restart: unless-stopped
+    ports:
+      - "4567:4567"
+    volumes:
+      - ./data:/data
+    environment:
+      - TZ=Asia/Jakarta
+      # Leave unset to run without a password (fine on a laptop or LAN).
+      # Before exposing this to the internet, set one:
+      #   docker run --rm -i ghcr.io/rifkyhernanda/lanobe:latest hash-password <<< 'your password'
+      # - LANOBE_PASSWORD_HASH=$argon2id$v=19$...

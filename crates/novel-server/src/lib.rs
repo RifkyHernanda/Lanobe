@@ -78,7 +78,7 @@ fn scan_local_novel(state: &NovelState) -> anyhow::Result<()> {
     {
         let path = entry.path();
         // Look for metadata.json files in subdirectories
-        if path.is_file() && path.file_name().map_or(false, |n| n == "metadata.json") {
+        if path.is_file() && path.file_name().is_some_and(|n| n == "metadata.json") {
             let Some(parent) = path.parent() else {
                 continue;
             };
@@ -114,33 +114,29 @@ fn scan_local_novel(state: &NovelState) -> anyhow::Result<()> {
 
     // Scan global categories in root
     let categories_path = local_path.join("categories.json");
-    if categories_path.exists() {
-        if let Ok(content) = fs::read_to_string(&categories_path) {
-            if let Ok(sidecar_data) = serde_json::from_str::<serde_json::Value>(&content) {
-                if let Some(categories) = sidecar_data.get("categories") {
-                    if let Ok(cats) = serde_json::from_value::<Vec<LnCategory>>(categories.clone())
-                    {
-                        for cat in cats {
-                            let _ = state.db.insert(
-                                format!("category:{}", cat.id),
-                                serde_json::to_vec(&cat).unwrap_or_default(),
-                            );
-                        }
-                    }
-                }
-                if let Some(metadata) = sidecar_data.get("metadata") {
-                    if let Ok(meta_map) = serde_json::from_value::<
-                        HashMap<String, LnCategoryMetadata>,
-                    >(metadata.clone())
-                    {
-                        for (id, meta) in meta_map {
-                            let _ = state.db.insert(
-                                format!("category_metadata:{}", id),
-                                serde_json::to_vec(&meta).unwrap_or_default(),
-                            );
-                        }
-                    }
-                }
+    if categories_path.exists()
+        && let Ok(content) = fs::read_to_string(&categories_path)
+        && let Ok(sidecar_data) = serde_json::from_str::<serde_json::Value>(&content)
+    {
+        if let Some(categories) = sidecar_data.get("categories")
+            && let Ok(cats) = serde_json::from_value::<Vec<LnCategory>>(categories.clone())
+        {
+            for cat in cats {
+                let _ = state.db.insert(
+                    format!("category:{}", cat.id),
+                    serde_json::to_vec(&cat).unwrap_or_default(),
+                );
+            }
+        }
+        if let Some(metadata) = sidecar_data.get("metadata")
+            && let Ok(meta_map) =
+                serde_json::from_value::<HashMap<String, LnCategoryMetadata>>(metadata.clone())
+        {
+            for (id, meta) in meta_map {
+                let _ = state.db.insert(
+                    format!("category_metadata:{}", id),
+                    serde_json::to_vec(&meta).unwrap_or_default(),
+                );
             }
         }
     }

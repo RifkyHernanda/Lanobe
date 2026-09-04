@@ -13,9 +13,7 @@ use serde::{
 };
 use serde_json::{Value, value::RawValue};
 use tracing::{info, warn};
-use wordbase_api::{
-    DictionaryId, DictionaryKind, DictionaryMeta,
-};
+use wordbase_api::{DictionaryId, DictionaryKind, DictionaryMeta};
 use zip::ZipArchive;
 
 use crate::state::{AppState, DictionaryData};
@@ -80,14 +78,13 @@ fn validate_zip_archive<R: Read + std::io::Seek>(zip: &mut ZipArchive<R>) -> Res
             ));
         }
 
-        if compressed_size > 0 {
-            let ratio = size / compressed_size;
-            if ratio > MAX_COMPRESSION_RATIO {
-                return Err(anyhow!(
-                    "Archive entry '{}' looks suspicious (compression ratio {ratio}).",
-                    file.name()
-                ));
-            }
+        if let Some(ratio) = size.checked_div(compressed_size)
+            && ratio > MAX_COMPRESSION_RATIO
+        {
+            return Err(anyhow!(
+                "Archive entry '{}' looks suspicious (compression ratio {ratio}).",
+                file.name()
+            ));
         }
     }
 
@@ -2199,7 +2196,6 @@ mod tests {
                     || decoded_payload.starts_with(b"MGC1"),
                 "import should persist compact glossary payload prefix"
             );
-
         });
     }
 
@@ -2299,7 +2295,10 @@ mod tests {
                 .query_row("SELECT COUNT(*) FROM terms", [], |row| row.get(0))
                 .expect("term count query");
 
-            assert_eq!(dict_count, 0, "failed import must not leave dictionary rows");
+            assert_eq!(
+                dict_count, 0,
+                "failed import must not leave dictionary rows"
+            );
             assert_eq!(term_count, 0, "failed import must not leave term rows");
         });
     }

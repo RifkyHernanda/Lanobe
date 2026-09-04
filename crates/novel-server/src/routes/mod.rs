@@ -95,7 +95,8 @@ async fn get_all_metadata(
         let metadata: LNMetadata = serde_json::from_slice(&v)?;
         all_metadata.push(metadata);
     }
-    all_metadata.sort_by(|a, b| b.added_at.cmp(&a.added_at));
+    // Newest first.
+    all_metadata.sort_by_key(|metadata| std::cmp::Reverse(metadata.added_at));
     Ok(Json(all_metadata))
 }
 
@@ -219,11 +220,7 @@ async fn save_content(
         let data = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &base64)
             .map_err(|e| NovelError::BadRequest(format!("Invalid base64 image: {}", e)))?;
 
-        let normalized_path = if path.starts_with('/') {
-            &path[1..]
-        } else {
-            &path
-        };
+        let normalized_path = path.strip_prefix('/').unwrap_or(&path);
         let img_path = img_dir.join(normalized_path);
         if let Some(parent) = img_path.parent() {
             fs::create_dir_all(parent)?;
@@ -294,7 +291,7 @@ async fn get_categories(
         let category: LnCategory = serde_json::from_slice(&v)?;
         categories.push(category);
     }
-    categories.sort_by(|a, b| a.order.cmp(&b.order));
+    categories.sort_by_key(|a| a.order);
     Ok(Json(categories))
 }
 
@@ -428,16 +425,16 @@ async fn upload_epub(
     mut multipart: Multipart,
 ) -> Result<(), NovelError> {
     while let Some(field) = multipart.next_field().await? {
-        if let Some(name) = field.name() {
-            if name == "file" {
-                let data = field.bytes().await?;
-                let path = state.get_epub_path(&id);
-                if let Some(parent) = path.parent() {
-                    fs::create_dir_all(parent)?;
-                }
-                fs::write(path, data)?;
-                return Ok(());
+        if let Some(name) = field.name()
+            && name == "file"
+        {
+            let data = field.bytes().await?;
+            let path = state.get_epub_path(&id);
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent)?;
             }
+            fs::write(path, data)?;
+            return Ok(());
         }
     }
     Err(NovelError::BadRequest("No file field found".into()))
