@@ -14,7 +14,7 @@ import { NAVIGATION_BAR_ITEMS } from '@/features/navigation-bar/NavigationBar.co
 const STORAGE_KEY_STARTUP_PAGE = 'navigation_startup_page';
 const STORAGE_KEY_VISIBLE_TABS = 'navigation_visible_tabs';
 
-const DEFAULT_STARTUP_PAGE = AppRoutes.library.path();
+const DEFAULT_STARTUP_PAGE = AppRoutes.ln.path;
 const DEFAULT_VISIBLE_TABS = NAVIGATION_BAR_ITEMS.map((item) => item.path);
 
 export function useNavigationSettings() {

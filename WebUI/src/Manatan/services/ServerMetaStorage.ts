@@ -1,27 +1,24 @@
+/**
+ * Key/value settings storage shared across devices.
+ *
+ * Upstream stored these in Suwayomi's `meta/global` GraphQL rows. Lanobe serves the
+ * same flat map from `/api/app/meta`, so the shape callers see is unchanged.
+ */
 import { requestManager } from '@/lib/requests/RequestManager.ts';
-import { MetaType } from '@/lib/requests/types.ts';
 
 export const MANATAN_SETTINGS_META_KEY = 'manatan_settings_v1';
 export const MANATAN_LN_SETTINGS_META_KEY = 'manatan_ln_settings_by_language_v1';
 export const MANATAN_SRS_UI_STATE_META_KEY = 'manatan_srs_ui_state_v1';
 
-const toMetaMap = (nodes?: MetaType[]): Record<string, string> => {
-    const map: Record<string, string> = {};
-    (nodes ?? []).forEach((node) => {
-        if (!node?.key) {
-            return;
-        }
-        map[node.key] = node.value ?? '';
-    });
-    return map;
-};
-
 export const getServerMetaMap = async (): Promise<Record<string, string>> => {
-    const { data, error } = await requestManager.getGlobalMeta().response;
-    if (error) {
-        throw error;
-    }
-    return toMetaMap(data?.metas?.nodes);
+    const map = await requestManager.getGlobalMeta();
+
+    return Object.fromEntries(
+        Object.entries(map ?? {}).map(([key, value]) => [
+            key,
+            typeof value === 'string' ? value : JSON.stringify(value),
+        ]),
+    );
 };
 
 export const getServerMetaValue = async (key: string): Promise<string | undefined> => {
@@ -29,9 +26,8 @@ export const getServerMetaValue = async (key: string): Promise<string | undefine
     return meta[key];
 };
 
-export const setServerMetaValue = async (key: string, value: string): Promise<void> => {
-    await requestManager.setGlobalMetadata(key, value).response;
-};
+export const setServerMetaValue = async (key: string, value: string): Promise<void> =>
+    requestManager.setGlobalMetadata(key, value);
 
 export const getServerMetaJson = async <T>(key: string, fallback: T): Promise<T> => {
     const raw = await getServerMetaValue(key);
@@ -46,6 +42,5 @@ export const getServerMetaJson = async <T>(key: string, fallback: T): Promise<T>
     }
 };
 
-export const setServerMetaJson = async <T>(key: string, value: T): Promise<void> => {
-    await setServerMetaValue(key, JSON.stringify(value));
-};
+export const setServerMetaJson = async <T>(key: string, value: T): Promise<void> =>
+    setServerMetaValue(key, JSON.stringify(value));

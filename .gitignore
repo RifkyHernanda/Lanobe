@@ -187,3 +187,7 @@ yarn-error.log*
 !.env.example
 
 ocr-test-data
+
+# Embedded WebUI build output (produced by `make webui`).
+# build.rs recreates the directory so a bare `cargo build` still works.
+bin/lanobe/resources/webui/

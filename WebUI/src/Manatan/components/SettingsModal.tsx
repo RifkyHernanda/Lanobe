@@ -11,8 +11,8 @@ import { apiRequest, getAppVersion, checkForUpdates, triggerAppUpdate, installAp
 import { DictionaryManager } from './DictionaryManager';
 import { getAnkiVersion, getDeckNames, getModelNames, getModelFields, logAnkiError } from '@/Manatan/utils/anki';
 import { ResetButton } from '@/base/components/buttons/ResetButton.tsx';
-import { Hotkey } from '@/features/reader/hotkeys/settings/components/Hotkey.tsx';
-import { RecordHotkey } from '@/features/reader/hotkeys/settings/components/RecordHotkey.tsx';
+import { Hotkey } from '@/features/hotkeys/components/Hotkey.tsx';
+import { RecordHotkey } from '@/features/hotkeys/components/RecordHotkey.tsx';
 import { AnimeHotkey, ANIME_HOTKEYS, ANIME_HOTKEY_LABELS, DEFAULT_ANIME_HOTKEYS } from '@/Manatan/hotkeys/AnimeHotkeys.ts';
 
 const checkboxLabelStyle: React.CSSProperties = {

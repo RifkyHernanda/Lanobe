@@ -7,7 +7,7 @@
  */
 
 import { NavbarItem } from '@/features/navigation-bar/NavigationBar.types.ts';
-import { MetadataHistorySettings } from '@/features/history/History.types.ts';
+type MetadataHistorySettings = { hideHistory: boolean };
 import { AppRoutes, StaticAppRoute } from '@/base/AppRoute.constants.ts';
 
 type NavBarItemDeviceFilterKey = `hide${Capitalize<NavbarItem['show']>}`;
@@ -19,7 +19,6 @@ type FilterSettings = Pick<MetadataHistorySettings, 'hideHistory'> &
     };
 
 const ITEM_TO_VISIBLE_FILTER: Partial<Record<StaticAppRoute, keyof FilterSettings>> = {
-    [AppRoutes.history.path]: 'hideHistory',
     [AppRoutes.more.path]: 'hideMore',
 };
 

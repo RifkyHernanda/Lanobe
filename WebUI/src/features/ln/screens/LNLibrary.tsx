@@ -50,7 +50,7 @@ import { MUIUtil } from '@/lib/mui/MUI.util';
 import { MediaQuery } from '@/base/utils/MediaQuery';
 import { CustomTooltip } from '@/base/components/CustomTooltip';
 import { TypographyMaxLines } from '@/base/components/texts/TypographyMaxLines';
-import { MANGA_COVER_ASPECT_RATIO } from '@/features/manga/Manga.constants';
+import { COVER_ASPECT_RATIO as MANGA_COVER_ASPECT_RATIO } from '@/features/settings/Settings.constants.ts';
 import { useAppAction } from '@/features/navigation-bar/hooks/useAppAction';
 import { useAppTitle } from '@/features/navigation-bar/hooks/useAppTitle';
 import { useMetadataServerSettings } from '@/features/settings/services/ServerSettingsMetadata';

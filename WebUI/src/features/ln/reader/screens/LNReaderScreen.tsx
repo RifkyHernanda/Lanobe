@@ -39,7 +39,6 @@ import { getDefaultLnSettings } from '../utils/lnSettings';
 import { VirtualReader } from '../components/VirtualReader';
 import { ReaderControls } from '../components/ReaderControls';
 import { YomitanPopup } from '@/Manatan/components/YomitanPopup';
-import { useSyncOnChapterOpen } from '@/features/sync/services/useSyncTriggers';
 import { Settings } from '@/Manatan/types';
 
 const THEMES = {
@@ -90,7 +89,6 @@ export const LNReaderScreen: React.FC = () => {
 
     const bookId = id || '';
     const chapterId = bookId ? `${bookId}-${currentChapter}` : null;
-    useSyncOnChapterOpen(chapterId);
 
     const { highlights, loading: highlightsLoading, addHighlight, removeHighlight, exportToTxt, exportToJson, downloadFile, refresh } = useHighlights(bookId);
 
