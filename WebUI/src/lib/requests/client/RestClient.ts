@@ -87,10 +87,8 @@ export class RestClient
                 case HttpMethod.PUT:
                 case HttpMethod.PATCH:
                 case HttpMethod.DELETE:
-                    const isFormData =
-                        typeof FormData !== 'undefined' && data instanceof FormData;
-                    const body =
-                        data === undefined ? undefined : isFormData ? data : JSON.stringify(data);
+                    const isFormData = typeof FormData !== 'undefined' && data instanceof FormData;
+                    const body = data === undefined ? undefined : isFormData ? data : JSON.stringify(data);
                     const headers = {
                         ...baseHeaders,
                         ...(!isFormData && data !== undefined ? { 'content-type': 'application/json' } : {}),

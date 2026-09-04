@@ -1,9 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { buildChapterBaseUrl, checkChapterStatus, preprocessChapter, ChapterStatus, AuthCredentials } from '@/Manatan/utils/api';
+import {
+    buildChapterBaseUrl,
+    checkChapterStatus,
+    preprocessChapter,
+    ChapterStatus,
+    AuthCredentials,
+} from '@/Manatan/utils/api';
 import { YomitanLanguage } from '@/Manatan/types';
 
 interface ChapterProcessButtonProps {
-    chapterPath: string; 
+    chapterPath: string;
     creds?: AuthCredentials;
     language?: YomitanLanguage;
     initialStatus?: ChapterStatus;
@@ -15,9 +21,7 @@ export const ChapterProcessButton: React.FC<ChapterProcessButtonProps> = ({
     language,
     initialStatus,
 }) => {
-    const [status, setStatus] = useState<ChapterStatus>(
-        initialStatus ?? { status: 'idle', cached: 0, total: 0 }
-    );
+    const [status, setStatus] = useState<ChapterStatus>(initialStatus ?? { status: 'idle', cached: 0, total: 0 });
     const [statusEnabled, setStatusEnabled] = useState(false);
     const apiBaseUrl = useMemo(() => buildChapterBaseUrl(chapterPath), [chapterPath]);
 
@@ -146,7 +150,7 @@ export const ChapterProcessButton: React.FC<ChapterProcessButtonProps> = ({
     const handleClick = async (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
-        
+
         if (status.status !== 'idle') return;
 
         // Immediate UI feedback: switch to a busy state before any network requests.
@@ -168,13 +172,12 @@ export const ChapterProcessButton: React.FC<ChapterProcessButtonProps> = ({
 
         // Update the optimistic total based on the latest status snapshot.
         setStatus({ status: 'processing', progress: 0, total: currentStatus.total ?? status.total ?? 0 });
-        
+
         try {
             await preprocessChapter(apiBaseUrl, chapterPath, creds, language);
 
             // After the job is enqueued we still expect a small delay before the status endpoint
             // reflects it. Polling is handled by the effect above.
-
         } catch (err) {
             console.error(err);
             startingUntilRef.current = 0;
@@ -184,13 +187,13 @@ export const ChapterProcessButton: React.FC<ChapterProcessButtonProps> = ({
     };
 
     const renderButtonContent = () => {
-        if (status.status === 'processed') return "OCR Processed";
-        
+        if (status.status === 'processed') return 'OCR Processed';
+
         if (status.status === 'processing') {
             if (status.total > 0) {
                 return `Processing (${status.progress}/${status.total})`;
             }
-            return "Processing...";
+            return 'Processing...';
         }
 
         if (status.status === 'idle') {
@@ -199,7 +202,7 @@ export const ChapterProcessButton: React.FC<ChapterProcessButtonProps> = ({
             }
         }
 
-        return "Process OCR";
+        return 'Process OCR';
     };
 
     const isProcessing = status.status === 'processing';
@@ -214,8 +217,8 @@ export const ChapterProcessButton: React.FC<ChapterProcessButtonProps> = ({
     }
 
     return (
-        <button 
-            className={`ocr-chapter-btn process ${isProcessing ? 'busy' : ''}`} 
+        <button
+            className={`ocr-chapter-btn process ${isProcessing ? 'busy' : ''}`}
             onClick={handleClick}
             disabled={isProcessing}
         >

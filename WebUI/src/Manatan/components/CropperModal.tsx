@@ -14,14 +14,14 @@ interface CropperModalProps {
     downscaleMaxHeight?: number;
 }
 
-export const CropperModal: React.FC<CropperModalProps> = ({ 
-    imageSrc, 
+export const CropperModal: React.FC<CropperModalProps> = ({
+    imageSrc,
     spreadData,
-    onComplete, 
+    onComplete,
     onCancel,
     quality,
     downscaleMaxWidth,
-    downscaleMaxHeight
+    downscaleMaxHeight,
 }) => {
     // Default crop is 80% of the image, centered
     const [crop, setCrop] = useState<Crop>({
@@ -29,12 +29,12 @@ export const CropperModal: React.FC<CropperModalProps> = ({
         x: 10,
         y: 10,
         width: 80,
-        height: 80
+        height: 80,
     });
     const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(null);
-    
+
     const [wrapperRef, setWrapperRef] = useState<HTMLDivElement | null>(null);
-    
+
     const [imagesLoaded, setImagesLoaded] = useState(0);
     const totalImages = spreadData ? 2 : 1;
     const isLoading = imagesLoaded < totalImages;
@@ -44,19 +44,19 @@ export const CropperModal: React.FC<CropperModalProps> = ({
     const singleImgRef = useRef<HTMLImageElement>(null);
 
     const onImageLoad = () => {
-        setImagesLoaded(prev => prev + 1);
+        setImagesLoaded((prev) => prev + 1);
     };
 
     const onImageError = () => {
         makeToast('Failed to load image for cropping', 'error');
-        onCancel(); 
+        onCancel();
     };
 
     // Initialize crop once all images are ready
     React.useEffect(() => {
         if (!isLoading && wrapperRef && !completedCrop) {
             const { width, height } = wrapperRef.getBoundingClientRect();
-            
+
             // Initialize completedCrop immediately with the default percentage crop converted to pixels
             // This allows the Confirm button to work without moving the selection
             const initialPixelCrop: PixelCrop = {
@@ -64,8 +64,8 @@ export const CropperModal: React.FC<CropperModalProps> = ({
                 x: (crop.x / 100) * width,
                 y: (crop.y / 100) * height,
                 width: (crop.width / 100) * width,
-                height: (crop.height / 100) * height
-            }
+                height: (crop.height / 100) * height,
+            };
             setCompletedCrop(initialPixelCrop);
         }
     }, [isLoading, wrapperRef, crop, completedCrop]);
@@ -86,7 +86,7 @@ export const CropperModal: React.FC<CropperModalProps> = ({
                     x: completedCrop.x * scaleX,
                     y: completedCrop.y * scaleY,
                     width: completedCrop.width * scaleX,
-                    height: completedCrop.height * scaleY
+                    height: completedCrop.height * scaleY,
                 };
 
                 croppedImage = await getStitchedAndCroppedImg(
@@ -95,9 +95,8 @@ export const CropperModal: React.FC<CropperModalProps> = ({
                     pixelCrop,
                     quality,
                     downscaleMaxWidth,
-                    downscaleMaxHeight
+                    downscaleMaxHeight,
                 );
-
             } else if (singleImgRef.current && imageSrc) {
                 const scaleX = singleImgRef.current.naturalWidth / singleImgRef.current.width;
                 const scaleY = singleImgRef.current.naturalHeight / singleImgRef.current.height;
@@ -106,31 +105,30 @@ export const CropperModal: React.FC<CropperModalProps> = ({
                     x: completedCrop.x * scaleX,
                     y: completedCrop.y * scaleY,
                     width: completedCrop.width * scaleX,
-                    height: completedCrop.height * scaleY
+                    height: completedCrop.height * scaleY,
                 };
 
                 croppedImage = await getCroppedImg(
-                    imageSrc, 
-                    pixelCrop, 
+                    imageSrc,
+                    pixelCrop,
                     quality,
                     0,
                     downscaleMaxWidth,
-                    downscaleMaxHeight
+                    downscaleMaxHeight,
                 );
             }
 
             if (croppedImage) {
                 onComplete(croppedImage);
             }
-
         } catch (err: any) {
-            makeToast('Failed to crop image', 'error', err.message)
+            makeToast('Failed to crop image', 'error', err.message);
         }
     };
 
     const renderImages = () => {
         const commonProps = {
-            crossOrigin: "anonymous" as const,
+            crossOrigin: 'anonymous' as const,
             onLoad: onImageLoad,
             onError: onImageError,
         };
@@ -176,11 +174,11 @@ export const CropperModal: React.FC<CropperModalProps> = ({
 
     return (
         <div className="ocr-modal-overlay" onClick={onCancel}>
-            <div 
+            <div
                 className="ocr-modal"
                 onClick={(e) => e.stopPropagation()}
                 style={{
-                    maxWidth: '90vw', 
+                    maxWidth: '90vw',
                     maxHeight: '90vh',
                     width: 'fit-content',
                     pointerEvents: 'auto',
@@ -193,36 +191,40 @@ export const CropperModal: React.FC<CropperModalProps> = ({
                 <div
                     className="ocr-modal-content"
                     style={{
-                        position: 'relative', 
-                        height: '60vh', 
+                        position: 'relative',
+                        height: '60vh',
                         minHeight: '400px',
                         padding: '20px',
                         display: 'flex',
                         justifyContent: 'center',
                         alignItems: 'center',
                         overflow: 'auto',
-                        backgroundColor: '#111'
+                        backgroundColor: '#111',
                     }}
                 >
                     {isLoading && (
                         <div style={{ position: 'absolute', zIndex: 10 }}>
-                             <div className="ocr-spinner">
+                            <div className="ocr-spinner">
                                 <svg className="circular" viewBox="25 25 50 50">
-                                    <circle className="path" cx="50" cy="50" r="20" fill="none" strokeWidth="4" strokeMiterlimit="10"/>
+                                    <circle
+                                        className="path"
+                                        cx="50"
+                                        cy="50"
+                                        r="20"
+                                        fill="none"
+                                        strokeWidth="4"
+                                        strokeMiterlimit="10"
+                                    />
                                 </svg>
                             </div>
                         </div>
                     )}
 
-                    <ReactCrop
-                        crop={crop}
-                        onChange={(c) => setCrop(c)}
-                        onComplete={(c) => setCompletedCrop(c)}
-                    >
-                        <div 
+                    <ReactCrop crop={crop} onChange={(c) => setCrop(c)} onComplete={(c) => setCompletedCrop(c)}>
+                        <div
                             ref={setWrapperRef}
-                            style={{ 
-                                display: 'flex', 
+                            style={{
+                                display: 'flex',
                                 flexDirection: 'row',
                                 justifyContent: 'center',
                             }}

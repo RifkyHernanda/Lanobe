@@ -1,13 +1,12 @@
 import type { DictionaryResult, WordAudioSource, WordAudioSourceSelection, YomitanLanguage } from '@/Manatan/types';
 import { apiRequest } from '@/Manatan/utils/api';
-import { resolveFirstAvailableWordAudioSource } from '@/Manatan/utils/wordAudioSourceResolver';
 
 const WORD_AUDIO_SOURCE_LABELS: Record<WordAudioSource, string> = {
-    'jpod101': 'JapanesePod101',
+    jpod101: 'JapanesePod101',
     'language-pod-101': 'LanguagePod101',
-    'jisho': 'Jisho',
+    jisho: 'Jisho',
     'lingua-libre': 'Lingua Libre',
-    'wiktionary': 'Wiktionary',
+    wiktionary: 'Wiktionary',
 };
 
 const audioUrlCache = new Map<string, Promise<string | null>>();
@@ -32,7 +31,6 @@ const getAudioUrlFromServer = async (
     const response = await apiRequest<{ url?: string }>(`/api/yomitan/audio?${params.toString()}`);
     return response?.url ?? null;
 };
-
 
 const getAudioUrlForSource = async (
     source: WordAudioSource,

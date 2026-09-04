@@ -6,7 +6,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -19,7 +19,6 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import Checkbox from '@mui/material/Checkbox';
 import Stack from '@mui/material/Stack';
 import { useColorScheme } from '@mui/material/styles';
-import React, { useEffect } from 'react';
 import { useAppThemeContext } from '@/features/theme/AppThemeContext.tsx';
 import { Select } from '@/base/components/inputs/Select.tsx';
 import { MediaQuery } from '@/base/utils/MediaQuery.tsx';

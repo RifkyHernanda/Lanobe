@@ -27,7 +27,7 @@ export const useMangaObserver = () => {
 
             const unique = Array.from(new Set(found)).filter((img) => {
                 if (!img.isConnected || img.naturalHeight <= 200) return false;
-                
+
                 if (img.src.includes('thumbnail')) return false;
 
                 // Exclude cropper images

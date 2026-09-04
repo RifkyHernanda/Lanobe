@@ -1,5 +1,12 @@
-export interface Rect { x: number; y: number; width: number; height: number; rotation?: number; }
 import { AnimeHotkey, DEFAULT_ANIME_HOTKEYS } from '@/Manatan/hotkeys/AnimeHotkeys.ts';
+
+export interface Rect {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    rotation?: number;
+}
 export interface OcrBlock {
     text: string;
     tightBoundingBox: Rect;
@@ -14,7 +21,17 @@ export interface SiteConfig {
 }
 
 // Added 'dark' to the allowed types
-export type ColorTheme = 'blue' | 'red' | 'green' | 'orange' | 'purple' | 'turquoise' | 'pink' | 'grey' | 'white' | 'dark';
+export type ColorTheme =
+    | 'blue'
+    | 'red'
+    | 'green'
+    | 'orange'
+    | 'purple'
+    | 'turquoise'
+    | 'pink'
+    | 'grey'
+    | 'white'
+    | 'dark';
 export type YomitanLanguage =
     | 'japanese'
     | 'english'
@@ -59,16 +76,14 @@ export type YomitanLanguage =
     | 'welsh'
     | 'cantonese';
 
-export type WordAudioSource =
-    | 'jpod101'
-    | 'language-pod-101'
-    | 'jisho'
-    | 'lingua-libre'
-    | 'wiktionary';
+export type WordAudioSource = 'jpod101' | 'language-pod-101' | 'jisho' | 'lingua-libre' | 'wiktionary';
 
 export type WordAudioSourceSelection = WordAudioSource | 'auto';
 
-export interface ServerSettingsData { authUsername?: string; authPassword?: string; }
+export interface ServerSettingsData {
+    authUsername?: string;
+    authPassword?: string;
+}
 
 export interface Settings {
     interactionMode: 'hover' | 'click';
@@ -157,8 +172,8 @@ export interface Settings {
     lnDisableAnimations: boolean;
     lnLockProgressBar?: boolean;
     lnShowCharProgress?: boolean;
-     lnAutoBookmark?: boolean;         
-    lnBookmarkDelay?: number;  
+    lnAutoBookmark?: boolean;
+    lnBookmarkDelay?: number;
 
     lnMarginTop?: number;
     lnMarginBottom?: number;
@@ -171,17 +186,16 @@ export interface Settings {
     lnClickZonePosition?: 'full' | 'start' | 'center' | 'end';
     lnClickZoneCoverage?: number;
     lnClickZonePlacement?: 'horizontal' | 'vertical';
-    lnEnableSwipe?: boolean;   
-    lnDragThreshold?: number;   
+    lnEnableSwipe?: boolean;
+    lnDragThreshold?: number;
     // Dropdown setting for grouping behavior
     resultGroupingMode: 'grouped' | 'flat';
     yomitanLookupNavigationMode: 'tabs' | 'stacked';
     yomitanLookupMaxHistory: number;
     yomitanShowKanjiInNormalLookup: boolean;
-
 }
 
-export type MergeState = { imgSrc: string; index: number; } | null;
+export type MergeState = { imgSrc: string; index: number } | null;
 
 export type OcrStatus = 'idle' | 'loading' | 'success' | 'error';
 
@@ -360,9 +374,14 @@ export const DEFAULT_SETTINGS: Settings = {
     mergeModifierKey: 'Control',
     site: {
         imageContainerSelectors: [
-            'div.muiltr-masn8', 'div.muiltr-79elbk', 'div.muiltr-u43rde',
-            'div.muiltr-1r1or1s', 'div.muiltr-18sieki', 'div.muiltr-cns6dc',
-            '.MuiBox-root.muiltr-1noqzsz', '.MuiBox-root.muiltr-1tapw32',
+            'div.muiltr-masn8',
+            'div.muiltr-79elbk',
+            'div.muiltr-u43rde',
+            'div.muiltr-1r1or1s',
+            'div.muiltr-18sieki',
+            'div.muiltr-cns6dc',
+            '.MuiBox-root.muiltr-1noqzsz',
+            '.MuiBox-root.muiltr-1tapw32',
             'img[src*="/api/v1/manga/"]',
         ],
         overflowFixSelector: '.MuiBox-root.muiltr-13djdhf',

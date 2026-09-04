@@ -1,7 +1,7 @@
 /**
  * Updated AnkiConnect API call with automatic permission handshake
  */
-import { getDownscaledSize } from './image';
+import { getDownscaledSize } from '@/Manatan/utils/image';
 
 const ANKI_LOG_COOLDOWN_MS = 60000;
 let lastAnkiLogAt = 0;
@@ -31,18 +31,14 @@ export const logAnkiError = (message: string, error: any) => {
     console.warn(message, error);
 };
 
-async function ankiConnect(
-    action: string,
-    params: Record<string, any>,
-    url: string,
-) {
+async function ankiConnect(action: string, params: Record<string, any>, url: string) {
     const timeoutMs = 20000;
     const fetchWithTimeout = async (body: Record<string, any>) => {
         const controller = new AbortController();
         const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
         try {
             const res = await fetch(url, {
-                method: "POST",
+                method: 'POST',
                 body: JSON.stringify(body),
                 signal: controller.signal,
             });
@@ -51,7 +47,9 @@ async function ankiConnect(
             return json.result;
         } catch (error: any) {
             if (error?.name === 'AbortError') {
-                throw new Error('AnkiConnect request timed out. Make sure AnkiDroid is running and permission is granted.');
+                throw new Error(
+                    'AnkiConnect request timed out. Make sure AnkiDroid is running and permission is granted.',
+                );
             }
             throw error;
         } finally {
@@ -66,17 +64,17 @@ async function ankiConnect(
     } catch (e: any) {
         // If fetch fails, it is likely a CORS block. Attempt handshake.
         try {
-            const permResult = await fetchWithTimeout({ action: "requestPermission", version: 6 });
+            const permResult = await fetchWithTimeout({ action: 'requestPermission', version: 6 });
             if (permResult && permResult.permission === 'granted') {
                 return await execute();
             }
         } catch (handshakeError) {
-            logAnkiError("Anki handshake failed", handshakeError);
+            logAnkiError('Anki handshake failed', handshakeError);
         }
 
         // Standard error handling if handshake doesn't resolve the issue
         const errorMessage = e?.message ?? String(e);
-        if (e instanceof TypeError && errorMessage.includes("Failed to fetch")) {
+        if (e instanceof TypeError && errorMessage.includes('Failed to fetch')) {
             throw new Error("Connection blocked. Please click 'Yes' on the Anki permission popup.");
         }
         throw new Error(errorMessage);
@@ -87,7 +85,7 @@ async function ankiConnect(
  */
 export async function getAnkiVersion(url: string) {
     try {
-        const ver = await ankiConnect("version", {}, url);
+        const ver = await ankiConnect('version', {}, url);
         return { ok: true, version: ver };
     } catch (e) {
         return { ok: false, error: e };
@@ -98,28 +96,28 @@ export async function getAnkiVersion(url: string) {
  * Get all deck names
  */
 export async function getDeckNames(url: string): Promise<string[]> {
-    return await ankiConnect("deckNames", {}, url);
+    return ankiConnect('deckNames', {}, url);
 }
 
 /**
  * Get all model names (Card Types)
  */
 export async function getModelNames(url: string): Promise<string[]> {
-    return await ankiConnect("modelNames", {}, url);
+    return ankiConnect('modelNames', {}, url);
 }
 
 /**
  * Get fields for a specific model
  */
 export async function getModelFields(url: string, modelName: string): Promise<string[]> {
-    return await ankiConnect("modelFieldNames", { modelName }, url);
+    return ankiConnect('modelFieldNames', { modelName }, url);
 }
 
 /**
  * Find notes based on a query
  */
 export async function findNotes(url: string, query: string): Promise<number[]> {
-    const res = await ankiConnect("findNotes", { query }, url);
+    const res = await ankiConnect('findNotes', { query }, url);
     return res || [];
 }
 
@@ -127,7 +125,7 @@ export async function findNotes(url: string, query: string): Promise<number[]> {
  * Get detailed information about notes
  */
 export async function notesInfo(url: string, notes: number[]): Promise<any[]> {
-    return await ankiConnect("notesInfo", { notes }, url);
+    return ankiConnect('notesInfo', { notes }, url);
 }
 
 /**
@@ -138,22 +136,26 @@ export async function updateNote(
     note: {
         id: number;
         fields: Record<string, string>;
-        picture?: { url?: string; data?: string; filename: string; fields: string[] } | Array<{ url?: string; data?: string; filename: string; fields: string[] }>;
-        audio?: { url?: string; data?: string; filename: string; fields: string[] } | Array<{ url?: string; data?: string; filename: string; fields: string[] }>;
-    }
+        picture?:
+            | { url?: string; data?: string; filename: string; fields: string[] }
+            | Array<{ url?: string; data?: string; filename: string; fields: string[] }>;
+        audio?:
+            | { url?: string; data?: string; filename: string; fields: string[] }
+            | Array<{ url?: string; data?: string; filename: string; fields: string[] }>;
+    },
 ) {
     // Both AnkiConnect (via updateNoteFields) and our Android bridge handle field updates.
     // Our Android bridge specifically handles "picture" and "audio" in the note object for updates.
     // For Desktop AnkiConnect, we should ideally use storeMediaFile then update fields,
     // but the most compatible way for now is to just call updateNoteFields.
-    return await ankiConnect("updateNoteFields", { note }, url);
+    return ankiConnect('updateNoteFields', { note }, url);
 }
 
 /**
  * Deprecated: Use updateNote instead
  */
 export async function updateNoteFields(url: string, id: number, fields: Record<string, string>) {
-    return await updateNote(url, { id, fields });
+    return updateNote(url, { id, fields });
 }
 
 /**
@@ -162,7 +164,7 @@ export async function updateNoteFields(url: string, id: number, fields: Record<s
 export function calculateUpdatedFields(
     currentFields: Record<string, { value: string }>,
     newFields: Record<string, string>,
-    modes: Record<string, string>
+    modes: Record<string, string>,
 ): Record<string, string> {
     const updated: Record<string, string> = {};
 
@@ -188,7 +190,7 @@ export function calculateUpdatedFields(
                 if (!currentVal) {
                     updated[field] = newValue;
                 } else if (newValue) {
-                    const separator = (currentVal.includes('<') || newValue.includes('<')) ? '<br>' : ' ';
+                    const separator = currentVal.includes('<') || newValue.includes('<') ? '<br>' : ' ';
                     updated[field] = currentVal + separator + newValue;
                 } else {
                     updated[field] = currentVal;
@@ -198,7 +200,7 @@ export function calculateUpdatedFields(
                 if (!currentVal) {
                     updated[field] = newValue;
                 } else if (newValue) {
-                    const separator = (currentVal.includes('<') || newValue.includes('<')) ? '<br>' : ' ';
+                    const separator = currentVal.includes('<') || newValue.includes('<') ? '<br>' : ' ';
                     updated[field] = newValue + separator + currentVal;
                 } else {
                     updated[field] = currentVal;
@@ -225,24 +227,26 @@ export function calculateUpdatedFields(
  * Open the Anki Browser to a specific query
  */
 export async function guiBrowse(url: string, query: string) {
-    return await ankiConnect("guiBrowse", { query }, url);
+    return ankiConnect('guiBrowse', { query }, url);
 }
 
 /**
  * Add a new note
  */
 export async function addNote(
-    url: string, 
-    deckName: string, 
-    modelName: string, 
-    fields: Record<string, string>, 
+    url: string,
+    deckName: string,
+    modelName: string,
+    fields: Record<string, string>,
     tags: string[] = [],
     picture?: { url?: string; data?: string; filename: string; fields: string[] },
-    audio?: { url?: string; data?: string; filename: string; fields: string[] } | Array<{ url?: string; data?: string; filename: string; fields: string[] }>,
+    audio?:
+        | { url?: string; data?: string; filename: string; fields: string[] }
+        | Array<{ url?: string; data?: string; filename: string; fields: string[] }>,
     options?: {
         allowDuplicate?: boolean;
         duplicateScope?: string;
-    }
+    },
 ) {
     const params: any = {
         note: {
@@ -252,9 +256,9 @@ export async function addNote(
             tags,
             options: {
                 allowDuplicate: options?.allowDuplicate ?? false,
-                duplicateScope: options?.duplicateScope ?? 'deck'
-            }
-        }
+                duplicateScope: options?.duplicateScope ?? 'deck',
+            },
+        },
     };
 
     if (picture) {
@@ -265,18 +269,14 @@ export async function addNote(
         params.note.audio = Array.isArray(audio) ? audio : [audio];
     }
 
-    return await ankiConnect("addNote", params, url);
+    return ankiConnect('addNote', params, url);
 }
 
 /**
  * Get the most recent card ID created today
  */
 async function getLastCardId(url: string) {
-    const notesToday = await ankiConnect(
-        "findNotes",
-        { query: "added:1" },
-        url,
-    );
+    const notesToday = await ankiConnect('findNotes', { query: 'added:1' }, url);
     if (!notesToday || !Array.isArray(notesToday)) {
         return undefined;
     }
@@ -292,20 +292,20 @@ function getCardAgeInMin(id: number) {
 }
 
 /**
- * Fetch image, downscale it if it exceeds max dimensions (keeping aspect ratio), 
+ * Fetch image, downscale it if it exceeds max dimensions (keeping aspect ratio),
  * and convert to base64 webp using Image element (better CORS handling)
  */
 export async function imageUrlToBase64Webp(
     imageUrl: string,
     quality: number = 0.92,
     maxWidth?: number,
-    maxHeight?: number
+    maxHeight?: number,
 ): Promise<string | null> {
     return new Promise((resolve) => {
         const img = new Image();
         // Use anonymous to attempt to get CORS headers, but handle failure
-        img.crossOrigin = "anonymous";
-        
+        img.crossOrigin = 'anonymous';
+
         img.onload = () => {
             try {
                 const { width, height } = getDownscaledSize(img.width, img.height, maxWidth, maxHeight);
@@ -315,26 +315,27 @@ export async function imageUrlToBase64Webp(
                 if (!ctx) throw new Error('No context');
 
                 ctx.drawImage(img, 0, 0, width, height);
-                
-                canvas.convertToBlob({ type: 'image/webp', quality })
-                    .then(blob => {
+
+                canvas
+                    .convertToBlob({ type: 'image/webp', quality })
+                    .then((blob) => {
                         const reader = new FileReader();
                         reader.onloadend = () => resolve(reader.result as string);
                         reader.onerror = () => resolve(null);
                         reader.readAsDataURL(blob);
                     })
-                    .catch(err => {
-                        console.error("Blob conversion failed", err);
+                    .catch((err) => {
+                        console.error('Blob conversion failed', err);
                         resolve(null);
                     });
             } catch (e) {
-                console.error("Canvas operation failed (likely tainted)", e);
+                console.error('Canvas operation failed (likely tainted)', e);
                 resolve(null);
             }
         };
 
         img.onerror = () => {
-            console.error("Failed to load image for Anki conversion");
+            console.error('Failed to load image for Anki conversion');
             resolve(null);
         };
 
@@ -349,14 +350,13 @@ export async function imageUrlToBase64Webp(
  * Source: https://github.com/killergerbah/asbplayer
  */
 
-
 const htmlTagRegexString = '<([^/ >])*[^>]*>(.*?)</\\1>';
 
 // Given <a><b>content</b></a> return ['<a><b>content</b></a>', '<b>content</b>', 'content']
 const tagContent = (html: string) => {
     const htmlTagRegex = new RegExp(htmlTagRegexString);
     let content = html;
-    let contents = [html];
+    const contents = [html];
 
     while (true) {
         const match = htmlTagRegex.exec(content);
@@ -375,13 +375,13 @@ const tagContent = (html: string) => {
 export const inheritHtmlMarkup = (original: string, markedUp: string) => {
     // If there is no markup to inherit, just return the original plain text
     if (!markedUp) return original;
-    
+
     const htmlTagRegex = new RegExp(htmlTagRegexString, 'ig');
     const markedUpWithoutBreaklines = markedUp.replaceAll('<br>', '');
     let inherited = original;
 
     // Safety brake to prevent infinite loops if regex fails to advance
-    let safetyCounter = 0; 
+    let safetyCounter = 0;
 
     while (safetyCounter++ < 100) {
         const match = htmlTagRegex.exec(markedUpWithoutBreaklines);
@@ -399,13 +399,16 @@ export const inheritHtmlMarkup = (original: string, markedUp: string) => {
             // Try to find the inner text in the new string and wrap it
             for (const target of candidateTargets) {
                 // Skip very short targets to avoid accidentally bolding single letters like "a" or "I"
-                if (target.trim().length < 2 && !target.match(/[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]/)) {
-                     continue; 
+                if (
+                    target.trim().length < 2 &&
+                    !target.match(/[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\uff00-\uff9f\u4e00-\u9faf\u3400-\u4dbf]/)
+                ) {
+                    continue;
                 }
-                
+
                 // If we find the text content in our new string, apply the tag from the match
                 if (inherited.includes(target)) {
-                    newInherited = inherited.replace(target, match[0]); 
+                    newInherited = inherited.replace(target, match[0]);
                 }
 
                 if (newInherited !== inherited) {
@@ -420,13 +423,12 @@ export const inheritHtmlMarkup = (original: string, markedUp: string) => {
     return inherited;
 };
 
-
 /**
  * Update the last created Anki card with image and/or sentence
  */
 export async function updateLastCard(
     ankiConnectUrl: string,
-    imageUrl: string | undefined, 
+    imageUrl: string | undefined,
     sentence: string,
     pictureField: string,
     sentenceField: string,
@@ -435,26 +437,26 @@ export async function updateLastCard(
     audioField?: string,
     audioBase64?: string,
     downscaleMaxWidth?: number,
-    downscaleMaxHeight?: number
+    downscaleMaxHeight?: number,
 ) {
     // Find the last card
     const id = await getLastCardId(ankiConnectUrl);
 
     if (!id) {
-        throw new Error("Could not find recent card (no cards created today)");
+        throw new Error('Could not find recent card (no cards created today)');
     }
 
     if (getCardAgeInMin(id) >= 5) {
-        throw new Error("Card created over 5 minutes ago");
+        throw new Error('Card created over 5 minutes ago');
     }
 
     const fields: Record<string, any> = {};
-    
+
     // Handle sentence field (if specified)
     if (sentenceField && sentenceField.trim() && sentence) {
         try {
             const noteInfo = await ankiConnect('notesInfo', { notes: [id] }, ankiConnectUrl);
-            
+
             let finalSentence = sentence;
 
             // If the field exists in Anki, try to merge its HTML tags
@@ -464,13 +466,12 @@ export async function updateLastCard(
             }
 
             fields[sentenceField] = finalSentence;
-
         } catch (e) {
-            console.warn("Failed to fetch existing note info, overwriting sentence without preserving HTML.", e);
+            console.warn('Failed to fetch existing note info, overwriting sentence without preserving HTML.', e);
             fields[sentenceField] = sentence;
         }
     }
-    
+
     const updatePayload: any = {
         note: {
             id,
@@ -483,18 +484,16 @@ export async function updateLastCard(
         let rawData: string | null = null;
 
         if (preEncodedBase64) {
-            rawData = preEncodedBase64.includes('base64,') 
-                ? preEncodedBase64.split(';base64,')[1] 
-                : preEncodedBase64;
+            rawData = preEncodedBase64.includes('base64,') ? preEncodedBase64.split(';base64,')[1] : preEncodedBase64;
         } else if (imageUrl) {
             const fullBase64 = await imageUrlToBase64Webp(imageUrl, quality, downscaleMaxWidth, downscaleMaxHeight);
-            if (!fullBase64) throw new Error("Failed to process image (CORS or Load Error)");
+            if (!fullBase64) throw new Error('Failed to process image (CORS or Load Error)');
             rawData = fullBase64.split(';base64,')[1];
         }
 
         if (rawData) {
             // Clear existing image first
-            fields[pictureField] = ""; 
+            fields[pictureField] = '';
             updatePayload.note.picture = {
                 filename: `manatan_${id}.webp`,
                 data: rawData,
@@ -505,19 +504,17 @@ export async function updateLastCard(
 
     // Handle audio field (if specified)
     if (audioField && audioField.trim() && audioBase64) {
-        const rawAudio = audioBase64.includes('base64,')
-            ? audioBase64.split(';base64,')[1]
-            : audioBase64;
+        const rawAudio = audioBase64.includes('base64,') ? audioBase64.split(';base64,')[1] : audioBase64;
 
         if (rawAudio) {
             fields[audioField] = '';
             const extension = audioBase64.startsWith('data:audio/mp4')
                 ? 'm4a'
                 : audioBase64.startsWith('data:audio/ogg')
-                    ? 'ogg'
-                    : audioBase64.startsWith('data:audio/wav')
-                        ? 'wav'
-                        : 'webm';
+                  ? 'ogg'
+                  : audioBase64.startsWith('data:audio/wav')
+                    ? 'wav'
+                    : 'webm';
             updatePayload.note.audio = {
                 filename: `manatan_audio_${id}.${extension}`,
                 data: rawAudio,
@@ -526,5 +523,5 @@ export async function updateLastCard(
         }
     }
 
-    await ankiConnect("updateNoteFields", updatePayload, ankiConnectUrl);
+    await ankiConnect('updateNoteFields', updatePayload, ankiConnectUrl);
 }

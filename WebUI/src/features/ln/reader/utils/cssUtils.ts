@@ -4,18 +4,18 @@
  */
 export function stripFontFaces(css: string | null | undefined): string {
     if (!css) return '';
-    
+
     let result = css;
-    
+
     // Pattern 1: Simple @font-face blocks
     result = result.replace(/@font-face\s*\{[^}]*\}/gi, '');
-    
+
     // Pattern 2: @font-face with nested braces (rare but possible)
     result = result.replace(/@font-face\s*\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/gi, '');
-    
+
     // Clean up extra whitespace left behind
     result = result.replace(/\n\s*\n\s*\n/g, '\n\n');
-    
+
     return result.trim();
 }
 
@@ -47,11 +47,11 @@ export function stripTextAlignDeclarations(css: string): string {
  */
 export function sanitizeEpubCss(css: string | null | undefined): string {
     if (!css) return '';
-    
+
     let result = stripFontFaces(css);
     result = stripFontFamilyDeclarations(result);
     result = stripWritingModeDeclarations(result);
     result = stripTextAlignDeclarations(result);
-    
+
     return result;
 }

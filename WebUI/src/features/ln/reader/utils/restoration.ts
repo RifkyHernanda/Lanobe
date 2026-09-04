@@ -1,12 +1,6 @@
-
-import { BlockIndexMap } from '../types/block';
-import { 
-    createChapterBlockLookup, 
-    findBlockAtOffset,
-    getPositionFromCharOffset,
-    calculateLocalOffsetFromCharOffset
-} from './blockMap';
-import { getCleanTextContent } from './blockPosition';
+import { BlockIndexMap } from '@/features/ln/reader/types/block';
+import { createChapterBlockLookup, getPositionFromCharOffset } from '@/features/ln/reader/utils/blockMap';
+import { getCleanTextContent } from '@/features/ln/reader/utils/blockPosition';
 
 export function hasChapterBlocks(container: HTMLElement, chapterIndex: number): boolean {
     const blocks = container.querySelectorAll(`[data-block-id^="ch${chapterIndex}-b"]`);
@@ -39,10 +33,10 @@ export interface RestorationOptions {
 export function restoreReadingPosition(
     container: HTMLElement,
     position: RestorationPosition,
-    options: RestorationOptions
+    options: RestorationOptions,
 ): RestorationResult {
     const { isVertical, isRTL = false, blockMaps } = options;
-    
+
     console.log('[Restoration] Attempting restore:', {
         blockId: position.blockId,
         chapterIndex: position.chapterIndex,
@@ -77,9 +71,7 @@ export function restoreReadingPosition(
 
             return {
                 success: true,
-                method: position.blockLocalOffset && position.blockLocalOffset > 0
-                    ? 'block-offset'
-                    : 'block',
+                method: position.blockLocalOffset && position.blockLocalOffset > 0 ? 'block-offset' : 'block',
                 confidence,
                 blockId: position.blockId,
             };
@@ -95,9 +87,9 @@ export function restoreReadingPosition(
             blockMapsCount: blockMaps.length,
             savedBlockId: position.blockId,
         });
-        
+
         const chapterLookup = createChapterBlockLookup(blockMaps, position.chapterIndex);
-        
+
         console.log('[Restoration] Chapter lookup:', {
             blockCount: chapterLookup.sortedByOffset.length,
             firstBlock: chapterLookup.sortedByOffset[0]?.blockId,
@@ -105,20 +97,20 @@ export function restoreReadingPosition(
             lastBlock: chapterLookup.sortedByOffset[chapterLookup.sortedByOffset.length - 1]?.blockId,
             lastEnd: chapterLookup.sortedByOffset[chapterLookup.sortedByOffset.length - 1]?.endOffset,
         });
-        
+
         if (chapterLookup.sortedByOffset.length > 0) {
             const pos = getPositionFromCharOffset(chapterLookup, position.chapterCharOffset);
-            
+
             console.log('[Restoration] Found position:', pos);
-            
+
             if (pos) {
                 const block = container.querySelector(`[data-block-id="${pos.blockId}"]`);
-                
+
                 console.log('[Restoration] Block in DOM:', block ? 'found' : 'not found');
-                
+
                 if (block) {
                     scrollToBlock(block, container, isVertical, isRTL);
-                    
+
                     if (pos.blockLocalOffset > 0) {
                         applyLocalOffset(block, container, pos.blockLocalOffset, isVertical, isRTL);
                     }
@@ -173,9 +165,7 @@ export function restoreReadingPosition(
         }
     }
 
-    const firstBlock = container.querySelector(
-        `[data-block-id^="ch${position.chapterIndex}-b"]`
-    );
+    const firstBlock = container.querySelector(`[data-block-id^="ch${position.chapterIndex}-b"]`);
 
     if (firstBlock) {
         scrollToBlock(firstBlock, container, isVertical, isRTL);
@@ -207,7 +197,7 @@ function scrollToBlock(
     container: HTMLElement,
     isVertical: boolean,
     isRTL: boolean,
-    localOffset?: number
+    localOffset?: number,
 ): void {
     // For now, use the simpler scrollIntoView approach
     // The applyLocalOffset will handle precise positioning after
@@ -231,7 +221,7 @@ export function applyLocalOffset(
     container: HTMLElement,
     localOffset: number,
     isVertical: boolean,
-    isRTL: boolean = false
+    isRTL: boolean = false,
 ): void {
     const text = getCleanTextContent(block);
     if (text.length === 0) return;
@@ -259,7 +249,7 @@ function applyLocalOffsetCaret(
     container: HTMLElement,
     localOffset: number,
     isVertical: boolean,
-    isRTL: boolean = false
+    isRTL: boolean = false,
 ): boolean {
     try {
         const text = getCleanTextContent(block);
@@ -270,11 +260,7 @@ function applyLocalOffsetCaret(
         let targetNode: Text | null = null;
         let targetNodeStart = 0;
 
-        const walker = document.createTreeWalker(
-            block,
-            NodeFilter.SHOW_TEXT,
-            null
-        );
+        const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT, null);
 
         while (walker.nextNode()) {
             const node = walker.currentNode as Text;
@@ -292,7 +278,7 @@ function applyLocalOffsetCaret(
 
         const offsetInNode = localOffset - targetNodeStart;
         const range = document.createRange();
-        
+
         try {
             range.setStart(targetNode, Math.min(offsetInNode, targetNode.length));
             range.collapse(true);
@@ -327,10 +313,7 @@ function applyLocalOffsetCaret(
     }
 }
 
-function validateContext(
-    block: Element,
-    contextSnippet?: string
-): 'high' | 'medium' | 'low' {
+function validateContext(block: Element, contextSnippet?: string): 'high' | 'medium' | 'low' {
     if (!contextSnippet || contextSnippet.length < 5) {
         return 'medium';
     }
@@ -352,7 +335,7 @@ function searchAndScrollToText(
     container: HTMLElement,
     searchText: string,
     isVertical: boolean,
-    isRTL: boolean
+    isRTL: boolean,
 ): { blockId: string } | null {
     const allBlocks = container.querySelectorAll('[data-block-id]');
 

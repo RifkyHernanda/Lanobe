@@ -19,13 +19,8 @@ interface UseUIVisibilityReturn {
     resetTimer: () => void;
 }
 
-export function useUIVisibility(
-    options: UseUIVisibilityOptions = {}
-): UseUIVisibilityReturn {
-    const {
-        autoHideDelay = 2000,
-        initialVisible = false,
-    } = options;
+export function useUIVisibility(options: UseUIVisibilityOptions = {}): UseUIVisibilityReturn {
+    const { autoHideDelay = 2000, initialVisible = false } = options;
 
     const [showUI, setShowUI] = useState(initialVisible);
     const timerRef = useRef<number | null>(null);
@@ -67,7 +62,7 @@ export function useUIVisibility(
 
     // Toggle UI visibility
     const toggleUI = useCallback(() => {
-        setShowUI(prev => {
+        setShowUI((prev) => {
             const newState = !prev;
             if (newState) {
                 startTimer();
@@ -86,11 +81,12 @@ export function useUIVisibility(
     }, [showUI, startTimer]);
 
     // Cleanup on unmount
-    useEffect(() => {
-        return () => {
+    useEffect(
+        () => () => {
             clearTimer();
-        };
-    }, [clearTimer]);
+        },
+        [clearTimer],
+    );
 
     return {
         showUI,

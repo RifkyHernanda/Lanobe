@@ -17,7 +17,7 @@ import {
     DialogContent,
     DialogContentText,
     DialogActions,
-    TextField
+    TextField,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SettingsIcon from '@mui/icons-material/Settings';
@@ -31,13 +31,13 @@ import DeleteIcon from '@mui/icons-material/Delete';
 
 import ManatanLogo from '@/Manatan/assets/manatan_logo.png';
 import { AppStorage, LNHighlight } from '@/lib/storage/AppStorage';
-import { useBookContent } from '../hooks/useBookContent';
-import { useHighlights } from '../hooks/useHighlights';
-import { useLnSettings } from '../hooks/useLnSettings';
-import { loadCustomFonts } from '../utils/fontUtils';
-import { getDefaultLnSettings } from '../utils/lnSettings';
-import { VirtualReader } from '../components/VirtualReader';
-import { ReaderControls } from '../components/ReaderControls';
+import { useBookContent } from '@/features/ln/reader/hooks/useBookContent';
+import { useHighlights } from '@/features/ln/reader/hooks/useHighlights';
+import { useLnSettings } from '@/features/ln/reader/hooks/useLnSettings';
+import { loadCustomFonts } from '@/features/ln/reader/utils/fontUtils';
+import { getDefaultLnSettings } from '@/features/ln/reader/utils/lnSettings';
+import { VirtualReader } from '@/features/ln/reader/components/VirtualReader';
+import { ReaderControls } from '@/features/ln/reader/components/ReaderControls';
 import { YomitanPopup } from '@/Manatan/components/YomitanPopup';
 import { Settings } from '@/Manatan/types';
 
@@ -75,7 +75,10 @@ export const LNReaderScreen: React.FC = () => {
     const [showMigrationDialog, setShowMigrationDialog] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [expandedToc, setExpandedToc] = useState<Set<number>>(new Set());
-    const navigationRef = useRef<{ scrollToBlock?: (blockId: string, offset?: number) => void; scrollToChapter?: (chapterIndex: number) => void }>({});
+    const navigationRef = useRef<{
+        scrollToBlock?: (blockId: string, offset?: number) => void;
+        scrollToChapter?: (chapterIndex: number) => void;
+    }>({});
     const isIOS = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
     const [readerSafeInsetsPx, setReaderSafeInsetsPx] = useState({
         top: isIOS ? 24 : 0,
@@ -90,7 +93,16 @@ export const LNReaderScreen: React.FC = () => {
     const bookId = id || '';
     const chapterId = bookId ? `${bookId}-${currentChapter}` : null;
 
-    const { highlights, loading: highlightsLoading, addHighlight, removeHighlight, exportToTxt, exportToJson, downloadFile, refresh } = useHighlights(bookId);
+    const {
+        highlights,
+        loading: highlightsLoading,
+        addHighlight,
+        removeHighlight,
+        exportToTxt,
+        exportToJson,
+        downloadFile,
+        refresh,
+    } = useHighlights(bookId);
 
     useEffect(() => {
         if (typeof window === 'undefined' || typeof document === 'undefined' || !document.body) {
@@ -148,49 +160,62 @@ export const LNReaderScreen: React.FC = () => {
         }
     }, [highlightsOpen, refresh]);
 
-    const handleExportTxt = useCallback((title: string, toc: any[]) => {
-        const txt = exportToTxt(toc?.map((t: any) => t.label) || []);
-        downloadFile(txt, `${title || 'highlights'}.txt`, 'text/plain');
-    }, [exportToTxt, downloadFile]);
+    const handleExportTxt = useCallback(
+        (title: string, toc: any[]) => {
+            const txt = exportToTxt(toc?.map((t: any) => t.label) || []);
+            downloadFile(txt, `${title || 'highlights'}.txt`, 'text/plain');
+        },
+        [exportToTxt, downloadFile],
+    );
 
-    const handleExportJson = useCallback((title: string) => {
-        const json = exportToJson();
-        downloadFile(json, `${title || 'highlights'}.json`, 'application/json');
-    }, [exportToJson, downloadFile]);
+    const handleExportJson = useCallback(
+        (title: string) => {
+            const json = exportToJson();
+            downloadFile(json, `${title || 'highlights'}.json`, 'application/json');
+        },
+        [exportToJson, downloadFile],
+    );
 
-    const handleJumpToHighlight = useCallback((hl: LNHighlight) => {
-        // Try direct navigation first (for continuous reader)
-        if (hl.blockId && navigationRef.current?.scrollToBlock) {
-            navigationRef.current.scrollToBlock(hl.blockId, hl.startOffset);
+    const handleJumpToHighlight = useCallback(
+        (hl: LNHighlight) => {
+            // Try direct navigation first (for continuous reader)
+            if (hl.blockId && navigationRef.current?.scrollToBlock) {
+                navigationRef.current.scrollToBlock(hl.blockId, hl.startOffset);
+                setHighlightsOpen(false);
+                return;
+            }
+
+            const chapterBlockMap = content?.stats?.blockMaps?.find((mapItem) => mapItem.blockId === hl.blockId);
+
+            // Fallback to savedProgress (for paged reader or if nav ref not ready)
+            setSavedProgress((prev: any) => ({
+                ...prev,
+                chapterIndex: hl.chapterIndex,
+                pageNumber: 0,
+                chapterCharOffset: chapterBlockMap?.startOffset ?? hl.startOffset,
+                blockId: hl.blockId,
+                blockLocalOffset: hl.startOffset,
+            }));
+            setCurrentChapter(hl.chapterIndex);
             setHighlightsOpen(false);
-            return;
-        }
+        },
+        [content?.stats?.blockMaps],
+    );
 
-        const chapterBlockMap = content?.stats?.blockMaps?.find((mapItem) => mapItem.blockId === hl.blockId);
-
-        // Fallback to savedProgress (for paged reader or if nav ref not ready)
-        setSavedProgress((prev: any) => ({
-            ...prev,
-            chapterIndex: hl.chapterIndex,
-            pageNumber: 0,
-            chapterCharOffset: chapterBlockMap?.startOffset ?? hl.startOffset,
-            blockId: hl.blockId,
-            blockLocalOffset: hl.startOffset,
-        }));
-        setCurrentChapter(hl.chapterIndex);
-        setHighlightsOpen(false);
-    }, [content?.stats?.blockMaps]);
-
-    const handleDeleteHighlight = useCallback((e: React.MouseEvent, hl: LNHighlight) => {
-        e.stopPropagation();
-        removeHighlight(hl.id);
-    }, [removeHighlight]);
+    const handleDeleteHighlight = useCallback(
+        (e: React.MouseEvent, hl: LNHighlight) => {
+            e.stopPropagation();
+            removeHighlight(hl.id);
+        },
+        [removeHighlight],
+    );
 
     // Helper: Check if chapter is Art (image-only)
     const isArtChapter = (chapterHtml: string): boolean => {
         if (!chapterHtml) return false;
         const text = chapterHtml.replace(/<[^>]*>/g, '').trim();
-        const hasImages = chapterHtml.includes('<img') ||
+        const hasImages =
+            chapterHtml.includes('<img') ||
             chapterHtml.includes('<figure') ||
             chapterHtml.includes('data-src') ||
             chapterHtml.includes('image-only');
@@ -213,9 +238,7 @@ export const LNReaderScreen: React.FC = () => {
     // Helper: Get chapters in range for a TOC item
     const getChaptersInRange = (tocIndex: number, tocItems: any[], totalChapters: number): number[] => {
         const startIdx = tocItems[tocIndex].chapterIndex;
-        const endIdx = tocIndex + 1 < tocItems.length
-            ? tocItems[tocIndex + 1].chapterIndex
-            : totalChapters;
+        const endIdx = tocIndex + 1 < tocItems.length ? tocItems[tocIndex + 1].chapterIndex : totalChapters;
 
         const chapters: number[] = [];
         for (let i = startIdx; i < endIdx && i < totalChapters; i++) {
@@ -225,7 +248,12 @@ export const LNReaderScreen: React.FC = () => {
     };
 
     // Helper: Group consecutive art chapters for display
-    const getChapterDisplayLabel = (chapterIdx: number, chapters: string[], artGroups: Map<number, number>, firstTocChapterIndex: number): string => {
+    const getChapterDisplayLabel = (
+        chapterIdx: number,
+        chapters: string[],
+        artGroups: Map<number, number>,
+        firstTocChapterIndex: number,
+    ): string => {
         const isArt = isArtChapter(chapters[chapterIdx]);
 
         if (isArt) {
@@ -254,11 +282,9 @@ export const LNReaderScreen: React.FC = () => {
         chapters.forEach((html, idx) => {
             if (isArtChapter(html)) {
                 consecutiveArt.push(idx);
-            } else {
-                if (consecutiveArt.length > 0) {
-                    artGroups.set(consecutiveArt[0], consecutiveArt.length);
-                    consecutiveArt = [];
-                }
+            } else if (consecutiveArt.length > 0) {
+                artGroups.set(consecutiveArt[0], consecutiveArt.length);
+                consecutiveArt = [];
             }
         });
 
@@ -307,7 +333,7 @@ export const LNReaderScreen: React.FC = () => {
     useEffect(() => {
         if (!content || isLoading) return;
 
-        const hash = location.hash;
+        const { hash } = location;
         if (hash) {
             setTimeout(() => {
                 const targetId = hash.substring(1);
@@ -325,7 +351,7 @@ export const LNReaderScreen: React.FC = () => {
     };
 
     const toggleTocExpand = (index: number) => {
-        setExpandedToc(prev => {
+        setExpandedToc((prev) => {
             const newSet = new Set(prev);
             if (newSet.has(index)) {
                 newSet.delete(index);
@@ -351,7 +377,7 @@ export const LNReaderScreen: React.FC = () => {
 
         if (blockMaps) {
             const chapterBlocks = blockMaps
-                .filter(b => b.blockId.startsWith(`ch${chapterIndex}-`))
+                .filter((b) => b.blockId.startsWith(`ch${chapterIndex}-`))
                 .sort((a, b) => a.startOffset - b.startOffset);
 
             if (chapterBlocks.length > 0) {
@@ -366,7 +392,7 @@ export const LNReaderScreen: React.FC = () => {
 
         setSavedProgress((prev: any) => ({
             ...prev,
-            chapterIndex: chapterIndex,
+            chapterIndex,
             pageNumber: 0,
             chapterCharOffset: 1, // Use 1 to trigger blockMaps lookup in restoration
             sentenceText: '',
@@ -388,7 +414,10 @@ export const LNReaderScreen: React.FC = () => {
         const searchLower = query.toLowerCase();
 
         content.chapters.forEach((chapterHtml, chapterIdx) => {
-            const text = chapterHtml.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+            const text = chapterHtml
+                .replace(/<[^>]*>/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
             const textLower = text.toLowerCase();
             let position = textLower.indexOf(searchLower);
 
@@ -401,14 +430,14 @@ export const LNReaderScreen: React.FC = () => {
                 results.push({
                     chapterIndex: chapterIdx,
                     text: context,
-                    position: position
+                    position,
                 });
 
                 // Find next occurrence
                 position = textLower.indexOf(searchLower, position + 1);
 
                 // Limit results per chapter
-                if (results.filter(r => r.chapterIndex === chapterIdx).length >= 5) break;
+                if (results.filter((r) => r.chapterIndex === chapterIdx).length >= 5) break;
             }
         });
 
@@ -424,13 +453,15 @@ export const LNReaderScreen: React.FC = () => {
         if (blockMaps) {
             // Find block for this specific chapter
             // BlockId format: "ch{chapterIndex}-b{blockOrder}"
-            const chapterBlock = blockMaps.find(b => {
+            const chapterBlock = blockMaps.find((b) => {
                 const match = b.blockId.match(/ch(\d+)-b\d+/);
                 if (!match) return false;
                 const blockChapterIndex = parseInt(match[1], 10);
-                return blockChapterIndex === result.chapterIndex &&
+                return (
+                    blockChapterIndex === result.chapterIndex &&
                     result.position >= b.startOffset &&
-                    result.position < b.endOffset;
+                    result.position < b.endOffset
+                );
             });
             if (chapterBlock) {
                 blockId = chapterBlock.blockId;
@@ -452,8 +483,8 @@ export const LNReaderScreen: React.FC = () => {
             pageNumber: 0,
             chapterCharOffset: result.position,
             sentenceText: result.text,
-            blockId: blockId,
-            blockLocalOffset: blockLocalOffset,
+            blockId,
+            blockLocalOffset,
             contextSnippet: result.text,
         }));
         setCurrentChapter(result.chapterIndex);
@@ -529,7 +560,7 @@ export const LNReaderScreen: React.FC = () => {
                 position: 'relative',
                 '&::-webkit-scrollbar': { display: 'none' },
                 scrollbarWidth: 'none',
-                msOverflowStyle: 'none'
+                msOverflowStyle: 'none',
             }}
         >
             <VirtualReader
@@ -544,15 +575,15 @@ export const LNReaderScreen: React.FC = () => {
                 initialProgress={
                     savedProgress
                         ? {
-                            sentenceText: savedProgress.sentenceText,
-                            chapterIndex: savedProgress.chapterIndex,
-                            pageIndex: savedProgress.pageNumber,
-                            chapterCharOffset: savedProgress.chapterCharOffset,
-                            totalProgress: savedProgress.totalProgress,
-                            blockId: savedProgress.blockId,
-                            blockLocalOffset: savedProgress.blockLocalOffset,
-                            contextSnippet: savedProgress.contextSnippet,
-                        }
+                              sentenceText: savedProgress.sentenceText,
+                              chapterIndex: savedProgress.chapterIndex,
+                              pageIndex: savedProgress.pageNumber,
+                              chapterCharOffset: savedProgress.chapterCharOffset,
+                              totalProgress: savedProgress.totalProgress,
+                              blockId: savedProgress.blockId,
+                              blockLocalOffset: savedProgress.blockLocalOffset,
+                              contextSnippet: savedProgress.contextSnippet,
+                          }
                         : undefined
                 }
                 highlights={highlights}
@@ -603,7 +634,10 @@ export const LNReaderScreen: React.FC = () => {
                             </Typography>
 
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                <IconButton onClick={() => window.dispatchEvent(new CustomEvent('openManatanSettings'))} sx={{ color: theme.fg }}>
+                                <IconButton
+                                    onClick={() => window.dispatchEvent(new CustomEvent('openManatanSettings'))}
+                                    sx={{ color: theme.fg }}
+                                >
                                     <Box
                                         component="img"
                                         src={ManatanLogo}
@@ -652,171 +686,196 @@ export const LNReaderScreen: React.FC = () => {
                     </Typography>
                 </Box>
                 <Box sx={{ overflow: 'auto', pb: 2 }}>
-                    {content.metadata.toc && content.metadata.toc.length > 0 ? (
-                        (() => {
-                            const coveringIndex = findCoveringTocIndex(content.metadata.toc, currentChapter);
-                            const artGroups = calculateArtGroups(content.chapters);
-                            const firstTocChapterIndex = content.metadata.toc[0]?.chapterIndex ?? 0;
+                    {content.metadata.toc && content.metadata.toc.length > 0
+                        ? (() => {
+                              const coveringIndex = findCoveringTocIndex(content.metadata.toc, currentChapter);
+                              const artGroups = calculateArtGroups(content.chapters);
+                              const firstTocChapterIndex = content.metadata.toc[0]?.chapterIndex ?? 0;
 
-                            return content.metadata.toc.map((tocItem: any, tocIdx: number) => {
-                                const chaptersInRange = getChaptersInRange(tocIdx, content.metadata.toc, content.chapters.length);
-                                const isExpanded = expandedToc.has(tocIdx);
-                                const isCovering = tocIdx === coveringIndex;
+                              return content.metadata.toc.map((tocItem: any, tocIdx: number) => {
+                                  const chaptersInRange = getChaptersInRange(
+                                      tocIdx,
+                                      content.metadata.toc,
+                                      content.chapters.length,
+                                  );
+                                  const isExpanded = expandedToc.has(tocIdx);
+                                  const isCovering = tocIdx === coveringIndex;
 
-                                return (
-                                    <Box key={tocIdx}>
-                                        <Box
-                                            sx={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                p: 1.5,
-                                                borderBottom: `1px solid ${theme.fg}11`,
-                                                bgcolor: isCovering ? `${theme.fg}15` : 'transparent',
-                                                cursor: 'pointer',
-                                                '&:hover': { bgcolor: `${theme.fg}08` },
-                                            }}
-                                        >
-                                            <Box
-                                                onClick={() => toggleTocExpand(tocIdx)}
-                                                sx={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    flex: 1,
-                                                    minWidth: 0,
-                                                }}
-                                            >
-                                                {isExpanded ? (
-                                                    <ExpandLessIcon sx={{ fontSize: 20, mr: 1, color: theme.fg, opacity: 0.7 }} />
-                                                ) : (
-                                                    <ExpandMoreIcon sx={{ fontSize: 20, mr: 1, color: theme.fg, opacity: 0.7 }} />
-                                                )}
-                                                <Typography
-                                                    noWrap
-                                                    sx={{
-                                                        fontSize: '0.9rem',
-                                                        fontWeight: isCovering ? 600 : 400,
-                                                        color: theme.fg,
-                                                    }}
-                                                >
-                                                    {tocItem.label}
-                                                </Typography>
-                                                {isCovering && (
-                                                    <Box
-                                                        sx={{
-                                                            ml: 1,
-                                                            px: 0.75,
-                                                            py: 0.25,
-                                                            bgcolor: theme.fg,
-                                                            borderRadius: 1,
-                                                            fontSize: '0.65rem',
-                                                            color: theme.bg,
-                                                            fontWeight: 600,
-                                                        }}
-                                                    >
-                                                        Current
-                                                    </Box>
-                                                )}
-                                            </Box>
-                                        </Box>
+                                  return (
+                                      <Box key={tocIdx}>
+                                          <Box
+                                              sx={{
+                                                  display: 'flex',
+                                                  alignItems: 'center',
+                                                  p: 1.5,
+                                                  borderBottom: `1px solid ${theme.fg}11`,
+                                                  bgcolor: isCovering ? `${theme.fg}15` : 'transparent',
+                                                  cursor: 'pointer',
+                                                  '&:hover': { bgcolor: `${theme.fg}08` },
+                                              }}
+                                          >
+                                              <Box
+                                                  onClick={() => toggleTocExpand(tocIdx)}
+                                                  sx={{
+                                                      display: 'flex',
+                                                      alignItems: 'center',
+                                                      flex: 1,
+                                                      minWidth: 0,
+                                                  }}
+                                              >
+                                                  {isExpanded ? (
+                                                      <ExpandLessIcon
+                                                          sx={{ fontSize: 20, mr: 1, color: theme.fg, opacity: 0.7 }}
+                                                      />
+                                                  ) : (
+                                                      <ExpandMoreIcon
+                                                          sx={{ fontSize: 20, mr: 1, color: theme.fg, opacity: 0.7 }}
+                                                      />
+                                                  )}
+                                                  <Typography
+                                                      noWrap
+                                                      sx={{
+                                                          fontSize: '0.9rem',
+                                                          fontWeight: isCovering ? 600 : 400,
+                                                          color: theme.fg,
+                                                      }}
+                                                  >
+                                                      {tocItem.label}
+                                                  </Typography>
+                                                  {isCovering && (
+                                                      <Box
+                                                          sx={{
+                                                              ml: 1,
+                                                              px: 0.75,
+                                                              py: 0.25,
+                                                              bgcolor: theme.fg,
+                                                              borderRadius: 1,
+                                                              fontSize: '0.65rem',
+                                                              color: theme.bg,
+                                                              fontWeight: 600,
+                                                          }}
+                                                      >
+                                                          Current
+                                                      </Box>
+                                                  )}
+                                              </Box>
+                                          </Box>
 
-                                        {isExpanded && chaptersInRange.length > 0 && (
-                                            <Box sx={{ pl: 1, pr: 1 }}>
-                                                {chaptersInRange.map((chapterIdx: number) => {
-                                                    const isCurrentChapter = chapterIdx === currentChapter;
-                                                    const isArt = isArtChapter(content.chapters[chapterIdx]);
-                                                    const label = getChapterDisplayLabel(chapterIdx, content.chapters, artGroups, firstTocChapterIndex);
+                                          {isExpanded && chaptersInRange.length > 0 && (
+                                              <Box sx={{ pl: 1, pr: 1 }}>
+                                                  {chaptersInRange.map((chapterIdx: number) => {
+                                                      const isCurrentChapter = chapterIdx === currentChapter;
+                                                      const isArt = isArtChapter(content.chapters[chapterIdx]);
+                                                      const label = getChapterDisplayLabel(
+                                                          chapterIdx,
+                                                          content.chapters,
+                                                          artGroups,
+                                                          firstTocChapterIndex,
+                                                      );
 
-                                                    return (
-                                                        <ListItemButton
-                                                            key={chapterIdx}
-                                                            onClick={() => handleTocItemClick(chapterIdx)}
-                                                            sx={{
-                                                                pl: 3,
-                                                                py: 0.75,
-                                                                borderBottom: `1px solid ${theme.fg}08`,
-                                                                bgcolor: isCurrentChapter ? `${theme.fg}22` : 'transparent',
-                                                                '&:hover': { bgcolor: `${theme.fg}11` },
-                                                            }}
-                                                        >
-                                                            {isArt && (
-                                                                <ImageIcon sx={{ fontSize: 16, mr: 1, color: theme.fg, opacity: 0.6 }} />
-                                                            )}
-                                                            <ListItemText
-                                                                primary={label}
-                                                                primaryTypographyProps={{
-                                                                    sx: {
-                                                                        fontSize: '0.8rem',
-                                                                        color: theme.fg,
-                                                                        opacity: isCurrentChapter ? 1 : 0.8,
-                                                                        fontWeight: isCurrentChapter ? 500 : 400,
-                                                                    },
-                                                                }}
-                                                            />
-                                                            {isCurrentChapter && (
-                                                                <Box
-                                                                    sx={{
-                                                                        width: 6,
-                                                                        height: 6,
-                                                                        borderRadius: '50%',
-                                                                        bgcolor: theme.fg,
-                                                                    }}
-                                                                />
-                                                            )}
-                                                        </ListItemButton>
-                                                    );
-                                                })}
-                                            </Box>
-                                        )}
-                                    </Box>
-                                );
-                            });
-                        })()
-                    ) : (
-                        (() => {
-                            const artGroups = calculateArtGroups(content.chapters);
-                            const firstTocChapterIndex = 0;
+                                                      return (
+                                                          <ListItemButton
+                                                              key={chapterIdx}
+                                                              onClick={() => handleTocItemClick(chapterIdx)}
+                                                              sx={{
+                                                                  pl: 3,
+                                                                  py: 0.75,
+                                                                  borderBottom: `1px solid ${theme.fg}08`,
+                                                                  bgcolor: isCurrentChapter
+                                                                      ? `${theme.fg}22`
+                                                                      : 'transparent',
+                                                                  '&:hover': { bgcolor: `${theme.fg}11` },
+                                                              }}
+                                                          >
+                                                              {isArt && (
+                                                                  <ImageIcon
+                                                                      sx={{
+                                                                          fontSize: 16,
+                                                                          mr: 1,
+                                                                          color: theme.fg,
+                                                                          opacity: 0.6,
+                                                                      }}
+                                                                  />
+                                                              )}
+                                                              <ListItemText
+                                                                  primary={label}
+                                                                  primaryTypographyProps={{
+                                                                      sx: {
+                                                                          fontSize: '0.8rem',
+                                                                          color: theme.fg,
+                                                                          opacity: isCurrentChapter ? 1 : 0.8,
+                                                                          fontWeight: isCurrentChapter ? 500 : 400,
+                                                                      },
+                                                                  }}
+                                                              />
+                                                              {isCurrentChapter && (
+                                                                  <Box
+                                                                      sx={{
+                                                                          width: 6,
+                                                                          height: 6,
+                                                                          borderRadius: '50%',
+                                                                          bgcolor: theme.fg,
+                                                                      }}
+                                                                  />
+                                                              )}
+                                                          </ListItemButton>
+                                                      );
+                                                  })}
+                                              </Box>
+                                          )}
+                                      </Box>
+                                  );
+                              });
+                          })()
+                        : (() => {
+                              const artGroups = calculateArtGroups(content.chapters);
+                              const firstTocChapterIndex = 0;
 
-                            return content.chapters.map((_: any, idx: number) => {
-                                const isCurrentChapter = idx === currentChapter;
-                                const isArt = isArtChapter(content.chapters[idx]);
-                                const label = getChapterDisplayLabel(idx, content.chapters, artGroups, firstTocChapterIndex);
+                              return content.chapters.map((_: any, idx: number) => {
+                                  const isCurrentChapter = idx === currentChapter;
+                                  const isArt = isArtChapter(content.chapters[idx]);
+                                  const label = getChapterDisplayLabel(
+                                      idx,
+                                      content.chapters,
+                                      artGroups,
+                                      firstTocChapterIndex,
+                                  );
 
-                                return (
-                                    <ListItemButton
-                                        key={idx}
-                                        onClick={() => handleTocItemClick(idx)}
-                                        selected={isCurrentChapter}
-                                        sx={{
-                                            borderBottom: `1px solid ${theme.fg}11`,
-                                            '&.Mui-selected': { bgcolor: `${theme.fg}22` },
-                                            '&:hover': { bgcolor: `${theme.fg}11` },
-                                        }}
-                                    >
-                                        {isArt && (
-                                            <ImageIcon sx={{ fontSize: 18, mr: 1, color: theme.fg, opacity: 0.6 }} />
-                                        )}
-                                        <ListItemText
-                                            primary={label}
-                                            primaryTypographyProps={{
-                                                fontSize: '0.9rem',
-                                                color: theme.fg,
-                                            }}
-                                        />
-                                        {isCurrentChapter && (
-                                            <Box
-                                                sx={{
-                                                    width: 6,
-                                                    height: 6,
-                                                    borderRadius: '50%',
-                                                    bgcolor: theme.fg,
-                                                }}
-                                            />
-                                        )}
-                                    </ListItemButton>
-                                );
-                            });
-                        })()
-                    )}
+                                  return (
+                                      <ListItemButton
+                                          key={idx}
+                                          onClick={() => handleTocItemClick(idx)}
+                                          selected={isCurrentChapter}
+                                          sx={{
+                                              borderBottom: `1px solid ${theme.fg}11`,
+                                              '&.Mui-selected': { bgcolor: `${theme.fg}22` },
+                                              '&:hover': { bgcolor: `${theme.fg}11` },
+                                          }}
+                                      >
+                                          {isArt && (
+                                              <ImageIcon sx={{ fontSize: 18, mr: 1, color: theme.fg, opacity: 0.6 }} />
+                                          )}
+                                          <ListItemText
+                                              primary={label}
+                                              primaryTypographyProps={{
+                                                  fontSize: '0.9rem',
+                                                  color: theme.fg,
+                                              }}
+                                          />
+                                          {isCurrentChapter && (
+                                              <Box
+                                                  sx={{
+                                                      width: 6,
+                                                      height: 6,
+                                                      borderRadius: '50%',
+                                                      bgcolor: theme.fg,
+                                                  }}
+                                              />
+                                          )}
+                                      </ListItemButton>
+                                  );
+                              });
+                          })()}
                 </Box>
             </Drawer>
 
@@ -889,9 +948,7 @@ export const LNReaderScreen: React.FC = () => {
                         </List>
                     ) : searchQuery.trim() ? (
                         <Box sx={{ p: 3, textAlign: 'center' }}>
-                            <Typography sx={{ color: theme.fg, opacity: 0.6 }}>
-                                No results found
-                            </Typography>
+                            <Typography sx={{ color: theme.fg, opacity: 0.6 }}>No results found</Typography>
                         </Box>
                     ) : null}
                 </Box>
@@ -931,7 +988,9 @@ export const LNReaderScreen: React.FC = () => {
                     <Button
                         variant="outlined"
                         size="small"
-                        onClick={() => handleExportTxt(content?.metadata?.title || 'highlights', content?.metadata?.toc || [])}
+                        onClick={() =>
+                            handleExportTxt(content?.metadata?.title || 'highlights', content?.metadata?.toc || [])
+                        }
                         sx={{ color: theme.fg, borderColor: theme.fg }}
                     >
                         Export TXT
@@ -945,16 +1004,14 @@ export const LNReaderScreen: React.FC = () => {
                         Export JSON
                     </Button>
                 </Box>
-                <Divider sx={{ borderColor: theme.fg + '22' }} />
+                <Divider sx={{ borderColor: `${theme.fg}22` }} />
                 {highlightsLoading ? (
                     <Box sx={{ p: 3, textAlign: 'center' }}>
                         <CircularProgress size={24} sx={{ color: theme.fg }} />
                     </Box>
                 ) : highlights.length === 0 ? (
                     <Box sx={{ p: 3, textAlign: 'center' }}>
-                        <Typography sx={{ color: theme.fg, opacity: 0.6 }}>
-                            No highlights yet
-                        </Typography>
+                        <Typography sx={{ color: theme.fg, opacity: 0.6 }}>No highlights yet</Typography>
                         <Typography sx={{ color: theme.fg, opacity: 0.4, fontSize: '0.8rem', mt: 1 }}>
                             Select text and tap "Highlight" to save
                         </Typography>
@@ -971,7 +1028,9 @@ export const LNReaderScreen: React.FC = () => {
                                     primary={hl.text.slice(0, 100) + (hl.text.length > 100 ? '...' : '')}
                                     secondary={`${content?.metadata?.toc?.[hl.chapterIndex]?.label || `Chapter ${hl.chapterIndex + 1}`} • ${new Date(hl.createdAt).toLocaleDateString()}`}
                                     primaryTypographyProps={{ sx: { color: theme.fg, fontSize: '0.9rem' } }}
-                                    secondaryTypographyProps={{ sx: { color: theme.fg, opacity: 0.5, fontSize: '0.75rem' } }}
+                                    secondaryTypographyProps={{
+                                        sx: { color: theme.fg, opacity: 0.5, fontSize: '0.75rem' },
+                                    }}
                                 />
                                 <IconButton
                                     size="small"
@@ -988,12 +1047,7 @@ export const LNReaderScreen: React.FC = () => {
 
             <YomitanPopup />
 
-            <Dialog
-                open={showMigrationDialog}
-                onClose={() => setShowMigrationDialog(false)}
-                maxWidth="sm"
-                fullWidth
-            >
+            <Dialog open={showMigrationDialog} onClose={() => setShowMigrationDialog(false)} maxWidth="sm" fullWidth>
                 <DialogTitle>Reader Update</DialogTitle>
                 <DialogContent>
                     <DialogContentText>

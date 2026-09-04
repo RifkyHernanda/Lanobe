@@ -44,7 +44,7 @@ export function createTouchState(event: TouchEvent): TouchState {
 export function getClickZone(
     event: { clientX: number; clientY: number },
     container: HTMLElement,
-    options: NavigationOptions
+    options: NavigationOptions,
 ): ClickZone {
     const { isVertical, isRTL } = options;
     const rect = container.getBoundingClientRect();
@@ -64,14 +64,13 @@ export function getClickZone(
             return isRTL ? 'prev' : 'next';
         }
         return 'center';
-    } else {
-        const topZone = rect.height * zoneSize;
-        const bottomZone = rect.height * (1 - zoneSize);
-
-        if (y < topZone) return 'prev';
-        if (y > bottomZone) return 'next';
-        return 'center';
     }
+    const topZone = rect.height * zoneSize;
+    const bottomZone = rect.height * (1 - zoneSize);
+
+    if (y < topZone) return 'prev';
+    if (y > bottomZone) return 'next';
+    return 'center';
 }
 
 /**
@@ -80,7 +79,7 @@ export function getClickZone(
 export function handleKeyNavigation(
     event: KeyboardEvent,
     options: NavigationOptions,
-    callbacks: NavigationCallbacks
+    callbacks: NavigationCallbacks,
 ): boolean {
     const { isVertical, isRTL, isPaged } = options;
 
@@ -122,12 +121,11 @@ export function handleKeyNavigation(
                 if (!isPaged) return false; // Let browser handle
                 callbacks.goNext();
                 return true;
-            } else {
-                // Horizontal: down = next
-                if (!isPaged) return false; // Let browser handle continuous scroll
-                callbacks.goNext();
-                return true;
             }
+            // Horizontal: down = next
+            if (!isPaged) return false; // Let browser handle continuous scroll
+            callbacks.goNext();
+            return true;
 
         case 'ArrowUp':
         case 'KeyUp': // Fallback for older browsers
@@ -135,11 +133,10 @@ export function handleKeyNavigation(
                 if (!isPaged) return false;
                 callbacks.goPrev();
                 return true;
-            } else {
-                if (!isPaged) return false;
-                callbacks.goPrev();
-                return true;
             }
+            if (!isPaged) return false;
+            callbacks.goPrev();
+            return true;
 
         case 'PageDown':
             callbacks.goNext();
@@ -173,18 +170,14 @@ export function handleKeyNavigation(
 export function handleWheelNavigation(
     event: WheelEvent,
     options: NavigationOptions,
-    callbacks: NavigationCallbacks
+    callbacks: NavigationCallbacks,
 ): boolean {
     const { isVertical, isRTL, isPaged } = options;
 
     // In continuous mode, let natural scroll happen
     if (!isPaged) return false;
 
-    const delta = isVertical
-        ? event.deltaX !== 0
-            ? event.deltaX
-            : event.deltaY
-        : event.deltaY;
+    const delta = isVertical ? (event.deltaX !== 0 ? event.deltaX : event.deltaY) : event.deltaY;
 
     if (Math.abs(delta) < 20) return false;
 
@@ -194,10 +187,8 @@ export function handleWheelNavigation(
     } else if (isVertical) {
         if (delta > 0) callbacks.goNext();
         else callbacks.goPrev();
-    } else {
-        if (delta > 0) callbacks.goNext();
-        else callbacks.goPrev();
-    }
+    } else if (delta > 0) callbacks.goNext();
+    else callbacks.goPrev();
 
     return true;
 }
@@ -206,7 +197,7 @@ export function handleTouchEnd(
     event: TouchEvent,
     touchStart: TouchState,
     options: NavigationOptions,
-    callbacks: NavigationCallbacks
+    callbacks: NavigationCallbacks,
 ): 'next' | 'prev' | null {
     const { isVertical } = options;
 
@@ -224,22 +215,17 @@ export function handleTouchEnd(
             if (deltaX > 0) {
                 callbacks.goNext();
                 return 'next';
-            } else {
-                callbacks.goPrev();
-                return 'prev';
             }
+            callbacks.goPrev();
+            return 'prev';
         }
-    } else {
-        if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > minDistance) {
-
-            if (deltaY > 0) {
-                callbacks.goPrev();
-                return 'next';
-            } else {
-                callbacks.goNext();
-                return 'prev';
-            }
+    } else if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > minDistance) {
+        if (deltaY > 0) {
+            callbacks.goPrev();
+            return 'next';
         }
+        callbacks.goNext();
+        return 'prev';
     }
 
     return null;
@@ -257,7 +243,9 @@ export function getCurrentPage(container: HTMLElement, options: NavigationOption
     const { isVertical, isRTL } = options;
     const pageSize = isVertical ? container.clientWidth : container.clientHeight;
     if (pageSize <= 0) return 0;
-    const maxScroll = isVertical ? container.scrollWidth - container.clientWidth : container.scrollHeight - container.clientHeight;
+    const maxScroll = isVertical
+        ? container.scrollWidth - container.clientWidth
+        : container.scrollHeight - container.clientHeight;
     const rawScroll = isVertical ? container.scrollLeft : container.scrollTop;
     const effectiveScroll = isVertical && isRTL ? Math.max(0, maxScroll - rawScroll) : rawScroll;
     const totalPages = calculateTotalPages(container, options);
@@ -334,7 +322,7 @@ export function scrollByViewport(
     container: HTMLElement,
     options: NavigationOptions,
     forward: boolean,
-    amount: number = 0.85
+    amount: number = 0.85,
 ): void {
     const { isVertical, isRTL } = options;
 
@@ -361,10 +349,7 @@ export function scrollByViewport(
 /**
  * Calculate reading progress percentage
  */
-export function calculateProgress(
-    container: HTMLElement,
-    options: NavigationOptions
-): number {
+export function calculateProgress(container: HTMLElement, options: NavigationOptions): number {
     const { isVertical, isRTL } = options;
 
     if (isVertical) {
@@ -373,12 +358,10 @@ export function calculateProgress(
 
         if (isRTL) {
             return Math.round((1 - container.scrollLeft / maxScroll) * 100);
-        } else {
-            return Math.round((container.scrollLeft / maxScroll) * 100);
         }
-    } else {
-        const maxScroll = container.scrollHeight - container.clientHeight;
-        if (maxScroll <= 0) return 100;
-        return Math.round((container.scrollTop / maxScroll) * 100);
+        return Math.round((container.scrollLeft / maxScroll) * 100);
     }
+    const maxScroll = container.scrollHeight - container.clientHeight;
+    if (maxScroll <= 0) return 100;
+    return Math.round((container.scrollTop / maxScroll) * 100);
 }

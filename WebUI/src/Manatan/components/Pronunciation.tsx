@@ -1,5 +1,5 @@
 import React from 'react';
-import type { DictionaryResult, DictionaryDefinition } from '@/Manatan/types';
+import type { DictionaryResult } from '@/Manatan/types';
 
 export interface PitchInfo {
     position: number;
@@ -45,7 +45,7 @@ export function extractPronunciationData(entry: DictionaryResult): {
     // Also look for patterns like "○○○テキ" (heiban) or "○ Tex" format
     const pitchPattern = /[［\[](\d+)[］\]]/;
     const pitchHLPattern = /([HL]{2,})/;
-    
+
     for (const def of entry.glossary) {
         if (!def.content || def.content.length === 0) continue;
 
@@ -77,21 +77,22 @@ export function extractPronunciationData(entry: DictionaryResult): {
                 if (!isNaN(Number(position)) || typeof position === 'string') {
                     // Check if this dictionary is known for pitch accents
                     const dictName = def.dictionaryName;
-                    const isPitchDict = dictName.includes('アクセント') || 
-                                       dictName.includes('Pitch') ||
-                                       dictName.includes('Accent');
+                    const isPitchDict =
+                        dictName.includes('アクセント') || dictName.includes('Pitch') || dictName.includes('Accent');
 
                     if (isPitchDict || pitchMatch || hlMatch) {
                         pitchAccents.push({
                             dictionaryName: dictName,
-                            reading: reading,
-                            pitches: [{
-                                position: typeof position === 'string' ? 0 : position,
-                                pattern: typeof position === 'string' ? position : undefined,
-                                nasal: [],
-                                devoice: [],
-                                tags: def.tags || []
-                            }]
+                            reading,
+                            pitches: [
+                                {
+                                    position: typeof position === 'string' ? 0 : position,
+                                    pattern: typeof position === 'string' ? position : undefined,
+                                    nasal: [],
+                                    devoice: [],
+                                    tags: def.tags || [],
+                                },
+                            ],
                         });
                     }
                 }
@@ -121,9 +122,12 @@ export function isMoraPitchHigh(moraIndex: number, position: number | string): b
         return position[moraIndex] === 'H';
     }
     switch (position) {
-        case 0: return moraIndex > 0;
-        case 1: return moraIndex < 1;
-        default: return moraIndex > 0 && moraIndex < position;
+        case 0:
+            return moraIndex > 0;
+        case 1:
+            return moraIndex < 1;
+        default:
+            return moraIndex > 0 && moraIndex < position;
     }
 }
 
@@ -135,56 +139,56 @@ export function getDownstepPosition(pattern: string): number {
 }
 
 const DIACRITIC_MAP: Record<string, { character: string; type: 'dakuten' | 'handakuten' }> = {
-    'が': { character: 'か', type: 'dakuten' },
-    'ぎ': { character: 'き', type: 'dakuten' },
-    'ぐ': { character: 'く', type: 'dakuten' },
-    'げ': { character: 'け', type: 'dakuten' },
-    'ご': { character: 'こ', type: 'dakuten' },
-    'ざ': { character: 'さ', type: 'dakuten' },
-    'じ': { character: 'し', type: 'dakuten' },
-    'ず': { character: 'す', type: 'dakuten' },
-    'ぜ': { character: 'せ', type: 'dakuten' },
-    'ぞ': { character: 'そ', type: 'dakuten' },
-    'だ': { character: 'た', type: 'dakuten' },
-    'ぢ': { character: 'ち', type: 'dakuten' },
-    'づ': { character: 'つ', type: 'dakuten' },
-    'で': { character: 'て', type: 'dakuten' },
-    'ど': { character: 'と', type: 'dakuten' },
-    'ば': { character: 'は', type: 'dakuten' },
-    'び': { character: 'ひ', type: 'dakuten' },
-    'ぶ': { character: 'ふ', type: 'dakuten' },
-    'べ': { character: 'へ', type: 'dakuten' },
-    'ぼ': { character: 'ほ', type: 'dakuten' },
-    'ぱ': { character: 'は', type: 'handakuten' },
-    'ぴ': { character: 'ひ', type: 'handakuten' },
-    'ぷ': { character: 'ふ', type: 'handakuten' },
-    'ぺ': { character: 'へ', type: 'handakuten' },
-    'ぽ': { character: 'ほ', type: 'handakuten' },
-    'ガ': { character: 'カ', type: 'dakuten' },
-    'ギ': { character: 'キ', type: 'dakuten' },
-    'グ': { character: 'ク', type: 'dakuten' },
-    'ゲ': { character: 'ケ', type: 'dakuten' },
-    'ゴ': { character: 'コ', type: 'dakuten' },
-    'ザ': { character: 'サ', type: 'dakuten' },
-    'ジ': { character: 'シ', type: 'dakuten' },
-    'ズ': { character: 'ス', type: 'dakuten' },
-    'ゼ': { character: 'セ', type: 'dakuten' },
-    'ゾ': { character: 'ソ', type: 'dakuten' },
-    'ダ': { character: 'タ', type: 'dakuten' },
-    'ヂ': { character: 'チ', type: 'dakuten' },
-    'ヅ': { character: 'ツ', type: 'dakuten' },
-    'デ': { character: 'テ', type: 'dakuten' },
-    'ド': { character: 'ト', type: 'dakuten' },
-    'バ': { character: 'ハ', type: 'dakuten' },
-    'ビ': { character: 'ヒ', type: 'dakuten' },
-    'ブ': { character: 'フ', type: 'dakuten' },
-    'ベ': { character: 'ヘ', type: 'dakuten' },
-    'ボ': { character: 'ホ', type: 'dakuten' },
-    'パ': { character: 'ハ', type: 'handakuten' },
-    'ピ': { character: 'ヒ', type: 'handakuten' },
-    'プ': { character: 'フ', type: 'handakuten' },
-    'ペ': { character: 'ヘ', type: 'handakuten' },
-    'ポ': { character: 'ホ', type: 'handakuten' },
+    が: { character: 'か', type: 'dakuten' },
+    ぎ: { character: 'き', type: 'dakuten' },
+    ぐ: { character: 'く', type: 'dakuten' },
+    げ: { character: 'け', type: 'dakuten' },
+    ご: { character: 'こ', type: 'dakuten' },
+    ざ: { character: 'さ', type: 'dakuten' },
+    じ: { character: 'し', type: 'dakuten' },
+    ず: { character: 'す', type: 'dakuten' },
+    ぜ: { character: 'せ', type: 'dakuten' },
+    ぞ: { character: 'そ', type: 'dakuten' },
+    だ: { character: 'た', type: 'dakuten' },
+    ぢ: { character: 'ち', type: 'dakuten' },
+    づ: { character: 'つ', type: 'dakuten' },
+    で: { character: 'て', type: 'dakuten' },
+    ど: { character: 'と', type: 'dakuten' },
+    ば: { character: 'は', type: 'dakuten' },
+    び: { character: 'ひ', type: 'dakuten' },
+    ぶ: { character: 'ふ', type: 'dakuten' },
+    べ: { character: 'へ', type: 'dakuten' },
+    ぼ: { character: 'ほ', type: 'dakuten' },
+    ぱ: { character: 'は', type: 'handakuten' },
+    ぴ: { character: 'ひ', type: 'handakuten' },
+    ぷ: { character: 'ふ', type: 'handakuten' },
+    ぺ: { character: 'へ', type: 'handakuten' },
+    ぽ: { character: 'ほ', type: 'handakuten' },
+    ガ: { character: 'カ', type: 'dakuten' },
+    ギ: { character: 'キ', type: 'dakuten' },
+    グ: { character: 'ク', type: 'dakuten' },
+    ゲ: { character: 'ケ', type: 'dakuten' },
+    ゴ: { character: 'コ', type: 'dakuten' },
+    ザ: { character: 'サ', type: 'dakuten' },
+    ジ: { character: 'シ', type: 'dakuten' },
+    ズ: { character: 'ス', type: 'dakuten' },
+    ゼ: { character: 'セ', type: 'dakuten' },
+    ゾ: { character: 'ソ', type: 'dakuten' },
+    ダ: { character: 'タ', type: 'dakuten' },
+    ヂ: { character: 'チ', type: 'dakuten' },
+    ヅ: { character: 'ツ', type: 'dakuten' },
+    デ: { character: 'テ', type: 'dakuten' },
+    ド: { character: 'ト', type: 'dakuten' },
+    バ: { character: 'ハ', type: 'dakuten' },
+    ビ: { character: 'ヒ', type: 'dakuten' },
+    ブ: { character: 'フ', type: 'dakuten' },
+    ベ: { character: 'ヘ', type: 'dakuten' },
+    ボ: { character: 'ホ', type: 'dakuten' },
+    パ: { character: 'ハ', type: 'handakuten' },
+    ピ: { character: 'ヒ', type: 'handakuten' },
+    プ: { character: 'フ', type: 'handakuten' },
+    ペ: { character: 'ヘ', type: 'handakuten' },
+    ポ: { character: 'ホ', type: 'handakuten' },
 };
 
 function getKanaDiacriticInfo(char: string) {
@@ -437,7 +441,9 @@ const PitchText: React.FC<PitchTextProps> = ({ morae, position, nasalPositions, 
                                 <span className="pronunciation-nasal-diacritic">{'\u309a'}</span>
                                 <span className="pronunciation-nasal-indicator" />
                                 {characters.slice(1).map((c, ci) => (
-                                    <span key={ci} className="pronunciation-character">{c}</span>
+                                    <span key={ci} className="pronunciation-character">
+                                        {c}
+                                    </span>
                                 ))}
                             </span>
                         );
@@ -445,7 +451,9 @@ const PitchText: React.FC<PitchTextProps> = ({ morae, position, nasalPositions, 
                         characterContent = (
                             <span className="pronunciation-character-group">
                                 {characters.map((c, ci) => (
-                                    <span key={ci} className="pronunciation-character">{c}</span>
+                                    <span key={ci} className="pronunciation-character">
+                                        {c}
+                                    </span>
                                 ))}
                                 <span className="pronunciation-nasal-indicator" />
                             </span>
@@ -453,7 +461,9 @@ const PitchText: React.FC<PitchTextProps> = ({ morae, position, nasalPositions, 
                     }
                 } else {
                     characterContent = characters.map((c, ci) => (
-                        <span key={ci} className="pronunciation-character">{c}</span>
+                        <span key={ci} className="pronunciation-character">
+                            {c}
+                        </span>
                     ));
                 }
 
@@ -502,12 +512,10 @@ const PitchGraph: React.FC<PitchGraphProps> = ({ morae, position }) => {
                 <React.Fragment key={i}>
                     <circle className="pronunciation-graph-dot-downstep1" cx={x} cy={y} r={3.5} />
                     <circle className="pronunciation-graph-dot-downstep2" cx={x} cy={y} r={1.5} />
-                </React.Fragment>
+                </React.Fragment>,
             );
         } else {
-            dots.push(
-                <circle key={i} className="pronunciation-graph-dot" cx={x} cy={y} r={3} />
-            );
+            dots.push(<circle key={i} className="pronunciation-graph-dot" cx={x} cy={y} r={3} />);
         }
 
         pathPoints.push(`${x} ${y}`);
@@ -529,7 +537,11 @@ const PitchGraph: React.FC<PitchGraphProps> = ({ morae, position }) => {
             <path className="pronunciation-graph-line" d={`M${pathPoints.join(' L')}`} />
             <path className="pronunciation-graph-line-tail" d={`M${tailPoints.join(' L')}`} />
             {dots}
-            <path className="pronunciation-graph-triangle" d="M0 4 L5 -4 L-5 -4 Z" transform={`translate(${tailX},${tailY})`} />
+            <path
+                className="pronunciation-graph-triangle"
+                d="M0 4 L5 -4 L-5 -4 Z"
+                transform={`translate(${tailX},${tailY})`}
+            />
         </svg>
     );
 };
@@ -582,14 +594,14 @@ export const PronunciationSection: React.FC<PronunciationSectionProps> = ({
         <div className={`pronunciation-section ${layout}`}>
             {pitchAccents.map((pa, i) => {
                 const effectiveReading = pa.reading || reading;
-                
+
                 // Skip if reading is invalid
                 if (!effectiveReading || typeof effectiveReading !== 'string') {
                     return null;
                 }
-                
+
                 const morae = getKanaMorae(effectiveReading);
-                
+
                 // Skip if morae is empty (invalid data)
                 if (!morae || morae.length === 0) {
                     return null;
@@ -601,10 +613,8 @@ export const PronunciationSection: React.FC<PronunciationSectionProps> = ({
                         <div className={`pronunciation-list ${layout}`}>
                             {pa.pitches.map((pitch, j) => {
                                 // Skip if pitch data is invalid
-                                const pos = pitch.pattern && pitch.pattern.length > 0
-                                    ? pitch.pattern
-                                    : pitch.position;
-                                
+                                const pos = pitch.pattern && pitch.pattern.length > 0 ? pitch.pattern : pitch.position;
+
                                 if (pos === undefined || pos === null) {
                                     return null;
                                 }
@@ -627,7 +637,9 @@ export const PronunciationSection: React.FC<PronunciationSectionProps> = ({
                                         {pitch.tags && pitch.tags.length > 0 && (
                                             <div className="pronunciation-tag-list">
                                                 {pitch.tags.map((tag, k) => (
-                                                    <span key={k} className="pronunciation-tag">{tag}</span>
+                                                    <span key={k} className="pronunciation-tag">
+                                                        {tag}
+                                                    </span>
                                                 ))}
                                             </div>
                                         )}
@@ -654,7 +666,9 @@ export const PronunciationSection: React.FC<PronunciationSectionProps> = ({
                                     {t.tags && t.tags.length > 0 && (
                                         <div className="pronunciation-tag-list">
                                             {t.tags.map((tag, k) => (
-                                                <span key={k} className="pronunciation-tag">{tag}</span>
+                                                <span key={k} className="pronunciation-tag">
+                                                    {tag}
+                                                </span>
                                             ))}
                                         </div>
                                     )}

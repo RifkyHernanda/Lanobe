@@ -35,16 +35,16 @@ import AddIcon from '@mui/icons-material/Add';
 import CategoryIcon from '@mui/icons-material/Category';
 import { styled } from '@mui/material/styles';
 
+import PopupState, { bindMenu, bindTrigger } from 'material-ui-popup-state';
+import { useLongPress } from 'use-long-press';
 import { AppStorage, LNMetadata, LnCategory, LnCategoryMetadata } from '@/lib/storage/AppStorage';
 import { AppRoutes } from '@/base/AppRoute.constants';
 import { importDiscoveredEpubs } from '@/features/ln/services/discoveredEpubImport.ts';
 import { isNovelProgressComplete } from '@/features/ln/utils/progressStatus.ts';
-import { parseEpub, ParseProgress } from '../services/epubParser';
-import { clearBookCache } from '../reader/hooks/useBookContent';
-import { LNCategoriesService, LnSortMode, LnSortModeType } from '../services/LNCategories';
+import { parseEpub, ParseProgress } from '@/features/ln/services/epubParser';
+import { clearBookCache } from '@/features/ln/reader/hooks/useBookContent';
+import { LNCategoriesService, LnSortMode, LnSortModeType } from '@/features/ln/services/LNCategories';
 
-import PopupState, { bindMenu, bindTrigger } from 'material-ui-popup-state';
-import { useLongPress } from 'use-long-press';
 import { Menu } from '@/base/components/menu/Menu';
 import { MUIUtil } from '@/lib/mui/MUI.util';
 import { MediaQuery } from '@/base/utils/MediaQuery';
@@ -97,7 +97,15 @@ type LNLibraryCardProps = {
     onToggleSelect: (id: string) => void;
 };
 
-const LNLibraryCard = ({ item, onOpen, onDelete, onEdit, isSelectionMode, isSelected, onToggleSelect }: LNLibraryCardProps) => {
+const LNLibraryCard = ({
+    item,
+    onOpen,
+    onDelete,
+    onEdit,
+    isSelectionMode,
+    isSelected,
+    onToggleSelect,
+}: LNLibraryCardProps) => {
     const preventMobileContextMenu = MediaQuery.usePreventMobileContextMenu();
     const optionButtonRef = useRef<HTMLButtonElement>(null);
     const longPressTriggeredRef = useRef(false);
@@ -106,11 +114,14 @@ const LNLibraryCard = ({ item, onOpen, onDelete, onEdit, isSelectionMode, isSele
     const isProcessing = item.isProcessing || false;
     const cardProgress = Math.min(100, Math.max(0, item.totalProgress ?? 0));
 
-    useEffect(() => () => {
-        if (longPressResetTimeoutRef.current !== null) {
-            window.clearTimeout(longPressResetTimeoutRef.current);
-        }
-    }, []);
+    useEffect(
+        () => () => {
+            if (longPressResetTimeoutRef.current !== null) {
+                window.clearTimeout(longPressResetTimeoutRef.current);
+            }
+        },
+        [],
+    );
 
     const longPressBind = useLongPress(
         useCallback(() => {
@@ -430,9 +441,14 @@ export const LNLibrary: React.FC = () => {
 
     // Dialog states
     const [confirmOpen, setConfirmOpen] = useState(false);
-    const [confirmOptions, setConfirmOptions] = useState<{ title: string; message: string; confirmText?: string; cancelText?: string }>({
+    const [confirmOptions, setConfirmOptions] = useState<{
+        title: string;
+        message: string;
+        confirmText?: string;
+        cancelText?: string;
+    }>({
         title: '',
-        message: ''
+        message: '',
     });
     const confirmResolver = useRef<((value: boolean) => void) | null>(null);
 
@@ -446,21 +462,25 @@ export const LNLibrary: React.FC = () => {
     const [newCategoryName, setNewCategoryName] = useState('');
 
     const { navBarWidth } = useNavBarContext();
-    const { settings: { mangaGridItemWidth } } = useMetadataServerSettings();
+    const {
+        settings: { mangaGridItemWidth },
+    } = useMetadataServerSettings();
 
     const gridWrapperRef = useRef<HTMLDivElement>(null);
     const [dimensions, setDimensions] = useState(
-        gridWrapperRef.current?.offsetWidth ?? Math.max(0, document.documentElement.offsetWidth - navBarWidth)
+        gridWrapperRef.current?.offsetWidth ?? Math.max(0, document.documentElement.offsetWidth - navBarWidth),
     );
 
     // Helper to show confirm dialog as a Promise (replacing window.confirm)
-    const confirm = useCallback((title: string, message: string, confirmText = 'Confirm', cancelText = 'Cancel'): Promise<boolean> => {
-        return new Promise((resolve) => {
-            setConfirmOptions({ title, message, confirmText, cancelText });
-            setConfirmOpen(true);
-            confirmResolver.current = resolve;
-        });
-    }, []);
+    const confirm = useCallback(
+        (title: string, message: string, confirmText = 'Confirm', cancelText = 'Cancel'): Promise<boolean> =>
+            new Promise((resolve) => {
+                setConfirmOptions({ title, message, confirmText, cancelText });
+                setConfirmOpen(true);
+                confirmResolver.current = resolve;
+            }),
+        [],
+    );
 
     const handleConfirmClose = (result: boolean) => {
         setConfirmOpen(false);
@@ -485,44 +505,47 @@ export const LNLibrary: React.FC = () => {
     }, [selectedCategoryId]);
 
     // Filter and sort books
-    const filterAndSortBooks = useCallback((books: LibraryItem[], categoryId: string, sort: LnCategoryMetadata): LibraryItem[] => {
-        let filtered = books;
+    const filterAndSortBooks = useCallback(
+        (books: LibraryItem[], categoryId: string, sort: LnCategoryMetadata): LibraryItem[] => {
+            let filtered = books;
 
-        // Filter by category
-        if (!LNCategoriesService.isAllCategory(categoryId)) {
-            filtered = filtered.filter(book => book.categoryIds?.includes(categoryId));
-        }
-
-        // Sort
-        const compareFn = LNCategoriesService.compareFn(
-            filtered.map(book => ({ metadata: book, progress: {} })),
-            sort.sortBy as LnSortModeType,
-            sort.sortDesc
-        );
-
-        return [...filtered].sort((a, b) => {
-            const multiplier = sort.sortDesc ? -1 : 1;
-            switch (sort.sortBy) {
-                case LnSortMode.DATE_ADDED:
-                    return multiplier * (b.addedAt - a.addedAt);
-                case LnSortMode.TITLE:
-                    return multiplier * ((a.title || '').localeCompare(b.title || ''));
-                case LnSortMode.AUTHOR:
-                    return multiplier * ((a.author || '').localeCompare(b.author || ''));
-                case LnSortMode.LENGTH:
-                    // For length: sortDesc=true (longer first), sortDesc=false (shorter first)
-                    return multiplier * ((a.stats?.totalLength || 0) - (b.stats?.totalLength || 0));
-                case LnSortMode.LANGUAGE:
-                    return multiplier * ((a.language || 'unknown') > (b.language || 'unknown') ? 1 : -1);
-                case LnSortMode.LAST_READ:
-                    return multiplier * ((b.lastRead || 0) - (a.lastRead || 0));
-                case LnSortMode.PROGRESS:
-                    return multiplier * ((b.totalProgress || 0) - (a.totalProgress || 0));
-                default:
-                    return multiplier * (b.addedAt - a.addedAt);
+            // Filter by category
+            if (!LNCategoriesService.isAllCategory(categoryId)) {
+                filtered = filtered.filter((book) => book.categoryIds?.includes(categoryId));
             }
-        });
-    }, []);
+
+            // Sort
+            const compareFn = LNCategoriesService.compareFn(
+                filtered.map((book) => ({ metadata: book, progress: {} })),
+                sort.sortBy as LnSortModeType,
+                sort.sortDesc,
+            );
+
+            return [...filtered].sort((a, b) => {
+                const multiplier = sort.sortDesc ? -1 : 1;
+                switch (sort.sortBy) {
+                    case LnSortMode.DATE_ADDED:
+                        return multiplier * (b.addedAt - a.addedAt);
+                    case LnSortMode.TITLE:
+                        return multiplier * (a.title || '').localeCompare(b.title || '');
+                    case LnSortMode.AUTHOR:
+                        return multiplier * (a.author || '').localeCompare(b.author || '');
+                    case LnSortMode.LENGTH:
+                        // For length: sortDesc=true (longer first), sortDesc=false (shorter first)
+                        return multiplier * ((a.stats?.totalLength || 0) - (b.stats?.totalLength || 0));
+                    case LnSortMode.LANGUAGE:
+                        return multiplier * ((a.language || 'unknown') > (b.language || 'unknown') ? 1 : -1);
+                    case LnSortMode.LAST_READ:
+                        return multiplier * ((b.lastRead || 0) - (a.lastRead || 0));
+                    case LnSortMode.PROGRESS:
+                        return multiplier * ((b.totalProgress || 0) - (a.totalProgress || 0));
+                    default:
+                        return multiplier * (b.addedAt - a.addedAt);
+                }
+            });
+        },
+        [],
+    );
 
     useEffect(() => {
         loadSortSettings();
@@ -538,7 +561,7 @@ export const LNLibrary: React.FC = () => {
         useCallback(() => {
             const gridWidth = gridWrapperRef.current?.offsetWidth;
             setDimensions(gridWidth ?? document.documentElement.offsetWidth - navBarWidth);
-        }, [navBarWidth])
+        }, [navBarWidth]),
     );
 
     const gridColumns = Math.max(1, Math.ceil(dimensions / mangaGridItemWidth));
@@ -570,19 +593,18 @@ export const LNLibrary: React.FC = () => {
         }
     }, []);
 
-   const importDiscoveredBooks = useCallback(async () => {
+    const importDiscoveredBooks = useCallback(async () => {
         setIsImporting(true);
         try {
             await importDiscoveredEpubs();
-            
+
             await loadLibrary();
-            
         } catch (e) {
             console.error('Failed to auto-import discovered EPUB files:', e);
         } finally {
             setIsImporting(false);
         }
-    }, [loadLibrary]); 
+    }, [loadLibrary]);
 
     // Initial load on mount
     useEffect(() => {
@@ -610,216 +632,224 @@ export const LNLibrary: React.FC = () => {
     }, [importDiscoveredBooks, loadLibrary, loadCategories]);
 
     // Normalize title for comparison
-    const normalizeTitle = (title: string): string => {
-        return title
+    const normalizeTitle = (title: string): string =>
+        title
             .toLowerCase()
             .replace(/\.epub$/i, '')
             .replace(/[^\p{L}\p{N}\s]/gu, '') // Unicode-aware
             .replace(/\s+/g, ' ')
             .trim();
-    };
 
-    const findDuplicateInLibrary = useCallback((title: string, currentLibrary: LibraryItem[]): LibraryItem | undefined => {
-        const normalizedTitle = normalizeTitle(title);
-        return currentLibrary.find(item =>
-            !item.isProcessing && normalizeTitle(item.title) === normalizedTitle
-        );
-    }, []);
+    const findDuplicateInLibrary = useCallback(
+        (title: string, currentLibrary: LibraryItem[]): LibraryItem | undefined => {
+            const normalizedTitle = normalizeTitle(title);
+            return currentLibrary.find((item) => !item.isProcessing && normalizeTitle(item.title) === normalizedTitle);
+        },
+        [],
+    );
 
-    const handleImport = useCallback(async (e: React.ChangeEvent<HTMLInputElement> | { target: { files: File[]; value: string } }) => {
-    if (!e.target.files?.length) return;
+    const handleImport = useCallback(
+        async (e: React.ChangeEvent<HTMLInputElement> | { target: { files: File[]; value: string } }) => {
+            if (!e.target.files?.length) return;
 
-    const files = Array.from(e.target.files);
-    setIsImporting(true);
+            const files = Array.from(e.target.files);
+            setIsImporting(true);
 
-    const skippedFiles: string[] = [];
-    const importedFiles: string[] = [];
+            const skippedFiles: string[] = [];
+            const importedFiles: string[] = [];
 
-    // Use allBooks as source of truth, not the filtered library
-    let currentLibrary = [...allBooks];
+            // Use allBooks as source of truth, not the filtered library
+            let currentLibrary = [...allBooks];
 
-    for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
-        const file = files[fileIndex];
-        const fileTitle = file.name.replace(/\.epub$/i, '');
+            for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
+                const file = files[fileIndex];
+                const fileTitle = file.name.replace(/\.epub$/i, '');
 
-        const existingBook = findDuplicateInLibrary(fileTitle, currentLibrary);
+                const existingBook = findDuplicateInLibrary(fileTitle, currentLibrary);
 
-        if (existingBook) {
-            const shouldReplace = await confirm(
-                'Duplicate File',
-                `"${existingBook.title}" already exists in your library.\n\nDo you want to replace it?`,
-                'Replace',
-                'Skip'
-            );
-
-            if (!shouldReplace) {
-                skippedFiles.push(file.name);
-                continue;
-            }
-
-            clearBookCache(existingBook.id);
-            await AppStorage.deleteLnData(existingBook.id);
-            currentLibrary = currentLibrary.filter(item => item.id !== existingBook.id);
-            
-            // Update both state arrays immediately
-            setAllBooks([...currentLibrary]);
-            setLibrary(filterAndSortBooks(currentLibrary, selectedCategoryId, currentSort));
-        }
-
-        const bookId = `novel_${Date.now()}_${fileIndex}`;
-
-        const placeholder: LibraryItem = {
-            id: bookId,
-            title: fileTitle,
-            author: '',
-            addedAt: Date.now(),
-            isProcessing: true,
-            importProgress: 0,
-            importMessage: 'Starting...',
-            stats: { chapterLengths: [], totalLength: 0 },
-            chapterCount: 0,
-            toc: [],
-        };
-
-        // Add placeholder to local array
-        currentLibrary = [placeholder, ...currentLibrary];
-        
-        // Update both state arrays
-        setAllBooks([...currentLibrary]);
-        setLibrary(filterAndSortBooks(currentLibrary, selectedCategoryId, currentSort));
-
-        try {
-            const result = await parseEpub(file, bookId, (progress: ParseProgress) => {
-                // Update progress in both arrays
-                const updateProgress = (items: LibraryItem[]) =>
-                    items.map((item) =>
-                        item.id === bookId
-                            ? {
-                                ...item,
-                                importProgress: progress.percent,
-                                importMessage: progress.message,
-                            }
-                            : item
-                    );
-                
-                currentLibrary = updateProgress(currentLibrary);
-                setAllBooks([...currentLibrary]);
-                setLibrary(filterAndSortBooks(currentLibrary, selectedCategoryId, currentSort));
-            });
-
-            if (result.success && result.metadata && result.content) {
-                const metadataTitle = result.metadata.title;
-                const duplicateByMetadata = findDuplicateInLibrary(
-                    metadataTitle, 
-                    currentLibrary.filter(i => i.id !== bookId)
-                );
-
-                if (duplicateByMetadata) {
+                if (existingBook) {
                     const shouldReplace = await confirm(
-                        'Duplicate Metadata',
-                        `The book "${metadataTitle}" already exists in your library (detected from EPUB metadata).\n\nDo you want to replace it?`,
+                        'Duplicate File',
+                        `"${existingBook.title}" already exists in your library.\n\nDo you want to replace it?`,
                         'Replace',
-                        'Skip'
+                        'Skip',
                     );
 
                     if (!shouldReplace) {
-                        // Remove the placeholder
-                        currentLibrary = currentLibrary.filter(item => item.id !== bookId);
-                        setAllBooks([...currentLibrary]);
-                        setLibrary(filterAndSortBooks(currentLibrary, selectedCategoryId, currentSort));
                         skippedFiles.push(file.name);
                         continue;
                     }
 
-                    // Remove the duplicate
-                    clearBookCache(duplicateByMetadata.id);
-                    await AppStorage.deleteLnData(duplicateByMetadata.id);
-                    currentLibrary = currentLibrary.filter(item => item.id !== duplicateByMetadata.id);
+                    clearBookCache(existingBook.id);
+                    await AppStorage.deleteLnData(existingBook.id);
+                    currentLibrary = currentLibrary.filter((item) => item.id !== existingBook.id);
+
+                    // Update both state arrays immediately
                     setAllBooks([...currentLibrary]);
                     setLibrary(filterAndSortBooks(currentLibrary, selectedCategoryId, currentSort));
                 }
 
-                try {
-                    await AppStorage.files.setItem(bookId, file);
-                    await AppStorage.lnContent.setItem(bookId, result.content);
-                    await AppStorage.lnMetadata.setItem(bookId, result.metadata);
-                } catch (persistErr) {
-                    await AppStorage.deleteLnData(bookId);
-                    throw persistErr;
-                }
+                const bookId = `novel_${Date.now()}_${fileIndex}`;
 
-                const finalItem: LibraryItem = {
-                    ...result.metadata,
-                    isProcessing: false,
-                    hasProgress: false,
+                const placeholder: LibraryItem = {
+                    id: bookId,
+                    title: fileTitle,
+                    author: '',
+                    addedAt: Date.now(),
+                    isProcessing: true,
+                    importProgress: 0,
+                    importMessage: 'Starting...',
+                    stats: { chapterLengths: [], totalLength: 0 },
+                    chapterCount: 0,
+                    toc: [],
                 };
 
-                // Replace placeholder with final item
-                currentLibrary = currentLibrary.map(item =>
-                    item.id === bookId ? finalItem : item
-                );
+                // Add placeholder to local array
+                currentLibrary = [placeholder, ...currentLibrary];
 
                 // Update both state arrays
                 setAllBooks([...currentLibrary]);
                 setLibrary(filterAndSortBooks(currentLibrary, selectedCategoryId, currentSort));
 
-                importedFiles.push(result.metadata.title);
-                console.log(`[Import] Complete: ${result.metadata.title}`);
-            } else {
-                // Mark as error
-                const updateError = (items: LibraryItem[]) =>
-                    items.map((item) =>
-                        item.id === bookId
-                            ? {
-                                ...item,
-                                isProcessing: false,
-                                isError: true,
-                                errorMsg: result.error || 'Import failed',
+                try {
+                    const result = await parseEpub(file, bookId, (progress: ParseProgress) => {
+                        // Update progress in both arrays
+                        const updateProgress = (items: LibraryItem[]) =>
+                            items.map((item) =>
+                                item.id === bookId
+                                    ? {
+                                          ...item,
+                                          importProgress: progress.percent,
+                                          importMessage: progress.message,
+                                      }
+                                    : item,
+                            );
+
+                        currentLibrary = updateProgress(currentLibrary);
+                        setAllBooks([...currentLibrary]);
+                        setLibrary(filterAndSortBooks(currentLibrary, selectedCategoryId, currentSort));
+                    });
+
+                    if (result.success && result.metadata && result.content) {
+                        const metadataTitle = result.metadata.title;
+                        const duplicateByMetadata = findDuplicateInLibrary(
+                            metadataTitle,
+                            currentLibrary.filter((i) => i.id !== bookId),
+                        );
+
+                        if (duplicateByMetadata) {
+                            const shouldReplace = await confirm(
+                                'Duplicate Metadata',
+                                `The book "${metadataTitle}" already exists in your library (detected from EPUB metadata).\n\nDo you want to replace it?`,
+                                'Replace',
+                                'Skip',
+                            );
+
+                            if (!shouldReplace) {
+                                // Remove the placeholder
+                                currentLibrary = currentLibrary.filter((item) => item.id !== bookId);
+                                setAllBooks([...currentLibrary]);
+                                setLibrary(filterAndSortBooks(currentLibrary, selectedCategoryId, currentSort));
+                                skippedFiles.push(file.name);
+                                continue;
                             }
-                            : item
-                    );
-                
-                currentLibrary = updateError(currentLibrary);
-                setAllBooks([...currentLibrary]);
-                setLibrary(filterAndSortBooks(currentLibrary, selectedCategoryId, currentSort));
-            }
-        } catch (err: any) {
-            console.error(`[Import] Error for ${file.name}:`, err);
-            
-            // Mark as error
-            const updateError = (items: LibraryItem[]) =>
-                items.map((item) =>
-                    item.id === bookId
-                        ? {
-                            ...item,
-                            isProcessing: false,
-                            isError: true,
-                            errorMsg: err.message || 'Unknown error',
+
+                            // Remove the duplicate
+                            clearBookCache(duplicateByMetadata.id);
+                            await AppStorage.deleteLnData(duplicateByMetadata.id);
+                            currentLibrary = currentLibrary.filter((item) => item.id !== duplicateByMetadata.id);
+                            setAllBooks([...currentLibrary]);
+                            setLibrary(filterAndSortBooks(currentLibrary, selectedCategoryId, currentSort));
                         }
-                        : item
-                );
-            
-            currentLibrary = updateError(currentLibrary);
-            setAllBooks([...currentLibrary]);
-            setLibrary(filterAndSortBooks(currentLibrary, selectedCategoryId, currentSort));
-        }
-    }
 
-    setIsImporting(false);
-    e.target.value = '';
-}, [allBooks, findDuplicateInLibrary, confirm, filterAndSortBooks, selectedCategoryId, currentSort]);
+                        try {
+                            await AppStorage.files.setItem(bookId, file);
+                            await AppStorage.lnContent.setItem(bookId, result.content);
+                            await AppStorage.lnMetadata.setItem(bookId, result.metadata);
+                        } catch (persistErr) {
+                            await AppStorage.deleteLnData(bookId);
+                            throw persistErr;
+                        }
 
-    const handleDelete = useCallback(async (id: string, e: React.MouseEvent) => {
-        e.stopPropagation();
+                        const finalItem: LibraryItem = {
+                            ...result.metadata,
+                            isProcessing: false,
+                            hasProgress: false,
+                        };
 
-        const shouldDelete = await confirm('Delete Book', 'Are you sure you want to delete this book? This cannot be undone.', 'Delete');
-        if (!shouldDelete) return;
+                        // Replace placeholder with final item
+                        currentLibrary = currentLibrary.map((item) => (item.id === bookId ? finalItem : item));
 
-        clearBookCache(id);
-        setLibrary((prev) => prev.filter((item) => item.id !== id));
-        setAllBooks((prev) => prev.filter((item) => item.id !== id));
-        await AppStorage.deleteLnData(id);
-    }, [confirm]);
+                        // Update both state arrays
+                        setAllBooks([...currentLibrary]);
+                        setLibrary(filterAndSortBooks(currentLibrary, selectedCategoryId, currentSort));
+
+                        importedFiles.push(result.metadata.title);
+                        console.log(`[Import] Complete: ${result.metadata.title}`);
+                    } else {
+                        // Mark as error
+                        const updateError = (items: LibraryItem[]) =>
+                            items.map((item) =>
+                                item.id === bookId
+                                    ? {
+                                          ...item,
+                                          isProcessing: false,
+                                          isError: true,
+                                          errorMsg: result.error || 'Import failed',
+                                      }
+                                    : item,
+                            );
+
+                        currentLibrary = updateError(currentLibrary);
+                        setAllBooks([...currentLibrary]);
+                        setLibrary(filterAndSortBooks(currentLibrary, selectedCategoryId, currentSort));
+                    }
+                } catch (err: any) {
+                    console.error(`[Import] Error for ${file.name}:`, err);
+
+                    // Mark as error
+                    const updateError = (items: LibraryItem[]) =>
+                        items.map((item) =>
+                            item.id === bookId
+                                ? {
+                                      ...item,
+                                      isProcessing: false,
+                                      isError: true,
+                                      errorMsg: err.message || 'Unknown error',
+                                  }
+                                : item,
+                        );
+
+                    currentLibrary = updateError(currentLibrary);
+                    setAllBooks([...currentLibrary]);
+                    setLibrary(filterAndSortBooks(currentLibrary, selectedCategoryId, currentSort));
+                }
+            }
+
+            setIsImporting(false);
+            e.target.value = '';
+        },
+        [allBooks, findDuplicateInLibrary, confirm, filterAndSortBooks, selectedCategoryId, currentSort],
+    );
+
+    const handleDelete = useCallback(
+        async (id: string, e: React.MouseEvent) => {
+            e.stopPropagation();
+
+            const shouldDelete = await confirm(
+                'Delete Book',
+                'Are you sure you want to delete this book? This cannot be undone.',
+                'Delete',
+            );
+            if (!shouldDelete) return;
+
+            clearBookCache(id);
+            setLibrary((prev) => prev.filter((item) => item.id !== id));
+            setAllBooks((prev) => prev.filter((item) => item.id !== id));
+            await AppStorage.deleteLnData(id);
+        },
+        [confirm],
+    );
 
     const handleEdit = useCallback((item: LibraryItem) => {
         setEditingItem(item);
@@ -844,11 +874,7 @@ export const LNLibrary: React.FC = () => {
 
         await AppStorage.updateLnMetadata(editingItem.id, updates);
 
-        setAllBooks((prev) =>
-            prev.map((item) =>
-                item.id === editingItem.id ? { ...item, ...updates } : item
-            )
-        );
+        setAllBooks((prev) => prev.map((item) => (item.id === editingItem.id ? { ...item, ...updates } : item)));
 
         setEditDialogOpen(false);
         setEditingItem(null);
@@ -861,7 +887,7 @@ export const LNLibrary: React.FC = () => {
         const shouldDelete = await confirm(
             'Delete Selected',
             `Are you sure you want to delete ${count} selected book${count > 1 ? 's' : ''}?`,
-            'Delete'
+            'Delete',
         );
 
         if (!shouldDelete) return;
@@ -889,7 +915,7 @@ export const LNLibrary: React.FC = () => {
     }, []);
 
     const handleSelectAll = useCallback(() => {
-        const allIds = library.filter(item => !item.isProcessing).map(item => item.id);
+        const allIds = library.filter((item) => !item.isProcessing).map((item) => item.id);
         setSelectedIds(new Set(allIds));
     }, [library]);
 
@@ -898,9 +924,12 @@ export const LNLibrary: React.FC = () => {
         setIsSelectionMode(false);
     }, []);
 
-    const handleOpen = useCallback((id: string) => {
-        navigate(AppRoutes.ln.childRoutes.reader.path(id));
-    }, [navigate]);
+    const handleOpen = useCallback(
+        (id: string) => {
+            navigate(AppRoutes.ln.childRoutes.reader.path(id));
+        },
+        [navigate],
+    );
 
     // Drag and Drop handlers
     const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -918,41 +947,46 @@ export const LNLibrary: React.FC = () => {
         }
     }, []);
 
-    const handleDrop = useCallback(async (e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setIsDragOver(false);
+    const handleDrop = useCallback(
+        async (e: React.DragEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsDragOver(false);
 
-        const files = Array.from(e.dataTransfer.files);
-        const epubFiles = files.filter(file => 
-            file.name.toLowerCase().endsWith('.epub') || 
-            file.type === 'application/epub+zip'
-        );
+            const files = Array.from(e.dataTransfer.files);
+            const epubFiles = files.filter(
+                (file) => file.name.toLowerCase().endsWith('.epub') || file.type === 'application/epub+zip',
+            );
 
-        if (epubFiles.length === 0) return;
+            if (epubFiles.length === 0) return;
 
-        // Simulate input change event to reuse existing import logic
-        const mockEvent = {
-            target: {
-                files: epubFiles,
-                value: '',
+            // Simulate input change event to reuse existing import logic
+            const mockEvent = {
+                target: {
+                    files: epubFiles,
+                    value: '',
+                },
+            } as any;
+
+            await handleImport(mockEvent);
+        },
+        [handleImport],
+    );
+
+    const handleSortChange = useCallback(
+        async (newSortBy: LnSortModeType) => {
+            const newSort = { ...currentSort };
+            if (currentSort.sortBy === newSortBy) {
+                newSort.sortDesc = !newSort.sortDesc;
+            } else {
+                newSort.sortBy = newSortBy;
+                newSort.sortDesc = getDefaultSortDesc(newSortBy);
             }
-        } as any;
-
-        await handleImport(mockEvent);
-    }, [handleImport]);
-
-    const handleSortChange = useCallback(async (newSortBy: LnSortModeType) => {
-        const newSort = { ...currentSort };
-        if (currentSort.sortBy === newSortBy) {
-            newSort.sortDesc = !newSort.sortDesc;
-        } else {
-            newSort.sortBy = newSortBy;
-            newSort.sortDesc = getDefaultSortDesc(newSortBy);
-        }
-        setCurrentSort(newSort);
-        await LNCategoriesService.setCategoryMetadata(selectedCategoryId, newSort);
-    }, [currentSort, selectedCategoryId]);
+            setCurrentSort(newSort);
+            await LNCategoriesService.setCategoryMetadata(selectedCategoryId, newSort);
+        },
+        [currentSort, selectedCategoryId],
+    );
 
     const handleCategoryChange = useCallback((categoryId: string) => {
         if (categoryId === '__add__') {
@@ -1059,11 +1093,7 @@ export const LNLibrary: React.FC = () => {
                             {(popupState) => (
                                 <>
                                     <CustomTooltip title="Sort">
-                                        <IconButton
-                                            color="inherit"
-                                            {...bindTrigger(popupState)}
-                                            size="small"
-                                        >
+                                        <IconButton color="inherit" {...bindTrigger(popupState)} size="small">
                                             <SortIcon />
                                             <Typography sx={{ fontWeight: 'bold', fontSize: 12, ml: 0.25 }}>
                                                 {currentSort.sortDesc ? '↓' : '↑'}
@@ -1076,51 +1106,86 @@ export const LNLibrary: React.FC = () => {
                                                 <MenuItem
                                                     key="dateAdded"
                                                     selected={currentSort.sortBy === 'dateAdded'}
-                                                    onClick={() => { handleSortChange('dateAdded'); onClose(); }}
+                                                    onClick={() => {
+                                                        handleSortChange('dateAdded');
+                                                        onClose();
+                                                    }}
                                                 >
-                                                    Date Added {currentSort.sortBy === 'dateAdded' && (currentSort.sortDesc ? '↓' : '↑')}
+                                                    Date Added{' '}
+                                                    {currentSort.sortBy === 'dateAdded' &&
+                                                        (currentSort.sortDesc ? '↓' : '↑')}
                                                 </MenuItem>
                                                 <MenuItem
                                                     key="title"
                                                     selected={currentSort.sortBy === 'title'}
-                                                    onClick={() => { handleSortChange('title'); onClose(); }}
+                                                    onClick={() => {
+                                                        handleSortChange('title');
+                                                        onClose();
+                                                    }}
                                                 >
-                                                    Title {currentSort.sortBy === 'title' && (currentSort.sortDesc ? '↓' : '↑')}
+                                                    Title{' '}
+                                                    {currentSort.sortBy === 'title' &&
+                                                        (currentSort.sortDesc ? '↓' : '↑')}
                                                 </MenuItem>
                                                 <MenuItem
                                                     key="author"
                                                     selected={currentSort.sortBy === 'author'}
-                                                    onClick={() => { handleSortChange('author'); onClose(); }}
+                                                    onClick={() => {
+                                                        handleSortChange('author');
+                                                        onClose();
+                                                    }}
                                                 >
-                                                    Author {currentSort.sortBy === 'author' && (currentSort.sortDesc ? '↓' : '↑')}
+                                                    Author{' '}
+                                                    {currentSort.sortBy === 'author' &&
+                                                        (currentSort.sortDesc ? '↓' : '↑')}
                                                 </MenuItem>
                                                 <MenuItem
                                                     key="length"
                                                     selected={currentSort.sortBy === 'length'}
-                                                    onClick={() => { handleSortChange('length'); onClose(); }}
+                                                    onClick={() => {
+                                                        handleSortChange('length');
+                                                        onClose();
+                                                    }}
                                                 >
-                                                    Length {currentSort.sortBy === 'length' && (currentSort.sortDesc ? '↓' : '↑')}
+                                                    Length{' '}
+                                                    {currentSort.sortBy === 'length' &&
+                                                        (currentSort.sortDesc ? '↓' : '↑')}
                                                 </MenuItem>
                                                 <MenuItem
                                                     key="language"
                                                     selected={currentSort.sortBy === 'language'}
-                                                    onClick={() => { handleSortChange('language'); onClose(); }}
+                                                    onClick={() => {
+                                                        handleSortChange('language');
+                                                        onClose();
+                                                    }}
                                                 >
-                                                    Language {currentSort.sortBy === 'language' && (currentSort.sortDesc ? '↓' : '↑')}
+                                                    Language{' '}
+                                                    {currentSort.sortBy === 'language' &&
+                                                        (currentSort.sortDesc ? '↓' : '↑')}
                                                 </MenuItem>
                                                 <MenuItem
                                                     key="lastRead"
                                                     selected={currentSort.sortBy === 'lastRead'}
-                                                    onClick={() => { handleSortChange('lastRead'); onClose(); }}
+                                                    onClick={() => {
+                                                        handleSortChange('lastRead');
+                                                        onClose();
+                                                    }}
                                                 >
-                                                    Last Read {currentSort.sortBy === 'lastRead' && (currentSort.sortDesc ? '↓' : '↑')}
+                                                    Last Read{' '}
+                                                    {currentSort.sortBy === 'lastRead' &&
+                                                        (currentSort.sortDesc ? '↓' : '↑')}
                                                 </MenuItem>
                                                 <MenuItem
                                                     key="progress"
                                                     selected={currentSort.sortBy === 'progress'}
-                                                    onClick={() => { handleSortChange('progress'); onClose(); }}
+                                                    onClick={() => {
+                                                        handleSortChange('progress');
+                                                        onClose();
+                                                    }}
                                                 >
-                                                    Progress {currentSort.sortBy === 'progress' && (currentSort.sortDesc ? '↓' : '↑')}
+                                                    Progress{' '}
+                                                    {currentSort.sortBy === 'progress' &&
+                                                        (currentSort.sortDesc ? '↓' : '↑')}
                                                 </MenuItem>
                                             </Box>
                                         )}
@@ -1142,13 +1207,24 @@ export const LNLibrary: React.FC = () => {
                 )}
             </Stack>
         ),
-        [handleImport, isImporting, isSelectionMode, selectedIds.size, handleMultiDelete, handleSelectAll, handleCancelSelection, library.length, currentSort.sortBy, handleSortChange]
+        [
+            handleImport,
+            isImporting,
+            isSelectionMode,
+            selectedIds.size,
+            handleMultiDelete,
+            handleSelectAll,
+            handleCancelSelection,
+            library.length,
+            currentSort.sortBy,
+            handleSortChange,
+        ],
     );
 
     useAppAction(appAction, [appAction]);
 
     return (
-        <Box 
+        <Box
             sx={{ p: 1, position: 'relative', minHeight: '100vh' }}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -1192,18 +1268,9 @@ export const LNLibrary: React.FC = () => {
                         iconPosition="start"
                     />
                     {categories.map((category) => (
-                        <Tab
-                            key={category.id}
-                            label={category.name}
-                            value={category.id}
-                        />
+                        <Tab key={category.id} label={category.name} value={category.id} />
                     ))}
-                    <Tab
-                        label="Add"
-                        value="__add__"
-                        icon={<AddIcon />}
-                        iconPosition="start"
-                    />
+                    <Tab label="Add" value="__add__" icon={<AddIcon />} iconPosition="start" />
                 </Tabs>
             </Box>
 
@@ -1283,8 +1350,8 @@ export const LNLibrary: React.FC = () => {
                                 label="Categories"
                                 onChange={(e) => setEditForm({ ...editForm, categoryIds: e.target.value as string[] })}
                                 renderValue={(selected) => {
-                                    const selectedCats = categories.filter(c => selected.includes(c.id));
-                                    return selectedCats.map(c => c.name).join(', ');
+                                    const selectedCats = categories.filter((c) => selected.includes(c.id));
+                                    return selectedCats.map((c) => c.name).join(', ');
                                 }}
                             >
                                 {categories.map((category) => (
@@ -1299,7 +1366,9 @@ export const LNLibrary: React.FC = () => {
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setEditDialogOpen(false)}>Cancel</Button>
-                    <Button onClick={handleEditSave} variant="contained">Save</Button>
+                    <Button onClick={handleEditSave} variant="contained">
+                        Save
+                    </Button>
                 </DialogActions>
             </Dialog>
 
@@ -1310,9 +1379,7 @@ export const LNLibrary: React.FC = () => {
                 aria-labelledby="alert-dialog-title"
                 aria-describedby="alert-dialog-description"
             >
-                <DialogTitle id="alert-dialog-title">
-                    {confirmOptions.title}
-                </DialogTitle>
+                <DialogTitle id="alert-dialog-title">{confirmOptions.title}</DialogTitle>
                 <DialogContent>
                     <DialogContentText id="alert-dialog-description" sx={{ whiteSpace: 'pre-line' }}>
                         {confirmOptions.message}
@@ -1352,13 +1419,8 @@ export const LNLibrary: React.FC = () => {
                     />
                 </DialogContent>
                 <DialogActions>
-                    <Button onClick={() => setAddCategoryDialogOpen(false)}>
-                        Cancel
-                    </Button>
-                    <Button
-                        onClick={handleCreateCategory}
-                        disabled={!newCategoryName.trim()}
-                    >
+                    <Button onClick={() => setAddCategoryDialogOpen(false)}>Cancel</Button>
+                    <Button onClick={handleCreateCategory} disabled={!newCategoryName.trim()}>
                         Create
                     </Button>
                 </DialogActions>

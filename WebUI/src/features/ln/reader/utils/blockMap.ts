@@ -1,11 +1,11 @@
 /**
  * Block Map Utilities
- * 
+ *
  * Provides efficient lookup and position calculation using pre-calculated
  * blockMaps from book stats. This is the core of accurate restoration.
  */
 
-import { BlockIndexMap } from '../types/block';
+import { BlockIndexMap } from '@/features/ln/reader/types/block';
 
 // ============================================================================
 // Types
@@ -14,10 +14,10 @@ import { BlockIndexMap } from '../types/block';
 export interface BlockLookup {
     /** Map of blockId → block data */
     byId: Map<string, BlockIndexMap>;
-    
+
     /** Blocks sorted by startOffset for binary search */
     sortedByOffset: BlockIndexMap[];
-    
+
     /** Total character count covered by all blocks */
     totalChars: number;
 }
@@ -47,7 +47,7 @@ export function createBlockLookup(blockMaps: BlockIndexMap[] | undefined): Block
 
     const byId = new Map<string, BlockIndexMap>();
     const sortedByOffset = [...blockMaps].sort((a, b) => a.startOffset - b.startOffset);
-    
+
     let totalChars = 0;
     for (const block of sortedByOffset) {
         byId.set(block.blockId, block);
@@ -64,10 +64,7 @@ export function createBlockLookup(blockMaps: BlockIndexMap[] | undefined): Block
 /**
  * Create a chapter-specific lookup (filters blocks for a single chapter)
  */
-export function createChapterBlockLookup(
-    blockMaps: BlockIndexMap[] | undefined,
-    chapterIndex: number
-): BlockLookup {
+export function createChapterBlockLookup(blockMaps: BlockIndexMap[] | undefined, chapterIndex: number): BlockLookup {
     if (!blockMaps || blockMaps.length === 0) {
         return {
             byId: new Map(),
@@ -77,8 +74,8 @@ export function createChapterBlockLookup(
     }
 
     const chapterPrefix = `ch${chapterIndex}-`;
-    const chapterBlocks = blockMaps.filter(b => b.blockId.startsWith(chapterPrefix));
-    
+    const chapterBlocks = blockMaps.filter((b) => b.blockId.startsWith(chapterPrefix));
+
     return createBlockLookup(chapterBlocks);
 }
 
@@ -90,12 +87,9 @@ export function createChapterBlockLookup(
  * Find the block containing a specific character offset
  * Uses binary search for O(log n) performance
  */
-export function findBlockAtOffset(
-    lookup: BlockLookup,
-    charOffset: number
-): BlockIndexMap | null {
+export function findBlockAtOffset(lookup: BlockLookup, charOffset: number): BlockIndexMap | null {
     const { sortedByOffset } = lookup;
-    
+
     if (sortedByOffset.length === 0) return null;
     if (charOffset <= 0) return sortedByOffset[0];
     if (charOffset >= lookup.totalChars) return sortedByOffset[sortedByOffset.length - 1];
@@ -125,14 +119,10 @@ export function findBlockAtOffset(
  * Calculate chapter character offset from blockId and local offset
  * Uses pre-calculated startOffset for accuracy
  */
-export function calculateCharOffsetFromBlock(
-    lookup: BlockLookup,
-    blockId: string,
-    localOffset: number
-): number {
+export function calculateCharOffsetFromBlock(lookup: BlockLookup, blockId: string, localOffset: number): number {
     const block = lookup.byId.get(blockId);
     if (!block) return 0;
-    
+
     return block.startOffset + Math.min(localOffset, block.endOffset - block.startOffset);
 }
 
@@ -142,11 +132,11 @@ export function calculateCharOffsetFromBlock(
 export function calculateLocalOffsetFromCharOffset(
     lookup: BlockLookup,
     blockId: string,
-    chapterCharOffset: number
+    chapterCharOffset: number,
 ): number {
     const block = lookup.byId.get(blockId);
     if (!block) return 0;
-    
+
     return Math.max(0, chapterCharOffset - block.startOffset);
 }
 
@@ -156,15 +146,12 @@ export function calculateLocalOffsetFromCharOffset(
 export function getPositionFromBlock(
     lookup: BlockLookup,
     blockId: string,
-    localOffset: number
+    localOffset: number,
 ): PositionFromBlock | null {
     const block = lookup.byId.get(blockId);
     if (!block) return null;
 
-    const chapterCharOffset = block.startOffset + Math.min(
-        localOffset,
-        block.endOffset - block.startOffset
-    );
+    const chapterCharOffset = block.startOffset + Math.min(localOffset, block.endOffset - block.startOffset);
 
     return {
         blockId,
@@ -176,10 +163,7 @@ export function getPositionFromBlock(
 /**
  * Get position from chapter character offset (when blockId is not available)
  */
-export function getPositionFromCharOffset(
-    lookup: BlockLookup,
-    chapterCharOffset: number
-): PositionFromBlock | null {
+export function getPositionFromCharOffset(lookup: BlockLookup, chapterCharOffset: number): PositionFromBlock | null {
     const block = findBlockAtOffset(lookup, chapterCharOffset);
     if (!block) return null;
 
@@ -199,37 +183,28 @@ export function getPositionFromCharOffset(
 /**
  * Get block by ID
  */
-export function getBlockById(
-    lookup: BlockLookup,
-    blockId: string
-): BlockIndexMap | undefined {
+export function getBlockById(lookup: BlockLookup, blockId: string): BlockIndexMap | undefined {
     return lookup.byId.get(blockId);
 }
 
 /**
  * Get all block IDs for a chapter
  */
-export function getChapterBlocks(
-    blockMaps: BlockIndexMap[] | undefined,
-    chapterIndex: number
-): BlockIndexMap[] {
+export function getChapterBlocks(blockMaps: BlockIndexMap[] | undefined, chapterIndex: number): BlockIndexMap[] {
     if (!blockMaps) return [];
-    
+
     const prefix = `ch${chapterIndex}-`;
-    return blockMaps.filter(b => b.blockId.startsWith(prefix));
+    return blockMaps.filter((b) => b.blockId.startsWith(prefix));
 }
 
 /**
  * Get chapter character count
  */
-export function getChapterCharCount(
-    blockMaps: BlockIndexMap[] | undefined,
-    chapterIndex: number
-): number {
+export function getChapterCharCount(blockMaps: BlockIndexMap[] | undefined, chapterIndex: number): number {
     const chapterBlocks = getChapterBlocks(blockMaps, chapterIndex);
     if (chapterBlocks.length === 0) return 0;
-    
-    return Math.max(...chapterBlocks.map(b => b.endOffset));
+
+    return Math.max(...chapterBlocks.map((b) => b.endOffset));
 }
 
 /**
@@ -237,7 +212,7 @@ export function getChapterCharCount(
  */
 export function getTotalCharCount(blockMaps: BlockIndexMap[] | undefined): number {
     if (!blockMaps || blockMaps.length === 0) return 0;
-    return Math.max(...blockMaps.map(b => b.endOffset));
+    return Math.max(...blockMaps.map((b) => b.endOffset));
 }
 
 // ============================================================================
@@ -247,18 +222,13 @@ export function getTotalCharCount(blockMaps: BlockIndexMap[] | undefined): numbe
 /**
  * Log block map statistics for debugging
  */
-export function logBlockStats(
-    blockMaps: BlockIndexMap[] | undefined,
-    chapterIndex?: number
-): void {
+export function logBlockStats(blockMaps: BlockIndexMap[] | undefined, chapterIndex?: number): void {
     if (!blockMaps || blockMaps.length === 0) {
         console.log('[BlockMap] No blocks');
         return;
     }
 
-    const targetBlocks = chapterIndex !== undefined
-        ? getChapterBlocks(blockMaps, chapterIndex)
-        : blockMaps;
+    const targetBlocks = chapterIndex !== undefined ? getChapterBlocks(blockMaps, chapterIndex) : blockMaps;
 
     const totalChars = getTotalCharCount(targetBlocks);
     const firstBlock = targetBlocks[0];

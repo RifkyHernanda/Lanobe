@@ -30,17 +30,17 @@ export const AppContext: React.FC<Props> = ({ children }) => (
                 <QueryParamProvider adapter={ReactRouter6Adapter}>
                     <NavBarContextProvider>
                         <AppPageHistoryContextProvider>
-                                <SnackbarProvider
-                                    Components={{
-                                        default: SnackbarWithDescription,
-                                        info: SnackbarWithDescription,
-                                        success: SnackbarWithDescription,
-                                        warning: SnackbarWithDescription,
-                                        error: SnackbarWithDescription,
-                                    }}
-                                >
-                                    <AppHotkeysProvider>{children}</AppHotkeysProvider>
-                                </SnackbarProvider>
+                            <SnackbarProvider
+                                Components={{
+                                    default: SnackbarWithDescription,
+                                    info: SnackbarWithDescription,
+                                    success: SnackbarWithDescription,
+                                    warning: SnackbarWithDescription,
+                                    error: SnackbarWithDescription,
+                                }}
+                            >
+                                <AppHotkeysProvider>{children}</AppHotkeysProvider>
+                            </SnackbarProvider>
                         </AppPageHistoryContextProvider>
                     </NavBarContextProvider>
                 </QueryParamProvider>

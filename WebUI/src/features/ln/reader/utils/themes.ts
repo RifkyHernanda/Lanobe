@@ -1,4 +1,3 @@
-
 export const READER_THEMES = {
     light: { bg: '#FFFFFF', fg: '#1a1a1a', highlight: 'rgba(0, 119, 255, 0.4)' },
     sepia: { bg: '#F4ECD8', fg: '#5C4B37', highlight: 'rgba(0, 119, 255, 0.4)' },
@@ -7,7 +6,7 @@ export const READER_THEMES = {
 } as const;
 
 export type ThemeKey = keyof typeof READER_THEMES;
-export type ReaderTheme = typeof READER_THEMES[ThemeKey];
+export type ReaderTheme = (typeof READER_THEMES)[ThemeKey];
 
 export function getReaderTheme(key: string | undefined): ReaderTheme {
     const themeKey = (key || 'dark') as ThemeKey;
@@ -15,17 +14,17 @@ export function getReaderTheme(key: string | undefined): ReaderTheme {
 }
 
 export const POPUP_THEMES = {
-    light: { 
-        bg: '#ffffff', 
-        fg: '#1a1a1a', 
+    light: {
+        bg: '#ffffff',
+        fg: '#1a1a1a',
         border: '#ccc',
         secondary: '#666666',
         accent: '#9b59b6',
         hoverBg: '#f5f5f5',
     },
-    dark: { 
-        bg: '#1a1d21', 
-        fg: '#eeeeee', 
+    dark: {
+        bg: '#1a1d21',
+        fg: '#eeeeee',
         border: '#444444',
         secondary: '#aaaaaa',
         accent: '#9b59b6',
@@ -34,7 +33,7 @@ export const POPUP_THEMES = {
 } as const;
 
 export type PopupThemeKey = keyof typeof POPUP_THEMES;
-export type PopupTheme = typeof POPUP_THEMES[PopupThemeKey];
+export type PopupTheme = (typeof POPUP_THEMES)[PopupThemeKey];
 
 export function getPopupTheme(key: string | undefined): PopupTheme {
     const themeKey = (key || 'dark') as PopupThemeKey;

@@ -28,13 +28,10 @@ export const LOOKUP_TRIGGER_OPTIONS: Array<{ value: LookupTriggerKey; label: str
 
 export const DEFAULT_LOOKUP_TRIGGER: LookupTriggerKey = 'left-click';
 
-const LOOKUP_TRIGGER_SET = new Set<LookupTriggerKey>(
-    LOOKUP_TRIGGER_OPTIONS.map((option) => option.value),
-);
+const LOOKUP_TRIGGER_SET = new Set<LookupTriggerKey>(LOOKUP_TRIGGER_OPTIONS.map((option) => option.value));
 
-const hasAnyModifier = (event: MouseEventLike): boolean => {
-    return event.shiftKey || event.ctrlKey || event.altKey || event.metaKey;
-};
+const hasAnyModifier = (event: MouseEventLike): boolean =>
+    event.shiftKey || event.ctrlKey || event.altKey || event.metaKey;
 
 export const normalizeLookupTrigger = (value: unknown): LookupTriggerKey => {
     if (typeof value !== 'string') {
@@ -46,10 +43,7 @@ export const normalizeLookupTrigger = (value: unknown): LookupTriggerKey => {
     return DEFAULT_LOOKUP_TRIGGER;
 };
 
-export const isLookupTriggerEvent = (
-    event: MouseEventLike,
-    trigger: LookupTriggerKey,
-): boolean => {
+export const isLookupTriggerEvent = (event: MouseEventLike, trigger: LookupTriggerKey): boolean => {
     switch (trigger) {
         case 'left-click':
             return event.button === 0 && !hasAnyModifier(event);
@@ -70,14 +64,10 @@ export const isLookupTriggerEvent = (
     }
 };
 
-export const isModifierLookupTrigger = (trigger: LookupTriggerKey): boolean => {
-    return trigger === 'shift' || trigger === 'control' || trigger === 'alt' || trigger === 'super';
-};
+export const isModifierLookupTrigger = (trigger: LookupTriggerKey): boolean =>
+    trigger === 'shift' || trigger === 'control' || trigger === 'alt' || trigger === 'super';
 
-export const isLookupTriggerKeyboardEvent = (
-    event: KeyboardEventLike,
-    trigger: LookupTriggerKey,
-): boolean => {
+export const isLookupTriggerKeyboardEvent = (event: KeyboardEventLike, trigger: LookupTriggerKey): boolean => {
     switch (trigger) {
         case 'shift':
             return event.key === 'Shift';

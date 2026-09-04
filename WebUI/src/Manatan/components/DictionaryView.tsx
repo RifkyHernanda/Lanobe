@@ -1,8 +1,24 @@
 import React, { useState, useMemo, useCallback, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTheme } from '@mui/material/styles';
+import VolumeUpIcon from '@mui/icons-material/VolumeUp';
+import StarIcon from '@mui/icons-material/Star';
+import StarBorderIcon from '@mui/icons-material/StarBorder';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+import AddIcon from '@mui/icons-material/Add';
+import SystemUpdateAltIcon from '@mui/icons-material/SystemUpdateAlt';
 import { useOCR } from '@/Manatan/context/OCRContext';
-import { findNotes, addNote, guiBrowse, imageUrlToBase64Webp, logAnkiError } from '@/Manatan/utils/anki';
+import {
+    findNotes,
+    addNote,
+    guiBrowse,
+    imageUrlToBase64Webp,
+    logAnkiError,
+    notesInfo,
+    calculateUpdatedFields,
+    updateNote,
+} from '@/Manatan/utils/anki';
 import { lookupYomitan } from '@/Manatan/utils/api';
 import { buildSentenceFuriganaFromLookup } from '@/Manatan/utils/japaneseFurigana';
 import {
@@ -24,17 +40,9 @@ import {
     renderAnkiPitchAccentPositions,
 } from '@/Manatan/utils/pitchAccentExport';
 import { DictionaryResult, WordAudioSource, WordAudioSourceSelection } from '@/Manatan/types';
-import { PronunciationSection, extractPronunciationData } from './Pronunciation';
+import { PronunciationSection, extractPronunciationData } from '@/Manatan/components/Pronunciation';
 import { PopupTheme } from '@/features/ln/reader/utils/themes';
-import VolumeUpIcon from '@mui/icons-material/VolumeUp';
-import StarIcon from '@mui/icons-material/Star';
-import StarBorderIcon from '@mui/icons-material/StarBorder';
-import MenuBookIcon from '@mui/icons-material/MenuBook';
-import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
-import AddIcon from '@mui/icons-material/Add';
-import SystemUpdateAltIcon from '@mui/icons-material/SystemUpdateAlt';
 import { CropperModal } from '@/Manatan/components/CropperModal';
-import { notesInfo, calculateUpdatedFields, updateNote } from '@/Manatan/utils/anki';
 
 export const StructuredContent: React.FC<{
     contentString: string;
@@ -58,7 +66,7 @@ export const StructuredContent: React.FC<{
     const lookupText = useMemo(() => getNodeText(parsedData), [parsedData]);
 
     if (parsedData === null || parsedData === undefined) return null;
-    
+
     if (typeof parsedData === 'string') {
         const text = parsedData;
         if (!text.trim()) return null;
@@ -78,7 +86,7 @@ export const StructuredContent: React.FC<{
         }
         return <span style={{ whiteSpace: 'pre-wrap' }}>{text}</span>;
     }
-    
+
     return (
         <div ref={contentRootRef} style={{ display: 'contents' }}>
             <ContentNode
@@ -128,12 +136,7 @@ const getClickTextOffset = (rootElement: Node | null, clientX: number, clientY: 
         checkRange.setStart(targetNode, targetOffset - 1);
         checkRange.setEnd(targetNode, targetOffset);
         const rect = checkRange.getBoundingClientRect();
-        if (
-            clientX >= rect.left &&
-            clientX <= rect.right &&
-            clientY >= rect.top &&
-            clientY <= rect.bottom
-        ) {
+        if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
             targetOffset -= 1;
         }
     }
@@ -155,11 +158,14 @@ const normalizeTableContent = (content: any): any => {
     return [{ tag: 'tbody', content: items }];
 };
 
-const ELEMENT_CONFIG: Record<string, {
-    void?: boolean;
-    wrapper?: 'table-container';
-    baseStyle?: React.CSSProperties;
-}> = {
+const ELEMENT_CONFIG: Record<
+    string,
+    {
+        void?: boolean;
+        wrapper?: 'table-container';
+        baseStyle?: React.CSSProperties;
+    }
+> = {
     br: { void: true },
     img: { void: true },
     hr: { void: true },
@@ -177,7 +183,21 @@ const ELEMENT_CONFIG: Record<string, {
     summary: {},
 };
 
-const VOID_TAGS = ['br', 'img', 'hr', 'input', 'meta', 'link', 'area', 'base', 'col', 'embed', 'source', 'track', 'wbr'];
+const VOID_TAGS = [
+    'br',
+    'img',
+    'hr',
+    'input',
+    'meta',
+    'link',
+    'area',
+    'base',
+    'col',
+    'embed',
+    'source',
+    'track',
+    'wbr',
+];
 
 const isKanji = (ch: string) => /[\u4e00-\u9fff\u3400-\u4dbf\u{20000}-\u{2ebe0}\u{2f800}-\u{2fa1f}々ヶ]/u.test(ch);
 
@@ -188,34 +208,52 @@ const ClickableHeadwordText: React.FC<{
     style?: React.CSSProperties;
     colors?: any;
 }> = ({ text, onKanjiClick, className, style, colors }) => {
-    if (!onKanjiClick) return <span className={className} style={style}>{text}</span>;
+    if (!onKanjiClick)
+        return (
+            <span className={className} style={style}>
+                {text}
+            </span>
+        );
 
     return (
         <span className={className} style={style}>
-            {Array.from(text).map((char, i) => (
+            {Array.from(text).map((char, i) =>
                 isKanji(char) ? (
                     <span
                         key={i}
-                        onClick={(e) => { e.stopPropagation(); onKanjiClick(char); }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onKanjiClick(char);
+                        }}
                         style={{ cursor: 'pointer' }}
                         className="clickable-kanji"
-                        onMouseEnter={(e) => { if (colors?.accent) e.currentTarget.style.color = colors.accent; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.color = ''; }}
+                        onMouseEnter={(e) => {
+                            if (colors?.accent) e.currentTarget.style.color = colors.accent;
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.color = '';
+                        }}
                     >
                         {char}
                     </span>
                 ) : (
                     <span key={i}>{char}</span>
-                )
-            ))}
+                ),
+            )}
         </span>
     );
 };
 
 const tagStyle: React.CSSProperties = {
-    display: 'inline-block', padding: '1px 5px', borderRadius: '3px',
-    fontSize: '0.75em', fontWeight: 'bold', marginRight: '6px',
-    color: '#fff', verticalAlign: 'middle', lineHeight: '1.2'
+    display: 'inline-block',
+    padding: '1px 5px',
+    borderRadius: '3px',
+    fontSize: '0.75em',
+    fontWeight: 'bold',
+    marginRight: '6px',
+    color: '#fff',
+    verticalAlign: 'middle',
+    lineHeight: '1.2',
 };
 
 const getTagStyle = (layout: 'vertical' | 'horizontal', tagBg: string, tagText: string): React.CSSProperties => {
@@ -230,7 +268,7 @@ const getTagStyle = (layout: 'vertical' | 'horizontal', tagBg: string, tagText: 
             color: tagText,
             backgroundColor: tagBg,
             verticalAlign: 'middle',
-            lineHeight: '1.2'
+            lineHeight: '1.2',
         };
     }
     return {
@@ -269,8 +307,35 @@ const ContentNode: React.FC<{
         }
         return <>{node}</>;
     }
-    if (Array.isArray(node)) return <>{node.map((item, i) => <ContentNode key={i} node={item} dictionaryName={dictionaryName} onLinkClick={onLinkClick} onWordClick={onWordClick} colors={colors} lookupText={lookupText} rootRef={rootRef} />)}</>;
-    if (node.type === 'structured-content') return <ContentNode node={node.content} dictionaryName={dictionaryName} onLinkClick={onLinkClick} onWordClick={onWordClick} colors={colors} lookupText={lookupText} rootRef={rootRef} />;
+    if (Array.isArray(node))
+        return (
+            <>
+                {node.map((item, i) => (
+                    <ContentNode
+                        key={i}
+                        node={item}
+                        dictionaryName={dictionaryName}
+                        onLinkClick={onLinkClick}
+                        onWordClick={onWordClick}
+                        colors={colors}
+                        lookupText={lookupText}
+                        rootRef={rootRef}
+                    />
+                ))}
+            </>
+        );
+    if (node.type === 'structured-content')
+        return (
+            <ContentNode
+                node={node.content}
+                dictionaryName={dictionaryName}
+                onLinkClick={onLinkClick}
+                onWordClick={onWordClick}
+                colors={colors}
+                lookupText={lookupText}
+                rootRef={rootRef}
+            />
+        );
 
     if (node?.data?.content === 'attribution') return null;
 
@@ -279,25 +344,29 @@ const ContentNode: React.FC<{
     const titleAttr = typeof title === 'string' ? title : undefined;
 
     const config = ELEMENT_CONFIG[tag] || {};
-    
+
     const yomitanClass = `gloss-sc-${tag}`;
     const dictClass = data?.class || '';
     const className = [yomitanClass, dictClass].filter(Boolean).join(' ');
-    
-    const dataAttrs = data && typeof data === 'object'
-        ? Object.entries(data).reduce((acc, [key, value]) => {
-            if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-                acc[`data-sc-${key}`] = String(value);
-            }
-            return acc;
-        }, {} as Record<string, string>)
-        : {};
-    
+
+    const dataAttrs =
+        data && typeof data === 'object'
+            ? Object.entries(data).reduce(
+                  (acc, [key, value]) => {
+                      if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+                          acc[`data-sc-${key}`] = String(value);
+                      }
+                      return acc;
+                  },
+                  {} as Record<string, string>,
+              )
+            : {};
+
     const finalStyle = { ...config.baseStyle, ...dictStyle };
-    
+
     const childProps = { dictionaryName, onLinkClick, onWordClick, colors, lookupText, rootRef };
     const normalizedContent = tag === 'table' ? normalizeTableContent(content) : content;
-    
+
     if (config.void || VOID_TAGS.includes(tag)) {
         if (tag === 'img') {
             const rawPath = node.path || node.src;
@@ -308,9 +377,10 @@ const ContentNode: React.FC<{
             if (imgWidth) imgStyle.maxWidth = `${imgWidth}px`;
             if (imgHeight) imgStyle.maxHeight = `${imgHeight}px`;
             if (!imgStyle.maxWidth && !imgStyle.maxHeight) imgStyle.maxWidth = '100%';
-            const src = rawPath && dictionaryName 
-                ? `/api/yomitan/dict-media/${encodeURIComponent(dictionaryName)}/${rawPath}` 
-                : rawPath;
+            const src =
+                rawPath && dictionaryName
+                    ? `/api/yomitan/dict-media/${encodeURIComponent(dictionaryName)}/${rawPath}`
+                    : rawPath;
             return <img src={src} alt={altText} style={imgStyle} {...dataAttrs} className={className} />;
         }
         if (tag === 'br') return <br />;
@@ -318,7 +388,7 @@ const ContentNode: React.FC<{
         if (!Component) return null;
         return <Component style={finalStyle} {...dataAttrs} className={className} />;
     }
-    
+
     if (tag === 'a' && href) {
         const handleClick = (e: React.MouseEvent) => {
             if (!onLinkClick) return;
@@ -342,7 +412,7 @@ const ContentNode: React.FC<{
             </a>
         );
     }
-    
+
     const Component = tag as keyof JSX.IntrinsicElements;
     if (!Component) return null;
     const element = (
@@ -350,19 +420,21 @@ const ContentNode: React.FC<{
             <ContentNode node={normalizedContent} {...childProps} />
         </Component>
     );
-    
+
     if (config.wrapper === 'table-container') {
         return <div className="gloss-sc-table-container">{element}</div>;
     }
-    
+
     return element;
 };
 
 const splitTagString = (tag: string): string[] =>
-    tag.split(/\s+/).map((t) => t.trim()).filter(Boolean);
+    tag
+        .split(/\s+/)
+        .map((t) => t.trim())
+        .filter(Boolean);
 
-const normalizeTagList = (tags: string[]): string[] =>
-    tags.flatMap((tag) => splitTagString(tag));
+const normalizeTagList = (tags: string[]): string[] => tags.flatMap((tag) => splitTagString(tag));
 
 const AnkiButtons: React.FC<{
     entry: DictionaryResult;
@@ -374,9 +446,10 @@ const AnkiButtons: React.FC<{
     const [existingNoteId, setExistingNoteId] = useState<number | null>(null);
     const [showCropper, setShowCropper] = useState(false);
 
-    const targetField = useMemo(() => {
-        return Object.keys(settings.ankiFieldMap || {}).find(key => settings.ankiFieldMap?.[key] === 'Target Word');
-    }, [settings.ankiFieldMap]);
+    const targetField = useMemo(
+        () => Object.keys(settings.ankiFieldMap || {}).find((key) => settings.ankiFieldMap?.[key] === 'Target Word'),
+        [settings.ankiFieldMap],
+    );
 
     const checkStatus = async () => {
         if (!settings.ankiConnectEnabled || !settings.ankiCheckDuplicates) return;
@@ -412,8 +485,8 @@ const AnkiButtons: React.FC<{
                 setExistingNoteId(null);
             }
         } catch (e) {
-            logAnkiError("Anki check failed", e);
-            setStatus('unknown'); 
+            logAnkiError('Anki check failed', e);
+            setStatus('unknown');
         }
     };
 
@@ -422,7 +495,7 @@ const AnkiButtons: React.FC<{
             setStatus('loading');
             checkStatus();
         } else {
-            setStatus('missing'); 
+            setStatus('missing');
         }
     }, [
         entry.headword,
@@ -430,13 +503,13 @@ const AnkiButtons: React.FC<{
         settings.ankiDuplicateScope,
         settings.ankiCheckDuplicatesAllModels,
         settings.ankiDeck,
-        targetField
+        targetField,
     ]);
 
     const handleAddClick = (e: React.MouseEvent) => {
         e.stopPropagation();
         if (!settings.ankiDeck || !settings.ankiModel) {
-            showAlert("Anki Settings Missing", "Please select a Deck and Model in settings.");
+            showAlert('Anki Settings Missing', 'Please select a Deck and Model in settings.');
             return;
         }
         const map = settings.ankiFieldMap || {};
@@ -461,27 +534,32 @@ const AnkiButtons: React.FC<{
         const getSingleGlossaryName = (value: string): string | null => {
             if (value.startsWith(singleGlossaryPrefix)) {
                 const name = value.slice(singleGlossaryPrefix.length).trim();
-                return name ? name : null;
+                return name || null;
             }
             if (value.startsWith('Single Glossary:')) {
                 const name = value.replace('Single Glossary:', '').trim();
-                return name ? name : null;
+                return name || null;
             }
             return null;
         };
         const styleToString = (style: any) => {
             if (!style) return '';
-            return Object.entries(style).map(([k, v]) => {
-                const key = k.replace(/([A-Z])/g, '-$1').toLowerCase();
-                return `${key}:${v}`;
-            }).join(';');
+            return Object.entries(style)
+                .map(([k, v]) => {
+                    const key = k.replace(/([A-Z])/g, '-$1').toLowerCase();
+                    return `${key}:${v}`;
+                })
+                .join(';');
         };
 
-        const HTML_ELEMENT_CONFIG: Record<string, {
-            void?: boolean;
-            wrapper?: 'table-container';
-            baseStyle?: string;
-        }> = {
+        const HTML_ELEMENT_CONFIG: Record<
+            string,
+            {
+                void?: boolean;
+                wrapper?: 'table-container';
+                baseStyle?: string;
+            }
+        > = {
             br: { void: true },
             img: { void: true },
             hr: { void: true },
@@ -499,13 +577,23 @@ const AnkiButtons: React.FC<{
             summary: {},
         };
 
-        const VOID_TAGS_HTML = ['br', 'img', 'hr', 'input', 'meta', 'link', 'area', 'base', 'col', 'embed', 'source', 'track', 'wbr'];
+        const VOID_TAGS_HTML = [
+            'br',
+            'img',
+            'hr',
+            'input',
+            'meta',
+            'link',
+            'area',
+            'base',
+            'col',
+            'embed',
+            'source',
+            'track',
+            'wbr',
+        ];
 
-        const generateElementHTML = (
-            node: any,
-            dictStyle: string,
-            glossaryDictionaryName?: string,
-        ): string => {
+        const generateElementHTML = (node: any, dictStyle: string, glossaryDictionaryName?: string): string => {
             const { tag, content, data, href } = node;
             const config = HTML_ELEMENT_CONFIG[tag] || {};
 
@@ -520,14 +608,22 @@ const AnkiButtons: React.FC<{
                 ? 'display: inline-block; padding: 1px 5px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.28); font-size: 0.75em; font-weight: bold; margin-right: 6px; color: #fff; background-color: #666; vertical-align: middle; line-height: 1.2;'
                 : '';
 
-            const dataAttrs = data && typeof data === 'object'
-                ? Object.entries(data).map(([key, value]) => {
-                    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-                        return `data-sc-${key}="${String(value).replace(/"/g, '&quot;')}"`;
-                    }
-                    return '';
-                }).filter(Boolean).join(' ')
-                : '';
+            const dataAttrs =
+                data && typeof data === 'object'
+                    ? Object.entries(data)
+                          .map(([key, value]) => {
+                              if (
+                                  typeof value === 'string' ||
+                                  typeof value === 'number' ||
+                                  typeof value === 'boolean'
+                              ) {
+                                  return `data-sc-${key}="${String(value).replace(/"/g, '&quot;')}"`;
+                              }
+                              return '';
+                          })
+                          .filter(Boolean)
+                          .join(' ')
+                    : '';
 
             const finalStyle = `${config.baseStyle || ''}${tagClassStyle}${dictStyle}`;
             const styleAttr = finalStyle ? ` style="${finalStyle}"` : '';
@@ -535,9 +631,10 @@ const AnkiButtons: React.FC<{
             if (config.void || VOID_TAGS_HTML.includes(tag)) {
                 if (tag === 'img') {
                     const rawPath = node.path || node.src || '';
-                    const src = rawPath && glossaryDictionaryName
-                        ? `/api/yomitan/dict-media/${encodeURIComponent(glossaryDictionaryName)}/${rawPath}`
-                        : rawPath;
+                    const src =
+                        rawPath && glossaryDictionaryName
+                            ? `/api/yomitan/dict-media/${encodeURIComponent(glossaryDictionaryName)}/${rawPath}`
+                            : rawPath;
                     const alt = node.alt || '';
                     return `<img src="${src}" alt="${alt}"${styleAttr} ${dataAttrs}${classAttr} />`;
                 }
@@ -580,27 +677,23 @@ const AnkiButtons: React.FC<{
         };
         const generateAnkiFurigana = (furiganaData: string[][]): string => {
             if (!furiganaData || furiganaData.length === 0) return entry.headword;
-            return furiganaData.map(segment => {
-                if (!Array.isArray(segment)) return '';
-                const kanji = segment[0] ?? '';
-                const kana = segment[1];
-                if (kana && kana !== kanji) return `${kanji}[${kana}]`;
-                return kanji;
-            }).join('');
+            return furiganaData
+                .map((segment) => {
+                    if (!Array.isArray(segment)) return '';
+                    const kanji = segment[0] ?? '';
+                    const kana = segment[1];
+                    if (kana && kana !== kanji) return `${kanji}[${kana}]`;
+                    return kanji;
+                })
+                .join('');
         };
-        const getLowestFrequency = (): string => {
-            return getLowestFrequencyFromFrequencies(entry.frequencies);
-        };
-        const getHarmonicMeanFrequency = (): string => {
-            return getHarmonicMeanFrequencyFromFrequencies(entry.frequencies);
-        };
-        const getHarmonicFrequency = (): string => {
-            return getHarmonicMeanFrequency();
-        };
+        const getLowestFrequency = (): string => getLowestFrequencyFromFrequencies(entry.frequencies);
+        const getHarmonicMeanFrequency = (): string => getHarmonicMeanFrequencyFromFrequencies(entry.frequencies);
+        const getHarmonicFrequency = (): string => getHarmonicMeanFrequency();
         const getFrequency = (): string => {
             const mode = settings.ankiFreqMode || 'lowest';
             if (mode === 'lowest') return getLowestFrequency();
-            const freqEntry = entry.frequencies?.find(f => f.dictionaryName === mode);
+            const freqEntry = entry.frequencies?.find((f) => f.dictionaryName === mode);
             if (freqEntry) return freqEntry.value;
             return getLowestFrequency();
         };
@@ -614,32 +707,32 @@ const AnkiButtons: React.FC<{
         };
         const getPitchAccentCategories = (): string => {
             const { pitchAccents } = extractPronunciationData(entry);
-            return renderAnkiPitchAccentCategories(
-                pitchAccents,
-                entry.reading || entry.headword,
-                entry.termTags,
-            );
+            return renderAnkiPitchAccentCategories(pitchAccents, entry.reading || entry.headword, entry.termTags);
         };
         const buildGlossaryHtml = (dictionaryName?: string): string => {
             const glossaryEntries = dictionaryName
                 ? entry.glossary.filter((def) => def.dictionaryName === dictionaryName)
                 : entry.glossary;
             if (!glossaryEntries.length) return '';
-            return glossaryEntries.map((def, idx) => {
-                const tagsHTML = normalizeTagList(def.tags).map((t) =>
-                    `<span style="display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 0.75em; font-weight: bold; margin-right: 6px; color: #fff; background-color: #666; vertical-align: middle;">${t}</span>`
-                );
-                const dictHTML = `<i>(${def.dictionaryName})</i>`;
-                const headerHTML = [...tagsHTML, dictHTML].join(' ');
-                const contentHTML = def.content.map((c) => {
-                    try {
-                        const parsed = JSON.parse(c);
-                        return generateHTML(parsed, def.dictionaryName);
-                    } catch {
-                        return c;
-                    }
-                }).join('');
-                return `
+            return glossaryEntries
+                .map((def, idx) => {
+                    const tagsHTML = normalizeTagList(def.tags).map(
+                        (t) =>
+                            `<span style="display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 0.75em; font-weight: bold; margin-right: 6px; color: #fff; background-color: #666; vertical-align: middle;">${t}</span>`,
+                    );
+                    const dictHTML = `<i>(${def.dictionaryName})</i>`;
+                    const headerHTML = [...tagsHTML, dictHTML].join(' ');
+                    const contentHTML = def.content
+                        .map((c) => {
+                            try {
+                                const parsed = JSON.parse(c);
+                                return generateHTML(parsed, def.dictionaryName);
+                            } catch {
+                                return c;
+                            }
+                        })
+                        .join('');
+                    return `
                     <div style="margin-bottom: 12px; display: flex;">
                         <div style="flex-shrink: 0; width: 24px; font-weight: bold;">${idx + 1}.</div>
                         <div style="flex-grow: 1;">
@@ -648,7 +741,8 @@ const AnkiButtons: React.FC<{
                         </div>
                     </div>
                 `;
-            }).join('');
+                })
+                .join('');
         };
         const sentence = dictPopup.context?.sentence || '';
         const needsSentenceFurigana = Object.values(map).includes('Sentence Furigana');
@@ -665,16 +759,15 @@ const AnkiButtons: React.FC<{
             const audioSelection = wordAudioSelectionKey === entryKey ? wordAudioSelection : 'auto';
             const audioInfo = await resolveWordAudioUrl(entry, settings.yomitanLanguage, audioSelection);
             if (audioInfo?.url) {
-                wordAudioData = { url: audioInfo.url, filename: getWordAudioFilename(audioInfo.url), fields: [wordAudioField] };
+                wordAudioData = {
+                    url: audioInfo.url,
+                    filename: getWordAudioFilename(audioInfo.url),
+                    fields: [wordAudioField],
+                };
             }
         }
         for (const [ankiField, mapType] of Object.entries(map)) {
-            const mappedSentenceValue = mapSentenceFieldValue(
-                mapType,
-                sentence,
-                sentenceFurigana,
-                entry.headword,
-            );
+            const mappedSentenceValue = mapSentenceFieldValue(mapType, sentence, sentenceFurigana, entry.headword);
             if (mappedSentenceValue !== null) {
                 fields[ankiField] = mappedSentenceValue;
                 continue;
@@ -699,21 +792,26 @@ const AnkiButtons: React.FC<{
         }
 
         let pictureData;
-        const imgField = Object.keys(map).find(k => map[k] === 'Image');
+        const imgField = Object.keys(map).find((k) => map[k] === 'Image');
         if (imgField && dictPopup.context?.imgSrc) {
             if (croppedBase64) {
                 pictureData = {
                     data: croppedBase64.split(';base64,')[1],
                     filename: `manatan_card_${Date.now()}.webp`,
-                    fields: [imgField]
+                    fields: [imgField],
                 };
             } else {
-                const b64 = await imageUrlToBase64Webp(dictPopup.context.imgSrc, settings.ankiImageQuality || 0.92, settings.ankiDownscaleMaxWidth, settings.ankiDownscaleMaxHeight);
+                const b64 = await imageUrlToBase64Webp(
+                    dictPopup.context.imgSrc,
+                    settings.ankiImageQuality || 0.92,
+                    settings.ankiDownscaleMaxWidth,
+                    settings.ankiDownscaleMaxHeight,
+                );
                 if (b64) {
                     pictureData = {
                         data: b64.split(';base64,')[1],
                         filename: `manatan_card_${Date.now()}.webp`,
-                        fields: [imgField]
+                        fields: [imgField],
                     };
                 }
             }
@@ -740,18 +838,18 @@ const AnkiButtons: React.FC<{
                 wordAudioData,
                 {
                     allowDuplicate: isExists && action === 'add',
-                    duplicateScope: settings.ankiDuplicateScope || 'deck'
-                }
+                    duplicateScope: settings.ankiDuplicateScope || 'deck',
+                },
             );
             if (res) {
                 setStatus('exists');
                 setExistingNoteId(res);
             } else {
-                throw new Error("Anki returned null result");
+                throw new Error('Anki returned null result');
             }
         } catch (e: any) {
             console.error(e);
-            showAlert("Add Failed", String(e));
+            showAlert('Add Failed', String(e));
             setStatus('missing');
         }
     };
@@ -763,20 +861,16 @@ const AnkiButtons: React.FC<{
             setStatus('loading');
             const { fields, pictureData, wordAudioData } = await prepareNoteData(croppedBase64);
             const info = await notesInfo(url, [existingNoteId]);
-            if (!info || !info[0]) throw new Error("Could not fetch existing note info");
+            if (!info || !info[0]) throw new Error('Could not fetch existing note info');
 
             const currentFields = info[0].fields;
-            const mergedFields = calculateUpdatedFields(
-                currentFields,
-                fields,
-                settings.ankiFieldUpdateModes || {}
-            );
+            const mergedFields = calculateUpdatedFields(currentFields, fields, settings.ankiFieldUpdateModes || {});
 
             const updatePayload: any = {
                 note: {
                     id: existingNoteId,
-                    fields: mergedFields
-                }
+                    fields: mergedFields,
+                },
             };
 
             if (pictureData) updatePayload.note.picture = pictureData;
@@ -786,10 +880,10 @@ const AnkiButtons: React.FC<{
 
             // Re-fetch to confirm and update status
             await checkStatus();
-            showAlert("Updated", "Existing card updated successfully.");
+            showAlert('Updated', 'Existing card updated successfully.');
         } catch (e: any) {
-            logAnkiError("Overwrite failed", e);
-            showAlert("Overwrite Failed", String(e));
+            logAnkiError('Overwrite failed', e);
+            showAlert('Overwrite Failed', String(e));
             setStatus('exists');
         }
     };
@@ -806,7 +900,9 @@ const AnkiButtons: React.FC<{
                 query = `deck:"${settings.ankiDeck}" "${entry.headword}"`;
             }
             await guiBrowse(url, query);
-        } catch(e) { console.error(e); }
+        } catch (e) {
+            console.error(e);
+        }
     };
     if (status === 'unknown') return null;
     const isExists = status === 'exists';
@@ -828,19 +924,42 @@ const AnkiButtons: React.FC<{
                     onClick={handleAddClick}
                     disabled={status === 'loading'}
                     style={{
-                        background: 'none', border: 'none', cursor: 'pointer', padding: '2px',
-                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        lineHeight: 1, color: isExists && action === 'overwrite' ? '#3498db' : '#2ecc71', opacity: status === 'loading' ? 0.5 : 1, marginInlineStart: '10px'
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '2px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        lineHeight: 1,
+                        color: isExists && action === 'overwrite' ? '#3498db' : '#2ecc71',
+                        opacity: status === 'loading' ? 0.5 : 1,
+                        marginInlineStart: '10px',
                     }}
-                    title={isExists && action === 'overwrite' ? "Overwrite in Anki" : (isExists && action === 'add' ? "Add Duplicate to Anki" : "Add to Anki")}
+                    title={
+                        isExists && action === 'overwrite'
+                            ? 'Overwrite in Anki'
+                            : isExists && action === 'add'
+                              ? 'Add Duplicate to Anki'
+                              : 'Add to Anki'
+                    }
                 >
                     {isExists && action === 'overwrite' ? (
                         <SystemUpdateAltIcon sx={{ fontSize: 22 }} />
-                    ) : (isExists && action === 'add' ? (
+                    ) : isExists && action === 'add' ? (
                         <AddIcon sx={{ fontSize: 22 }} />
                     ) : (
-                        <AddCircleOutlineIcon sx={{ fontSize: 22, '& path': { transform: 'scale(0.9167)', transformOrigin: 'center', transformBox: 'fill-box' } }} />
-                    ))}
+                        <AddCircleOutlineIcon
+                            sx={{
+                                fontSize: 22,
+                                '& path': {
+                                    transform: 'scale(0.9167)',
+                                    transformOrigin: 'center',
+                                    transformBox: 'fill-box',
+                                },
+                            }}
+                        />
+                    )}
                 </button>
             )}
 
@@ -849,9 +968,17 @@ const AnkiButtons: React.FC<{
                     onClick={handleOpen}
                     disabled={status === 'loading'}
                     style={{
-                        background: 'none', border: 'none', cursor: 'pointer', padding: '2px',
-                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        lineHeight: 1, color: '#f1c40f', opacity: status === 'loading' ? 0.5 : 1, marginInlineStart: (action === 'prevent' ? '10px' : '4px')
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '2px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        lineHeight: 1,
+                        color: '#f1c40f',
+                        opacity: status === 'loading' ? 0.5 : 1,
+                        marginInlineStart: action === 'prevent' ? '10px' : '4px',
                     }}
                     title="Open in Anki"
                 >
@@ -859,18 +986,19 @@ const AnkiButtons: React.FC<{
                 </button>
             )}
 
-            {showCropper && createPortal(
-                <CropperModal 
-                    imageSrc={dictPopup.context?.imgSrc || ''}
-                    spreadData={dictPopup.context?.spreadData}
-                    onComplete={onCropperComplete}
-                    onCancel={() => setShowCropper(false)}
-                    quality={settings.ankiImageQuality || 0.92}
-                    downscaleMaxWidth={settings.ankiDownscaleMaxWidth}
-                    downscaleMaxHeight={settings.ankiDownscaleMaxHeight}
-                />,
-                document.body
-            )}
+            {showCropper &&
+                createPortal(
+                    <CropperModal
+                        imageSrc={dictPopup.context?.imgSrc || ''}
+                        spreadData={dictPopup.context?.spreadData}
+                        onComplete={onCropperComplete}
+                        onCancel={() => setShowCropper(false)}
+                        quality={settings.ankiImageQuality || 0.92}
+                        downscaleMaxWidth={settings.ankiDownscaleMaxWidth}
+                        downscaleMaxHeight={settings.ankiDownscaleMaxHeight}
+                    />,
+                    document.body,
+                )}
         </div>
     );
 };
@@ -889,8 +1017,16 @@ interface AudioMenuProps {
 }
 
 const AudioMenu: React.FC<AudioMenuProps> = ({
-    x, y, entry, wordAudioOptions, wordAudioAvailability, wordAudioAutoAvailable,
-    activeWordAudioSelection, popupTheme, onPlayAudio, onSelectSource,
+    x,
+    y,
+    entry,
+    wordAudioOptions,
+    wordAudioAvailability,
+    wordAudioAutoAvailable,
+    activeWordAudioSelection,
+    popupTheme,
+    onPlayAudio,
+    onSelectSource,
 }) => {
     const menuRef = useRef<HTMLDivElement | null>(null);
     const [menuPosition, setMenuPosition] = useState({ top: y, left: x });
@@ -917,64 +1053,146 @@ const AudioMenu: React.FC<AudioMenuProps> = ({
             data-word-audio-menu="true"
             onMouseDown={(event) => event.stopPropagation()}
             onClick={(event) => event.stopPropagation()}
-            onContextMenu={(event) => { event.preventDefault(); event.stopPropagation(); }}
+            onContextMenu={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+            }}
             style={{
-                position: 'fixed', top: menuPosition.top, left: menuPosition.left,
-                zIndex: 2147483647, background: popupTheme ? popupTheme.bg : '#1a1d21',
-                border: `1px solid ${popupTheme ? popupTheme.border : 'rgba(255,255,255,0.12)'}`, borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.45)',
-                padding: '6px', minWidth: '220px',
+                position: 'fixed',
+                top: menuPosition.top,
+                left: menuPosition.left,
+                zIndex: 2147483647,
+                background: popupTheme ? popupTheme.bg : '#1a1d21',
+                border: `1px solid ${popupTheme ? popupTheme.border : 'rgba(255,255,255,0.12)'}`,
+                borderRadius: '8px',
+                boxShadow: '0 10px 25px rgba(0,0,0,0.45)',
+                padding: '6px',
+                minWidth: '220px',
             }}
         >
-            <div style={{ fontSize: '0.75em', color: popupTheme ? popupTheme.secondary : '#aaa', padding: '4px 8px' }}>Word audio sources</div>
+            <div style={{ fontSize: '0.75em', color: popupTheme ? popupTheme.secondary : '#aaa', padding: '4px 8px' }}>
+                Word audio sources
+            </div>
             <div
-                role="button" tabIndex={0}
+                role="button"
+                tabIndex={0}
                 onClick={() => onPlayAudio('auto')}
                 style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '6px 8px', borderRadius: '6px', cursor: 'pointer', color: popupTheme ? popupTheme.fg : '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '6px 8px',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    color: popupTheme ? popupTheme.fg : '#fff',
                 }}
             >
-                <span style={{
-                    textDecoration: wordAudioAutoAvailable === false ? 'line-through' : 'none',
-                    color: wordAudioAutoAvailable === false ? (popupTheme ? popupTheme.secondary : '#777') : (popupTheme ? popupTheme.fg : '#fff'),
-                }}>Auto (first available)</span>
-                <button
-                    type="button"
-                    onClick={(event) => { event.stopPropagation(); onSelectSource('auto'); }}
-                    title="Use this source for cards"
+                <span
                     style={{
-                        background: 'transparent', border: 'none',
-                        color: wordAudioAutoAvailable === false ? (popupTheme ? popupTheme.secondary : '#555') : activeWordAudioSelection === 'auto' ? '#f1c40f' : (popupTheme ? popupTheme.secondary : '#777'),
-                        cursor: 'pointer', fontSize: '0.9em',
+                        textDecoration: wordAudioAutoAvailable === false ? 'line-through' : 'none',
+                        color:
+                            wordAudioAutoAvailable === false
+                                ? popupTheme
+                                    ? popupTheme.secondary
+                                    : '#777'
+                                : popupTheme
+                                  ? popupTheme.fg
+                                  : '#fff',
                     }}
                 >
-                    {activeWordAudioSelection === 'auto' ? <StarIcon fontSize="small" /> : <StarBorderIcon fontSize="small" />}
+                    Auto (first available)
+                </span>
+                <button
+                    type="button"
+                    onClick={(event) => {
+                        event.stopPropagation();
+                        onSelectSource('auto');
+                    }}
+                    title="Use this source for cards"
+                    style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color:
+                            wordAudioAutoAvailable === false
+                                ? popupTheme
+                                    ? popupTheme.secondary
+                                    : '#555'
+                                : activeWordAudioSelection === 'auto'
+                                  ? '#f1c40f'
+                                  : popupTheme
+                                    ? popupTheme.secondary
+                                    : '#777',
+                        cursor: 'pointer',
+                        fontSize: '0.9em',
+                    }}
+                >
+                    {activeWordAudioSelection === 'auto' ? (
+                        <StarIcon fontSize="small" />
+                    ) : (
+                        <StarBorderIcon fontSize="small" />
+                    )}
                 </button>
             </div>
             {wordAudioOptions.map((source) => (
                 <div
-                    key={source} role="button" tabIndex={0}
+                    key={source}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => onPlayAudio(source)}
                     style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        padding: '6px 8px', borderRadius: '6px', cursor: 'pointer', color: popupTheme ? popupTheme.fg : '#fff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '6px 8px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        color: popupTheme ? popupTheme.fg : '#fff',
                     }}
                 >
-                    <span style={{
-                        textDecoration: wordAudioAvailability?.[source] === false ? 'line-through' : 'none',
-                        color: wordAudioAvailability?.[source] === false ? (popupTheme ? popupTheme.secondary : '#777') : (popupTheme ? popupTheme.fg : '#fff'),
-                    }}>{getWordAudioSourceLabel(source)}</span>
-                    <button
-                        type="button"
-                        onClick={(event) => { event.stopPropagation(); onSelectSource(source); }}
-                        title="Use this source for cards"
+                    <span
                         style={{
-                            background: 'transparent', border: 'none',
-                            color: wordAudioAvailability?.[source] === false ? (popupTheme ? popupTheme.secondary : '#555') : activeWordAudioSelection === source ? '#f1c40f' : (popupTheme ? popupTheme.secondary : '#777'),
-                            cursor: 'pointer', fontSize: '0.9em',
+                            textDecoration: wordAudioAvailability?.[source] === false ? 'line-through' : 'none',
+                            color:
+                                wordAudioAvailability?.[source] === false
+                                    ? popupTheme
+                                        ? popupTheme.secondary
+                                        : '#777'
+                                    : popupTheme
+                                      ? popupTheme.fg
+                                      : '#fff',
                         }}
                     >
-                        {activeWordAudioSelection === source ? <StarIcon fontSize="small" /> : <StarBorderIcon fontSize="small" />}
+                        {getWordAudioSourceLabel(source)}
+                    </span>
+                    <button
+                        type="button"
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            onSelectSource(source);
+                        }}
+                        title="Use this source for cards"
+                        style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color:
+                                wordAudioAvailability?.[source] === false
+                                    ? popupTheme
+                                        ? popupTheme.secondary
+                                        : '#555'
+                                    : activeWordAudioSelection === source
+                                      ? '#f1c40f'
+                                      : popupTheme
+                                        ? popupTheme.secondary
+                                        : '#777',
+                            cursor: 'pointer',
+                            fontSize: '0.9em',
+                        }}
+                    >
+                        {activeWordAudioSelection === source ? (
+                            <StarIcon fontSize="small" />
+                        ) : (
+                            <StarBorderIcon fontSize="small" />
+                        )}
                     </button>
                 </div>
             ))}
@@ -1004,19 +1222,44 @@ const KanjiEntryDisplay: React.FC<{
     const hasStats = kanji.stats && Object.keys(kanji.stats).length > 0;
 
     return (
-        <div style={{ display: 'flex', marginBottom: '8px', paddingLeft: '8px', borderLeft: `2px solid ${colors.border}` }}>
-            {showNumber && <div style={{ flexShrink: 0, width: '20px', color: colors.textMuted, fontWeight: 'bold' }}>{number}.</div>}
+        <div
+            style={{
+                display: 'flex',
+                marginBottom: '8px',
+                paddingLeft: '8px',
+                borderLeft: `2px solid ${colors.border}`,
+            }}
+        >
+            {showNumber && (
+                <div style={{ flexShrink: 0, width: '20px', color: colors.textMuted, fontWeight: 'bold' }}>
+                    {number}.
+                </div>
+            )}
             <div style={{ flexGrow: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px', marginBottom: '4px' }}>
+                <div
+                    style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px', marginBottom: '4px' }}
+                >
                     {showDictTag && kanji.dictionaryName && (
-                        <span style={getTagStyle(layout, colors.dictTagBg, colors.dictTagText)}>{kanji.dictionaryName}</span>
+                        <span style={getTagStyle(layout, colors.dictTagBg, colors.dictTagText)}>
+                            {kanji.dictionaryName}
+                        </span>
                     )}
-                    {kanji.tags && kanji.tags.map((tag: string, ti: number) => (
-                        <span key={ti} style={getTagStyle(layout, colors.tagBg, colors.tagText)}>{tag}</span>
-                    ))}
+                    {kanji.tags &&
+                        kanji.tags.map((tag: string, ti: number) => (
+                            <span key={ti} style={getTagStyle(layout, colors.tagBg, colors.tagText)}>
+                                {tag}
+                            </span>
+                        ))}
                 </div>
                 {showCharacter && (
-                    <div style={{ fontSize: layout === 'horizontal' ? '1.3rem' : '1.6rem', fontWeight: 'bold', color: colors.text, marginBottom: '4px' }}>
+                    <div
+                        style={{
+                            fontSize: layout === 'horizontal' ? '1.3rem' : '1.6rem',
+                            fontWeight: 'bold',
+                            color: colors.text,
+                            marginBottom: '4px',
+                        }}
+                    >
                         {kanji.character}
                     </div>
                 )}
@@ -1038,9 +1281,7 @@ const KanjiEntryDisplay: React.FC<{
                     <div style={{ whiteSpace: 'pre-wrap', fontSize: '0.85em', marginTop: '8px', color: colors.text }}>
                         {kanji.meanings.map((m: string, i: number) => {
                             const lines = m.split('\n').filter(Boolean);
-                            return lines.map((line, lineIdx) => (
-                                <div key={`${i}-${lineIdx}`}>{line}</div>
-                            ));
+                            return lines.map((line, lineIdx) => <div key={`${i}-${lineIdx}`}>{line}</div>);
                         })}
                     </div>
                 )}
@@ -1060,7 +1301,15 @@ const KanjiEntryDisplay: React.FC<{
                             {showStats ? '▼ Hide Stats' : '▶ Show Stats'}
                         </button>
                         {showStats && (
-                            <div style={{ marginTop: '4px', display: 'flex', flexWrap: 'wrap', gap: '8px', fontSize: '0.75rem' }}>
+                            <div
+                                style={{
+                                    marginTop: '4px',
+                                    display: 'flex',
+                                    flexWrap: 'wrap',
+                                    gap: '8px',
+                                    fontSize: '0.75rem',
+                                }}
+                            >
                                 {Object.entries(kanji.stats).map(([key, value], i) => (
                                     <span key={i} style={{ color: colors.textSecondary }}>
                                         <span style={{ color: colors.textMuted }}>{key}:</span> {String(value)}
@@ -1091,10 +1340,20 @@ const KanjiEntriesSection: React.FC<KanjiEntriesSectionProps> = ({ kanjiResults,
         }
 
         return (
-            <div className="kanji-entries" style={{ marginTop: '16px', paddingTop: '16px', borderTop: `1px solid ${colors.border}` }}>
+            <div
+                className="kanji-entries"
+                style={{ marginTop: '16px', paddingTop: '16px', borderTop: `1px solid ${colors.border}` }}
+            >
                 {charGroups.map((group, charIdx) => (
                     <div key={group.char} style={{ marginBottom: '16px' }}>
-                        <div style={{ fontSize: layout === 'horizontal' ? '1.5rem' : '2rem', fontWeight: 'bold', color: colors.text, marginBottom: '8px' }}>
+                        <div
+                            style={{
+                                fontSize: layout === 'horizontal' ? '1.5rem' : '2rem',
+                                fontWeight: 'bold',
+                                color: colors.text,
+                                marginBottom: '8px',
+                            }}
+                        >
                             {group.char}
                         </div>
                         {group.entries.map((kanji, kanjiIdx) => (
@@ -1117,7 +1376,10 @@ const KanjiEntriesSection: React.FC<KanjiEntriesSectionProps> = ({ kanjiResults,
 
     // Flat view - preserve exact order from backend (sorted by priority)
     return (
-        <div className="kanji-entries" style={{ marginTop: '16px', paddingTop: '16px', borderTop: `1px solid ${colors.border}` }}>
+        <div
+            className="kanji-entries"
+            style={{ marginTop: '16px', paddingTop: '16px', borderTop: `1px solid ${colors.border}` }}
+        >
             {kanjiResults.map((kanji, idx) => (
                 <div key={idx} style={{ marginBottom: '16px' }}>
                     <KanjiEntryDisplay
@@ -1155,89 +1417,117 @@ interface DictionaryViewProps {
     grouped?: boolean;
 }
 
-export const DictionaryView: React.FC<DictionaryViewProps> = ({ 
-    results, kanjiResults = [], isLoading, systemLoading, onLinkClick, onWordClick, onKanjiClick, context, variant = 'inline', popupTheme, layout = 'vertical', renderAnkiButtons, renderHistoryNav, grouped = false
+export const DictionaryView: React.FC<DictionaryViewProps> = ({
+    results,
+    kanjiResults = [],
+    isLoading,
+    systemLoading,
+    onLinkClick,
+    onWordClick,
+    onKanjiClick,
+    context,
+    variant = 'inline',
+    popupTheme,
+    layout = 'vertical',
+    renderAnkiButtons,
+    renderHistoryNav,
+    grouped = false,
 }) => {
     const isPopup = variant === 'popup';
     const muiTheme = useTheme();
     const isDark = muiTheme.palette.mode === 'dark';
-    const colors = isPopup ? popupTheme ? {
-        // Popup colors from theme
-        text: popupTheme.fg,
-        textSecondary: popupTheme.secondary,
-        textMuted: popupTheme.secondary,
-        border: popupTheme.border,
-        tagBg: popupTheme.secondary,
-        tagText: popupTheme.bg,
-        freqNameBg: '#2ecc71',
-        freqNameText: '#000',
-        freqValueBg: popupTheme.hoverBg,
-        freqValueText: popupTheme.fg,
-        dictTagBg: popupTheme.accent,
-        dictTagText: '#fff',
-        accent: popupTheme.accent,
-        hoverBg: popupTheme.hoverBg,
-    } : {
-        // Popup colors (dark background - fallback)
-        text: '#fff',
-        textSecondary: '#aaa',
-        textMuted: '#888',
-        border: '#333',
-        tagBg: '#666',
-        tagText: '#fff',
-        freqNameBg: '#2ecc71',
-        freqNameText: '#000',
-        freqValueBg: '#333',
-        freqValueText: '#eee',
-        dictTagBg: '#9b59b6',
-        dictTagText: '#fff',
-        accent: '#7cc8ff',
-        hoverBg: '#333',
-    } : {
-        // Inline colors using MUI theme
-        text: muiTheme.palette.text.primary,
-        textSecondary: muiTheme.palette.text.secondary,
-        textMuted: isDark ? '#888' : '#666',
-        border: muiTheme.palette.divider,
-        tagBg: isDark ? '#666' : '#e0e0e0',
-        tagText: isDark ? '#fff' : '#000',
-        freqNameBg: '#2ecc71',
-        freqNameText: '#000',
-        freqValueBg: isDark ? '#333' : '#f5f5f5',
-        freqValueText: isDark ? '#eee' : '#000',
-        dictTagBg: '#9b59b6',
-        dictTagText: '#fff',
-        accent: muiTheme.palette.primary.main,
-        hoverBg: isDark ? '#333' : '#f5f5f5',
-    };
+    const colors = isPopup
+        ? popupTheme
+            ? {
+                  // Popup colors from theme
+                  text: popupTheme.fg,
+                  textSecondary: popupTheme.secondary,
+                  textMuted: popupTheme.secondary,
+                  border: popupTheme.border,
+                  tagBg: popupTheme.secondary,
+                  tagText: popupTheme.bg,
+                  freqNameBg: '#2ecc71',
+                  freqNameText: '#000',
+                  freqValueBg: popupTheme.hoverBg,
+                  freqValueText: popupTheme.fg,
+                  dictTagBg: popupTheme.accent,
+                  dictTagText: '#fff',
+                  accent: popupTheme.accent,
+                  hoverBg: popupTheme.hoverBg,
+              }
+            : {
+                  // Popup colors (dark background - fallback)
+                  text: '#fff',
+                  textSecondary: '#aaa',
+                  textMuted: '#888',
+                  border: '#333',
+                  tagBg: '#666',
+                  tagText: '#fff',
+                  freqNameBg: '#2ecc71',
+                  freqNameText: '#000',
+                  freqValueBg: '#333',
+                  freqValueText: '#eee',
+                  dictTagBg: '#9b59b6',
+                  dictTagText: '#fff',
+                  accent: '#7cc8ff',
+                  hoverBg: '#333',
+              }
+        : {
+              // Inline colors using MUI theme
+              text: muiTheme.palette.text.primary,
+              textSecondary: muiTheme.palette.text.secondary,
+              textMuted: isDark ? '#888' : '#666',
+              border: muiTheme.palette.divider,
+              tagBg: isDark ? '#666' : '#e0e0e0',
+              tagText: isDark ? '#fff' : '#000',
+              freqNameBg: '#2ecc71',
+              freqNameText: '#000',
+              freqValueBg: isDark ? '#333' : '#f5f5f5',
+              freqValueText: isDark ? '#eee' : '#000',
+              dictTagBg: '#9b59b6',
+              dictTagText: '#fff',
+              accent: muiTheme.palette.primary.main,
+              hoverBg: isDark ? '#333' : '#f5f5f5',
+          };
     const { settings } = useOCR();
     const [audioMenu, setAudioMenu] = useState<{
-        x: number; y: number; entry: DictionaryResult;
+        x: number;
+        y: number;
+        entry: DictionaryResult;
     } | null>(null);
     const [wordAudioSelection, setWordAudioSelection] = useState<WordAudioSourceSelection>('auto');
     const [wordAudioSelectionKey, setWordAudioSelectionKey] = useState<string | null>(null);
     const [wordAudioAvailability, setWordAudioAvailability] = useState<Record<WordAudioSource, boolean> | null>(null);
     const [wordAudioAutoAvailable, setWordAudioAutoAvailable] = useState<boolean | null>(null);
-    const wordAudioOptions = React.useMemo(() => getWordAudioSourceOptions(settings.yomitanLanguage), [settings.yomitanLanguage]);
+    const wordAudioOptions = React.useMemo(
+        () => getWordAudioSourceOptions(settings.yomitanLanguage),
+        [settings.yomitanLanguage],
+    );
     const processedEntries = useMemo(() => {
         if (!settings.showHarmonicMeanFreq) return results;
         return applyPerEntryHarmonicMean(results);
     }, [results, settings.showHarmonicMeanFreq]);
-    const handlePlayWordAudio = useCallback(async (entry: DictionaryResult, selection?: WordAudioSourceSelection, playFailSound = true) => {
-        const entryKey = `${entry.headword}::${entry.reading}`;
-        const resolvedSelection = selection || (wordAudioSelectionKey === entryKey ? wordAudioSelection : 'auto');
-        const playedSource = await playWordAudio(entry, settings.yomitanLanguage, resolvedSelection);
-        if (!playedSource && playFailSound) playAudioFailClick();
-    }, [settings.yomitanLanguage, wordAudioSelection, wordAudioSelectionKey]);
+    const handlePlayWordAudio = useCallback(
+        async (entry: DictionaryResult, selection?: WordAudioSourceSelection, playFailSound = true) => {
+            const entryKey = `${entry.headword}::${entry.reading}`;
+            const resolvedSelection = selection || (wordAudioSelectionKey === entryKey ? wordAudioSelection : 'auto');
+            const playedSource = await playWordAudio(entry, settings.yomitanLanguage, resolvedSelection);
+            if (!playedSource && playFailSound) playAudioFailClick();
+        },
+        [settings.yomitanLanguage, wordAudioSelection, wordAudioSelectionKey],
+    );
     const openAudioMenu = useCallback((event: React.MouseEvent, entry: DictionaryResult) => {
         event.preventDefault();
         event.stopPropagation();
         setAudioMenu({ x: event.clientX, y: event.clientY, entry });
     }, []);
-    const handleSelectWordAudioSource = useCallback((selection: WordAudioSourceSelection) => {
-        setWordAudioSelection(selection);
-        if (audioMenu) setWordAudioSelectionKey(`${audioMenu.entry.headword}::${audioMenu.entry.reading}`);
-    }, [audioMenu]);
+    const handleSelectWordAudioSource = useCallback(
+        (selection: WordAudioSourceSelection) => {
+            setWordAudioSelection(selection);
+            if (audioMenu) setWordAudioSelectionKey(`${audioMenu.entry.headword}::${audioMenu.entry.reading}`);
+        },
+        [audioMenu],
+    );
     React.useEffect(() => {
         if (!audioMenu) {
             setWordAudioAvailability(null);
@@ -1245,21 +1535,24 @@ export const DictionaryView: React.FC<DictionaryViewProps> = ({
             return;
         }
         let cancelled = false;
-        const entry = audioMenu.entry;
+        const { entry } = audioMenu;
         const resolveAvailability = async () => {
             const availability: Record<WordAudioSource, boolean> = {} as Record<WordAudioSource, boolean>;
             for (const source of wordAudioOptions) {
                 const info = await resolveWordAudioUrl(entry, settings.yomitanLanguage, source);
                 availability[source] = Boolean(info?.url);
             }
-            const autoAvailable = wordAudioOptions.length > 0 && wordAudioOptions.some((source) => availability[source]);
+            const autoAvailable =
+                wordAudioOptions.length > 0 && wordAudioOptions.some((source) => availability[source]);
             if (!cancelled) {
                 setWordAudioAvailability(availability);
                 setWordAudioAutoAvailable(autoAvailable);
             }
         };
         resolveAvailability();
-        return () => { cancelled = true; };
+        return () => {
+            cancelled = true;
+        };
     }, [audioMenu, settings.yomitanLanguage, wordAudioOptions]);
     React.useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -1281,8 +1574,9 @@ export const DictionaryView: React.FC<DictionaryViewProps> = ({
         handlePlayWordAudio(entry, undefined, false);
     }, [processedEntries, settings.autoPlayWordAudio, handlePlayWordAudio]);
     const audioMenuEntryKey = audioMenu ? `${audioMenu.entry.headword}::${audioMenu.entry.reading}` : null;
-    const activeWordAudioSelection = audioMenuEntryKey && wordAudioSelectionKey === audioMenuEntryKey ? wordAudioSelection : 'auto';
-    
+    const activeWordAudioSelection =
+        audioMenuEntryKey && wordAudioSelectionKey === audioMenuEntryKey ? wordAudioSelection : 'auto';
+
     // Collect all styles from results
     const allStyles = useMemo(() => {
         const stylesMap: Record<string, string> = {};
@@ -1314,30 +1608,69 @@ export const DictionaryView: React.FC<DictionaryViewProps> = ({
 
     return (
         <>
-            {scopedStyles && (
-                <style>{scopedStyles}</style>
+            {scopedStyles && <style>{scopedStyles}</style>}
+            {isLoading && (
+                <div style={{ textAlign: 'center', padding: '20px', color: colors.textMuted }}>Scanning...</div>
             )}
-            {isLoading && <div style={{ textAlign: 'center', padding: '20px', color: colors.textMuted }}>Scanning...</div>}
-            {!isLoading && processedEntries.map((entry, i) => (
-                <div key={i} className="entry" style={{ marginBottom: layout === 'horizontal' ? '8px' : '16px', paddingBottom: layout === 'horizontal' ? '8px' : '16px', borderBottom: i < processedEntries.length - 1 ? `1px solid ${colors.border}` : 'none' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: layout === 'horizontal' ? '6px' : '0' }}>
-                            {i === 0 && layout === 'horizontal' && renderHistoryNav && renderHistoryNav()}
-                            <div style={{ fontSize: layout === 'horizontal' ? '1.5rem' : '1.8em', lineHeight: '1', marginRight: layout === 'horizontal' ? '8px' : '10px', color: colors.text }} className="headword">
-                                {layout === 'horizontal' ? (
-                                    <>
-                                        <ClickableHeadwordText
-                                            text={entry.headword}
-                                            onKanjiClick={onKanjiClick}
-                                            className="headword-term"
-                                            colors={colors}
-                                        />
-                                        {entry.reading && (
-                                            <span style={{ fontSize: '0.75rem', color: colors.textSecondary, marginLeft: '4px' }} className="headword-reading">({entry.reading})</span>
-                                        )}
-                                    </>
-                                ) : (
-                                    entry.furigana && entry.furigana.length > 0 ? (
+            {!isLoading &&
+                processedEntries.map((entry, i) => (
+                    <div
+                        key={i}
+                        className="entry"
+                        style={{
+                            marginBottom: layout === 'horizontal' ? '8px' : '16px',
+                            paddingBottom: layout === 'horizontal' ? '8px' : '16px',
+                            borderBottom: i < processedEntries.length - 1 ? `1px solid ${colors.border}` : 'none',
+                        }}
+                    >
+                        <div
+                            style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'flex-start',
+                                marginBottom: '8px',
+                            }}
+                        >
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    flexWrap: 'wrap',
+                                    gap: layout === 'horizontal' ? '6px' : '0',
+                                }}
+                            >
+                                {i === 0 && layout === 'horizontal' && renderHistoryNav && renderHistoryNav()}
+                                <div
+                                    style={{
+                                        fontSize: layout === 'horizontal' ? '1.5rem' : '1.8em',
+                                        lineHeight: '1',
+                                        marginRight: layout === 'horizontal' ? '8px' : '10px',
+                                        color: colors.text,
+                                    }}
+                                    className="headword"
+                                >
+                                    {layout === 'horizontal' ? (
+                                        <>
+                                            <ClickableHeadwordText
+                                                text={entry.headword}
+                                                onKanjiClick={onKanjiClick}
+                                                className="headword-term"
+                                                colors={colors}
+                                            />
+                                            {entry.reading && (
+                                                <span
+                                                    style={{
+                                                        fontSize: '0.75rem',
+                                                        color: colors.textSecondary,
+                                                        marginLeft: '4px',
+                                                    }}
+                                                    className="headword-reading"
+                                                >
+                                                    ({entry.reading})
+                                                </span>
+                                            )}
+                                        </>
+                                    ) : entry.furigana && entry.furigana.length > 0 ? (
                                         <ruby style={{ rubyPosition: 'over' }} className="headword-text-container">
                                             {entry.furigana.map((seg, idx) => (
                                                 <React.Fragment key={idx}>
@@ -1347,7 +1680,12 @@ export const DictionaryView: React.FC<DictionaryViewProps> = ({
                                                         className="headword-term"
                                                         colors={colors}
                                                     />
-                                                    <rt style={{ fontSize: '0.5em', color: colors.textSecondary }} className="headword-reading">{seg[1]}</rt>
+                                                    <rt
+                                                        style={{ fontSize: '0.5em', color: colors.textSecondary }}
+                                                        className="headword-reading"
+                                                    >
+                                                        {seg[1]}
+                                                    </rt>
                                                 </React.Fragment>
                                             ))}
                                         </ruby>
@@ -1359,118 +1697,235 @@ export const DictionaryView: React.FC<DictionaryViewProps> = ({
                                                 className="headword-term"
                                                 colors={colors}
                                             />
-                                            <rt style={{ fontSize: '0.5em', color: colors.textSecondary }} className="headword-reading">{entry.reading}</rt>
+                                            <rt
+                                                style={{ fontSize: '0.5em', color: colors.textSecondary }}
+                                                className="headword-reading"
+                                            >
+                                                {entry.reading}
+                                            </rt>
                                         </ruby>
-                                    )
+                                    )}
+                                </div>
+                                {entry.termTags && entry.termTags.length > 0 && (
+                                    <div
+                                        style={{ display: 'flex', gap: '4px' }}
+                                        className="headword-list-tag-list tag-list"
+                                    >
+                                        {entry.termTags
+                                            .flatMap((tag: any) => {
+                                                const label =
+                                                    typeof tag === 'object' && tag !== null && tag.name
+                                                        ? tag.name
+                                                        : tag;
+                                                if (typeof label !== 'string') return [];
+                                                return splitTagString(label);
+                                            })
+                                            .map((label, idx) => (
+                                                <span
+                                                    key={idx}
+                                                    className="tag"
+                                                    style={getTagStyle(layout, colors.tagBg, colors.tagText)}
+                                                >
+                                                    <span className="tag-label">{label}</span>
+                                                </span>
+                                            ))}
+                                    </div>
                                 )}
                             </div>
-                            {entry.termTags && entry.termTags.length > 0 && (
-                                <div style={{ display: 'flex', gap: '4px' }} className="headword-list-tag-list tag-list">
-                                    {entry.termTags.flatMap((tag: any) => {
-                                        const label = (typeof tag === 'object' && tag !== null && tag.name) ? tag.name : tag;
-                                        if (typeof label !== 'string') return [];
-                                        return splitTagString(label);
-                                    }).map((label, idx) => (
-                                        <span key={idx} className="tag" style={getTagStyle(layout, colors.tagBg, colors.tagText)}><span className="tag-label">{label}</span></span>
-                                    ))}
-                                </div>
-                            )}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                {renderAnkiButtons ? (
+                                    renderAnkiButtons(entry)
+                                ) : (
+                                    <>
+                                        {settings.ankiConnectEnabled && (
+                                            <AnkiButtons
+                                                entry={entry}
+                                                wordAudioSelection={wordAudioSelection}
+                                                wordAudioSelectionKey={wordAudioSelectionKey}
+                                            />
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={(event) => {
+                                                event.stopPropagation();
+                                                handlePlayWordAudio(entry);
+                                            }}
+                                            onContextMenu={(event) => openAudioMenu(event, entry)}
+                                            title="Play word audio (right-click for sources)"
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                cursor: wordAudioOptions.length ? 'pointer' : 'not-allowed',
+                                                padding: '2px',
+                                                color: wordAudioOptions.length
+                                                    ? popupTheme
+                                                        ? popupTheme.accent
+                                                        : '#7cc8ff'
+                                                    : popupTheme
+                                                      ? popupTheme.secondary
+                                                      : '#555',
+                                                lineHeight: 1,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                            }}
+                                            disabled={!wordAudioOptions.length}
+                                            aria-label="Play word audio"
+                                        >
+                                            <VolumeUpIcon sx={{ fontSize: 22 }} />
+                                        </button>
+                                    </>
+                                )}
+                            </div>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            {renderAnkiButtons ? (
-                                renderAnkiButtons(entry)
-                            ) : (
-                                <>
-                                    {settings.ankiConnectEnabled && (
-                                        <AnkiButtons
-                                            entry={entry}
-                                            wordAudioSelection={wordAudioSelection}
-                                            wordAudioSelectionKey={wordAudioSelectionKey}
-                                        />
-                                    )}
-                                    <button
-                                        type="button"
-                                        onClick={(event) => { event.stopPropagation(); handlePlayWordAudio(entry); }}
-                                        onContextMenu={(event) => openAudioMenu(event, entry)}
-                                        title="Play word audio (right-click for sources)"
+                        {entry.frequencies && entry.frequencies.length > 0 && (
+                            <div
+                                className="entry-body frequency-group-list"
+                                style={{ marginBottom: '10px', display: 'flex', flexWrap: 'wrap', gap: '5px' }}
+                            >
+                                {entry.frequencies.map((freq, fIdx) => (
+                                    <div
+                                        key={fIdx}
+                                        className="frequency-item"
                                         style={{
-                                            background: 'none', border: 'none',
-                                            cursor: wordAudioOptions.length ? 'pointer' : 'not-allowed', padding: '2px',
-                                            color: wordAudioOptions.length ? (popupTheme ? popupTheme.accent : '#7cc8ff') : (popupTheme ? popupTheme.secondary : '#555'), lineHeight: 1,
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            display: 'inline-flex',
+                                            fontSize: '0.75em',
+                                            borderRadius: '4px',
+                                            overflow: 'hidden',
+                                            border: `1px solid ${colors.border}`,
                                         }}
-                                        disabled={!wordAudioOptions.length}
-                                        aria-label="Play word audio"
                                     >
-                                        <VolumeUpIcon sx={{ fontSize: 22 }} />
-                                    </button>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                    {entry.frequencies && entry.frequencies.length > 0 && (
-                        <div className="entry-body frequency-group-list" style={{ marginBottom: '10px', display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-                            {entry.frequencies.map((freq, fIdx) => (
-                                <div key={fIdx} className="frequency-item" style={{ display: 'inline-flex', fontSize: '0.75em', borderRadius: '4px', overflow: 'hidden', border: `1px solid ${colors.border}` }}>
-                                    <div style={{ backgroundColor: colors.freqNameBg, color: colors.freqNameText, fontWeight: 'bold', padding: '2px 6px' }}>{freq.dictionaryName}</div>
-                                    <div style={{ backgroundColor: colors.freqValueBg, color: colors.freqValueText, padding: '2px 6px', fontWeight: 'bold' }}>{freq.value}</div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                    {(() => {
-                        const { pitchAccents, ipa } = extractPronunciationData(entry);
-                        if (pitchAccents.length === 0 && ipa.length === 0) return null;
-                        return (
-                            <PronunciationSection
-                                layout={layout}
-                                reading={entry.reading || entry.headword}
-                                pitchAccents={pitchAccents}
-                                ipa={ipa}
-                                showGraph={settings.yomitanShowPitchGraph ?? true}
-                                showText={settings.yomitanShowPitchText ?? true}
-                                showNotation={settings.yomitanShowPitchNotation ?? true}
-                            />
-                        );
-                    })()}
-                    {entry.glossary && (
-                        <div className="entry-body gloss-list definition-list">
-                            {entry.glossary.map((def, defIdx) => (
-                                <div key={defIdx} className="gloss-item definition-item" data-dictionary={def.dictionaryName} style={{ display: 'flex', marginBottom: '12px' }}>
-                                    <div style={{ flexShrink: 0, width: '24px', color: colors.textMuted, fontWeight: 'bold' }}><span className="gloss-separator">{defIdx + 1}.</span></div>
-                                    <div style={{ flexGrow: 1 }} className="definition-item-inner definition-item-content">
-                                        <div style={{ marginBottom: '4px' }} className="definition-tag-list tag-list">
-                                            {normalizeTagList(def.tags || []).map((t, ti) => (
-                                                <span key={ti} className="tag" style={getTagStyle(layout, colors.tagBg, colors.tagText)}><span className="tag-label">{t}</span></span>
-                                            ))}
-                                            <span className="tag tag-label" style={getTagStyle(layout, colors.dictTagBg, colors.dictTagText)}>{def.dictionaryName}</span>
+                                        <div
+                                            style={{
+                                                backgroundColor: colors.freqNameBg,
+                                                color: colors.freqNameText,
+                                                fontWeight: 'bold',
+                                                padding: '2px 6px',
+                                            }}
+                                        >
+                                            {freq.dictionaryName}
                                         </div>
-                                        <div style={{ color: colors.text, whiteSpace: 'pre-wrap' }} className="gloss-content">
-                                            {def.content.filter((c: string) => c && c.trim()).map((jsonString, idx) => (
-                                                <div key={idx} style={{ marginBottom: '2px' }}>
-                                                    <StructuredContent contentString={jsonString} dictionaryName={def.dictionaryName} onLinkClick={onLinkClick} onWordClick={onWordClick} colors={colors} />
-                                                </div>
-                                            ))}
+                                        <div
+                                            style={{
+                                                backgroundColor: colors.freqValueBg,
+                                                color: colors.freqValueText,
+                                                padding: '2px 6px',
+                                                fontWeight: 'bold',
+                                            }}
+                                        >
+                                            {freq.value}
                                         </div>
                                     </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            ))}
+                                ))}
+                            </div>
+                        )}
+                        {(() => {
+                            const { pitchAccents, ipa } = extractPronunciationData(entry);
+                            if (pitchAccents.length === 0 && ipa.length === 0) return null;
+                            return (
+                                <PronunciationSection
+                                    layout={layout}
+                                    reading={entry.reading || entry.headword}
+                                    pitchAccents={pitchAccents}
+                                    ipa={ipa}
+                                    showGraph={settings.yomitanShowPitchGraph ?? true}
+                                    showText={settings.yomitanShowPitchText ?? true}
+                                    showNotation={settings.yomitanShowPitchNotation ?? true}
+                                />
+                            );
+                        })()}
+                        {entry.glossary && (
+                            <div className="entry-body gloss-list definition-list">
+                                {entry.glossary.map((def, defIdx) => (
+                                    <div
+                                        key={defIdx}
+                                        className="gloss-item definition-item"
+                                        data-dictionary={def.dictionaryName}
+                                        style={{ display: 'flex', marginBottom: '12px' }}
+                                    >
+                                        <div
+                                            style={{
+                                                flexShrink: 0,
+                                                width: '24px',
+                                                color: colors.textMuted,
+                                                fontWeight: 'bold',
+                                            }}
+                                        >
+                                            <span className="gloss-separator">{defIdx + 1}.</span>
+                                        </div>
+                                        <div
+                                            style={{ flexGrow: 1 }}
+                                            className="definition-item-inner definition-item-content"
+                                        >
+                                            <div
+                                                style={{ marginBottom: '4px' }}
+                                                className="definition-tag-list tag-list"
+                                            >
+                                                {normalizeTagList(def.tags || []).map((t, ti) => (
+                                                    <span
+                                                        key={ti}
+                                                        className="tag"
+                                                        style={getTagStyle(layout, colors.tagBg, colors.tagText)}
+                                                    >
+                                                        <span className="tag-label">{t}</span>
+                                                    </span>
+                                                ))}
+                                                <span
+                                                    className="tag tag-label"
+                                                    style={getTagStyle(layout, colors.dictTagBg, colors.dictTagText)}
+                                                >
+                                                    {def.dictionaryName}
+                                                </span>
+                                            </div>
+                                            <div
+                                                style={{ color: colors.text, whiteSpace: 'pre-wrap' }}
+                                                className="gloss-content"
+                                            >
+                                                {def.content
+                                                    .filter((c: string) => c && c.trim())
+                                                    .map((jsonString, idx) => (
+                                                        <div key={idx} style={{ marginBottom: '2px' }}>
+                                                            <StructuredContent
+                                                                contentString={jsonString}
+                                                                dictionaryName={def.dictionaryName}
+                                                                onLinkClick={onLinkClick}
+                                                                onWordClick={onWordClick}
+                                                                colors={colors}
+                                                            />
+                                                        </div>
+                                                    ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                ))}
             {!isLoading && kanjiResults.length > 0 && (
                 <KanjiEntriesSection kanjiResults={kanjiResults} grouped={grouped} colors={colors} layout={layout} />
             )}
-            {!isLoading && results.length === 0 && kanjiResults.length === 0 && <div style={{ padding: '10px', textAlign: 'center', color: colors.textMuted }}>No results found</div>}
+            {!isLoading && results.length === 0 && kanjiResults.length === 0 && (
+                <div style={{ padding: '10px', textAlign: 'center', color: colors.textMuted }}>No results found</div>
+            )}
             {audioMenu && (
                 <AudioMenu
-                    x={audioMenu.x} y={audioMenu.y} entry={audioMenu.entry}
-                    wordAudioOptions={wordAudioOptions} wordAudioAvailability={wordAudioAvailability}
-                    wordAudioAutoAvailable={wordAudioAutoAvailable} activeWordAudioSelection={activeWordAudioSelection}
+                    x={audioMenu.x}
+                    y={audioMenu.y}
+                    entry={audioMenu.entry}
+                    wordAudioOptions={wordAudioOptions}
+                    wordAudioAvailability={wordAudioAvailability}
+                    wordAudioAutoAvailable={wordAudioAutoAvailable}
+                    activeWordAudioSelection={activeWordAudioSelection}
                     popupTheme={popupTheme}
-                    onPlayAudio={(source) => { handlePlayWordAudio(audioMenu.entry, source); setAudioMenu(null); }}
-                    onSelectSource={(source) => { handleSelectWordAudioSource(source); setAudioMenu(null); }}
+                    onPlayAudio={(source) => {
+                        handlePlayWordAudio(audioMenu.entry, source);
+                        setAudioMenu(null);
+                    }}
+                    onSelectSource={(source) => {
+                        handleSelectWordAudioSource(source);
+                        setAudioMenu(null);
+                    }}
                 />
             )}
         </>

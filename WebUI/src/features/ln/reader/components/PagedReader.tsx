@@ -1323,7 +1323,16 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
                 }
             }
         },
-        [contentReady, isTransitioning, isVertical, isRTL, goNext, goPrev, settings.lnEnableSwipe, settings.lnDragThreshold],
+        [
+            contentReady,
+            isTransitioning,
+            isVertical,
+            isRTL,
+            goNext,
+            goPrev,
+            settings.lnEnableSwipe,
+            settings.lnDragThreshold,
+        ],
     );
 
     const handleContentClick = useCallback(

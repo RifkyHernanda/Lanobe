@@ -1,5 +1,3 @@
-
-
 import { useState, useEffect } from 'react';
 import { AppStorage, LNMetadata, BookStats } from '@/lib/storage/AppStorage';
 import { requestManager } from '@/lib/requests/RequestManager';
@@ -17,7 +15,6 @@ interface UseBookContentReturn {
     isLoading: boolean;
     error: string | null;
 }
-
 
 const blobUrlCache = new Map<string, Map<string, string>>();
 
@@ -39,7 +36,6 @@ export function useBookContent(bookId: string | undefined): UseBookContentReturn
             setError(null);
 
             try {
-
                 const metadata = await AppStorage.getLnMetadata(bookId);
 
                 if (cancelled) return;
@@ -60,14 +56,14 @@ export function useBookContent(bookId: string | undefined): UseBookContentReturn
                 if (cancelled) return;
 
                 if (!parsedBook) {
-                     setError('Book content not found.');
-                     setIsLoading(false);
-                     return;
+                    setError('Book content not found.');
+                    setIsLoading(false);
+                    return;
                 }
 
-                const processedChapters = parsedBook.chapters.map((html, i) => {
+                const processedChapters = parsedBook.chapters.map((html, i) =>
                     // Re-route images to static server
-                    return html.replace(/data-epub-src="([^"]+)"/g, (match, path: string) => {
+                    html.replace(/data-epub-src="([^"]+)"/g, (match, path: string) => {
                         const normalizedPath = path.startsWith('/') ? path.substring(1) : path;
                         const encodedPath = normalizedPath
                             .split('/')
@@ -76,8 +72,8 @@ export function useBookContent(bookId: string | undefined): UseBookContentReturn
                         const staticUrl = `${staticBase}/extracted/images/${encodedPath}`;
                         const fallbackUrl = `${staticBase}/extracted/images/${normalizedPath}`;
                         return `src="${staticUrl}" href="${staticUrl}" xlink:href="${staticUrl}" data-epub-src="${path}" data-ln-fallback-src="${fallbackUrl}"`;
-                    });
-                });
+                    }),
+                );
 
                 if (cancelled) return;
 
@@ -89,7 +85,6 @@ export function useBookContent(bookId: string | undefined): UseBookContentReturn
                     css: parsedBook.css,
                 });
                 setIsLoading(false);
-
             } catch (err: any) {
                 if (cancelled) return;
                 console.error('[useBookContent] Load error:', err);
@@ -105,11 +100,8 @@ export function useBookContent(bookId: string | undefined): UseBookContentReturn
         };
     }, [bookId]);
 
-
-
     return { content, isLoading, error };
 }
-
 
 export function clearBookCache(bookId: string): void {
     const cache = blobUrlCache.get(bookId);
@@ -118,7 +110,6 @@ export function clearBookCache(bookId: string): void {
         blobUrlCache.delete(bookId);
     }
 }
-
 
 export function clearAllBookCaches(): void {
     blobUrlCache.forEach((cache) => {

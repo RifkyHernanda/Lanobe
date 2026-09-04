@@ -1,4 +1,4 @@
-import { canvasToBase64Webp } from "./image";
+import { canvasToBase64Webp } from '@/Manatan/utils/image';
 
 /**
  * Creates an image from a URL
@@ -20,11 +20,11 @@ function getRadianAngle(degreeValue: number): number {
     return (degreeValue * Math.PI) / 180;
 }
 
-export type Pixels = { 
-    width: number; 
-    height: number; 
-    x: number; 
-    y: number; 
+export type Pixels = {
+    width: number;
+    height: number;
+    x: number;
+    y: number;
 };
 
 /**
@@ -36,7 +36,7 @@ export async function getCroppedImg(
     quality: number,
     rotation = 0,
     maxWidth?: number,
-    maxHeight?: number
+    maxHeight?: number,
 ): Promise<string | null> {
     try {
         const image = await createImage(imageSrc);
@@ -61,12 +61,8 @@ export async function getCroppedImg(
         ctx.translate(-safeArea / 2, -safeArea / 2);
 
         // Draw rotated image
-        ctx.drawImage(
-            image, 
-            safeArea / 2 - image.width * 0.5, 
-            safeArea / 2 - image.height * 0.5
-        );
-        
+        ctx.drawImage(image, safeArea / 2 - image.width * 0.5, safeArea / 2 - image.height * 0.5);
+
         const data = ctx.getImageData(0, 0, safeArea, safeArea);
 
         // Set canvas to crop size
@@ -77,7 +73,7 @@ export async function getCroppedImg(
         ctx.putImageData(
             data,
             Math.round(0 - safeArea / 2 + image.width * 0.5 - pixelCrop.x),
-            Math.round(0 - safeArea / 2 + image.height * 0.5 - pixelCrop.y)
+            Math.round(0 - safeArea / 2 + image.height * 0.5 - pixelCrop.y),
         );
 
         // Convert to WebP Base64
@@ -94,13 +90,10 @@ export async function getStitchedAndCroppedImg(
     pixelCrop: Pixels,
     quality: number,
     maxWidth?: number,
-    maxHeight?: number
+    maxHeight?: number,
 ): Promise<string | null> {
     try {
-        const [imgL, imgR] = await Promise.all([
-            createImage(leftSrc),
-            createImage(rightSrc)
-        ]);
+        const [imgL, imgR] = await Promise.all([createImage(leftSrc), createImage(rightSrc)]);
         const canvas = new OffscreenCanvas(pixelCrop.width, pixelCrop.height);
         const ctx = canvas.getContext('2d');
 
@@ -116,28 +109,29 @@ export async function getStitchedAndCroppedImg(
             const drawWidth = Math.min(pixelCrop.width, imgL.naturalWidth - sourceX);
             const drawHeight = pixelCrop.height;
 
-            ctx.drawImage(
-                imgL,
-                sourceX, sourceY, drawWidth, drawHeight,
-                0, 0, drawWidth, drawHeight
-            );
+            ctx.drawImage(imgL, sourceX, sourceY, drawWidth, drawHeight, 0, 0, drawWidth, drawHeight);
         }
         // Draw crop segment from right image
         if (pixelCrop.x + pixelCrop.width > imgL.naturalWidth) {
             const startInRight = Math.max(0, pixelCrop.x - imgL.naturalWidth);
             const destX = Math.max(0, imgL.naturalWidth - pixelCrop.x);
             const drawWidth = Math.min(pixelCrop.width - destX, imgR.naturalWidth - startInRight);
-            
+
             ctx.drawImage(
                 imgR,
-                startInRight, pixelCrop.y, drawWidth, pixelCrop.height,
-                destX, 0, drawWidth, pixelCrop.height
+                startInRight,
+                pixelCrop.y,
+                drawWidth,
+                pixelCrop.height,
+                destX,
+                0,
+                drawWidth,
+                pixelCrop.height,
             );
         }
 
         // Convert to WebP Base64
         return await canvasToBase64Webp(canvas, quality, maxWidth, maxHeight);
-
     } catch (error) {
         console.error('Failed to crop image:', error);
         return null;

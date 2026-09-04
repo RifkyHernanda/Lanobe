@@ -1,12 +1,10 @@
-
-
 import React, { ReactNode, useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { Settings } from '@/Manatan/types';
-import { PagedReader } from './PagedReader';
-import { ContinuousReader } from './ContinuousReader';
-import { useUIVisibility } from '../hooks/useUIVisibility';
-import { injectHighlightsIntoHtml } from '../utils/injectHighlights';
-import { sanitizeEpubCss } from '../utils/cssUtils';
+import { PagedReader } from '@/features/ln/reader/components/PagedReader';
+import { ContinuousReader } from '@/features/ln/reader/components/ContinuousReader';
+import { useUIVisibility } from '@/features/ln/reader/hooks/useUIVisibility';
+import { injectHighlightsIntoHtml } from '@/features/ln/reader/utils/injectHighlights';
+import { sanitizeEpubCss } from '@/features/ln/reader/utils/cssUtils';
 import { BookStats, AppStorage, LNHighlight } from '@/lib/storage/AppStorage';
 
 interface VirtualReaderProps {
@@ -43,7 +41,13 @@ interface VirtualReaderProps {
         contextSnippet?: string;
     }) => void;
     highlights?: LNHighlight[];
-    onAddHighlight?: (chapterIndex: number, blockId: string, text: string, startOffset: number, endOffset: number) => void;
+    onAddHighlight?: (
+        chapterIndex: number,
+        blockId: string,
+        text: string,
+        startOffset: number,
+        endOffset: number,
+    ) => void;
     safeAreaTopInset?: string;
     safeAreaTopOffsetPx?: number;
     safeAreaInsetsPx?: {
@@ -52,7 +56,10 @@ interface VirtualReaderProps {
         bottom: number;
         left: number;
     };
-    navigationRef?: React.MutableRefObject<{ scrollToBlock?: (blockId: string, offset?: number) => void; scrollToChapter?: (chapterIndex: number) => void }>;
+    navigationRef?: React.MutableRefObject<{
+        scrollToBlock?: (blockId: string, offset?: number) => void;
+        scrollToChapter?: (chapterIndex: number) => void;
+    }>;
 }
 
 interface SharedPosition {
@@ -89,7 +96,6 @@ export const VirtualReader: React.FC<VirtualReaderProps> = ({
     safeAreaTopOffsetPx,
     safeAreaInsetsPx,
     navigationRef: externalNavRef,
-
 }) => {
     const { showUI, toggleUI } = useUIVisibility({
         autoHideDelay: 5000,
@@ -112,9 +118,11 @@ export const VirtualReader: React.FC<VirtualReaderProps> = ({
     }, [showUI]);
 
     // Navigation ref for direct navigation (bypassing restoration)
-    const internalNavRef = useRef<{ scrollToBlock?: (blockId: string, offset?: number) => void; scrollToChapter?: (chapterIndex: number) => void }>({});
+    const internalNavRef = useRef<{
+        scrollToBlock?: (blockId: string, offset?: number) => void;
+        scrollToChapter?: (chapterIndex: number) => void;
+    }>({});
     const navigationRef = externalNavRef || internalNavRef;
-
 
     const sharedPositionRef = useRef<SharedPosition>({
         chapterIndex: externalInitialProgress?.chapterIndex ?? initialIndex,
@@ -129,8 +137,6 @@ export const VirtualReader: React.FC<VirtualReaderProps> = ({
         contextSnippet: externalInitialProgress?.contextSnippet,
     });
 
-
-
     const forceSaveRef = useRef<(() => Promise<void>) | null>(null);
     const prevSettingsRef = useRef({
         direction: settings.lnReadingDirection,
@@ -139,12 +145,8 @@ export const VirtualReader: React.FC<VirtualReaderProps> = ({
 
     const [readerKey, setReaderKey] = useState(0);
     const [activeProgress, setActiveProgress] = useState(externalInitialProgress);
-    const [currentIndex, setCurrentIndex] = useState(
-        externalInitialProgress?.chapterIndex ?? initialIndex
-    );
-    const [currentPage, setCurrentPage] = useState(
-        externalInitialProgress?.pageIndex ?? initialPage
-    );
+    const [currentIndex, setCurrentIndex] = useState(externalInitialProgress?.chapterIndex ?? initialIndex);
+    const [currentPage, setCurrentPage] = useState(externalInitialProgress?.pageIndex ?? initialPage);
     const [pendingRemount, setPendingRemount] = useState(false);
 
     useEffect(() => {
@@ -159,23 +161,25 @@ export const VirtualReader: React.FC<VirtualReaderProps> = ({
     const isVertical = settings.lnReadingDirection?.includes('vertical');
     const isRTL = settings.lnReadingDirection === 'vertical-rtl';
 
-    const getHighlightsForChapter = useCallback((chapterIndex: number): LNHighlight[] => {
-        return highlights?.filter(h => h.chapterIndex === chapterIndex) ?? [];
-    }, [highlights]);
+    const getHighlightsForChapter = useCallback(
+        (chapterIndex: number): LNHighlight[] => highlights?.filter((h) => h.chapterIndex === chapterIndex) ?? [],
+        [highlights],
+    );
 
-    const chaptersWithHighlights = useMemo(() => {
-        return items.map((html, index) => {
-            const chapterHighlights = getHighlightsForChapter(index);
-            if (chapterHighlights.length === 0) {
-                return html;
-            }
-            return injectHighlightsIntoHtml(html, chapterHighlights);
-        });
-    }, [items, highlights, getHighlightsForChapter]);
+    const chaptersWithHighlights = useMemo(
+        () =>
+            items.map((html, index) => {
+                const chapterHighlights = getHighlightsForChapter(index);
+                if (chapterHighlights.length === 0) {
+                    return html;
+                }
+                return injectHighlightsIntoHtml(html, chapterHighlights);
+            }),
+        [items, highlights, getHighlightsForChapter],
+    );
 
     // Sanitize EPUB CSS - strip fonts so reader settings take precedence
     const cleanedCss = useMemo(() => sanitizeEpubCss(css ?? ''), [css]);
-
 
     const handlePositionUpdate = useCallback(
         (position: {
@@ -211,19 +215,19 @@ export const VirtualReader: React.FC<VirtualReaderProps> = ({
 
             externalPositionUpdate?.(position);
         },
-        [externalPositionUpdate, onChapterChange]
+        [externalPositionUpdate, onChapterChange],
     );
-
-
 
     const handleRegisterSave = useCallback((saveFn: () => Promise<void>) => {
         forceSaveRef.current = saveFn;
     }, []);
 
-    const handleAddHighlight = useCallback(async (...args: Parameters<NonNullable<typeof onAddHighlight>>) => {
-        await onAddHighlight?.(...args);
-    }, [onAddHighlight]);
-
+    const handleAddHighlight = useCallback(
+        async (...args: Parameters<NonNullable<typeof onAddHighlight>>) => {
+            await onAddHighlight?.(...args);
+        },
+        [onAddHighlight],
+    );
 
     useEffect(() => {
         const prevDirection = prevSettingsRef.current.direction;
@@ -247,7 +251,7 @@ export const VirtualReader: React.FC<VirtualReaderProps> = ({
                     await forceSaveRef.current();
                 }
 
-                await new Promise(resolve => setTimeout(resolve, 50));
+                await new Promise((resolve) => setTimeout(resolve, 50));
                 const pos = sharedPositionRef.current;
 
                 console.log('[VirtualReader] After save, position:', {
@@ -312,7 +316,7 @@ export const VirtualReader: React.FC<VirtualReaderProps> = ({
             initialProgress: activeProgress,
             onPositionUpdate: handlePositionUpdate,
             onRegisterSave: handleRegisterSave,
-            onOpenToc: onOpenToc,
+            onOpenToc,
             onUpdateSettings,
             chapterFilenames,
             highlights,
@@ -357,16 +361,16 @@ export const VirtualReader: React.FC<VirtualReaderProps> = ({
 
     if (pendingRemount) {
         return (
-            <div style={{
-                backgroundColor: '#2B2B2B',
-                width: '100%',
-                height: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-            }}>
-
-            </div>
+            <div
+                style={{
+                    backgroundColor: '#2B2B2B',
+                    width: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                }}
+            />
         );
     }
 

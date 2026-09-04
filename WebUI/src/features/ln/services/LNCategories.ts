@@ -17,7 +17,7 @@ export const LnSortMode = {
     PROGRESS: 'progress',
 } as const;
 
-export type LnSortModeType = typeof LnSortMode[keyof typeof LnSortMode];
+export type LnSortModeType = (typeof LnSortMode)[keyof typeof LnSortMode];
 
 export class LNCategoriesService {
     static getAllCategoryId(): string {
@@ -74,18 +74,14 @@ export class LNCategoriesService {
         return AppStorage.getAllLnCategoryMetadata();
     }
 
-    static async setSortMode(
-        categoryId: string,
-        sortBy: LnSortModeType,
-        sortDesc: boolean = true
-    ): Promise<void> {
+    static async setSortMode(categoryId: string, sortBy: LnSortModeType, sortDesc: boolean = true): Promise<void> {
         return this.setCategoryMetadata(categoryId, { sortBy, sortDesc });
     }
 
     static compareFn(
         items: Array<{ metadata: any; progress?: any }>,
         sortBy: LnSortModeType,
-        sortDesc: boolean
+        sortDesc: boolean,
     ): number {
         const multiplier = sortDesc ? -1 : 1;
 
@@ -94,36 +90,26 @@ export class LNCategoriesService {
                 return (a: any, b: any) => multiplier * (b.metadata.addedAt - a.metadata.addedAt);
 
             case LnSortMode.TITLE:
-                return (a: any, b: any) =>
-                    multiplier *
-                    (a.metadata.title || '').localeCompare(b.metadata.title || '');
+                return (a: any, b: any) => multiplier * (a.metadata.title || '').localeCompare(b.metadata.title || '');
 
             case LnSortMode.AUTHOR:
                 return (a: any, b: any) =>
-                    multiplier *
-                    (a.metadata.author || '').localeCompare(b.metadata.author || '');
+                    multiplier * (a.metadata.author || '').localeCompare(b.metadata.author || '');
 
             case LnSortMode.LENGTH:
                 return (a: any, b: any) =>
-                    multiplier *
-                    ((b.metadata.stats?.totalLength || 0) - (a.metadata.stats?.totalLength || 0));
+                    multiplier * ((b.metadata.stats?.totalLength || 0) - (a.metadata.stats?.totalLength || 0));
 
             case LnSortMode.LANGUAGE:
                 return (a: any, b: any) =>
-                    multiplier *
-                    ((a.metadata.language || 'unknown') > (b.metadata.language || 'unknown')
-                        ? 1
-                        : -1);
+                    multiplier * ((a.metadata.language || 'unknown') > (b.metadata.language || 'unknown') ? 1 : -1);
 
             case LnSortMode.LAST_READ:
-                return (a: any, b: any) =>
-                    multiplier *
-                    ((b.progress?.lastRead || 0) - (a.progress?.lastRead || 0));
+                return (a: any, b: any) => multiplier * ((b.progress?.lastRead || 0) - (a.progress?.lastRead || 0));
 
             case LnSortMode.PROGRESS:
                 return (a: any, b: any) =>
-                    multiplier *
-                    ((b.progress?.totalProgress || 0) - (a.progress?.totalProgress || 0));
+                    multiplier * ((b.progress?.totalProgress || 0) - (a.progress?.totalProgress || 0));
 
             default:
                 return (a: any, b: any) => multiplier * (b.metadata.addedAt - a.metadata.addedAt);

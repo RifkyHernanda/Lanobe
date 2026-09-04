@@ -47,9 +47,7 @@ export const SnackbarWithDescription = memo(
         const finalAction = typeof action === 'function' ? action(id) : action;
 
         const isDescriptionTooLong = (description?.length ?? 0) > MAX_DESCRIPTION_LENGTH;
-        const actualDescription = isDescriptionTooLong
-            ? description?.slice(0, MAX_DESCRIPTION_LENGTH)
-            : description;
+        const actualDescription = isDescriptionTooLong ? description?.slice(0, MAX_DESCRIPTION_LENGTH) : description;
 
         // Logic check: Do we need a bold Title, or just body text?
         const hasDescription = !!actualDescription?.length;
@@ -82,7 +80,7 @@ export const SnackbarWithDescription = memo(
                     {hasDescription ? (
                         /* Case A: We have a description, so 'message' acts as a Title */
                         <AlertTitle
-                            className={isMessageString ? "yomitan-ghost-text" : "no-yomitan-select"}
+                            className={isMessageString ? 'yomitan-ghost-text' : 'no-yomitan-select'}
                             data-text={isMessageString ? message : undefined}
                         >
                             {/* If it's a string, hide children (ghost text handles it). If component, render normally. */}
@@ -91,7 +89,7 @@ export const SnackbarWithDescription = memo(
                     ) : (
                         /* Case B: No description, 'message' is just the body */
                         <span
-                            className={isMessageString ? "yomitan-ghost-text" : "no-yomitan-select"}
+                            className={isMessageString ? 'yomitan-ghost-text' : 'no-yomitan-select'}
                             data-text={isMessageString ? message : undefined}
                         >
                             {isMessageString ? null : message}
@@ -100,10 +98,10 @@ export const SnackbarWithDescription = memo(
 
                     {/* --- DESCRIPTION AREA --- */}
                     {hasDescription && (
-                        <span 
+                        <span
                             className="yomitan-ghost-text"
                             data-text={actualDescription}
-                            style={{ display: 'block', marginTop: '4px' }} 
+                            style={{ display: 'block', marginTop: '4px' }}
                         />
                     )}
 

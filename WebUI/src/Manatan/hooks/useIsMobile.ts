@@ -10,8 +10,7 @@ export const useIsMobile = (): boolean => {
         // eslint-disable-next-line react-hooks/rules-of-hooks
         const { settings } = useOCR();
         isSettingMobile = settings?.mobileMode || false;
-        } 
-    catch (e) { 
+    } catch (e) {
         /* ignore */
     }
 

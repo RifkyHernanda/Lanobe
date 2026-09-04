@@ -1,11 +1,6 @@
-
-import { BlockIndexMap } from '../types/block';
-import {
-    getCleanTextContent,
-    getCleanCharCount,
-    extractContextSnippet
-} from './blockPosition';
-import { createChapterBlockLookup, calculateCharOffsetFromBlock } from './blockMap';
+import { BlockIndexMap } from '@/features/ln/reader/types/block';
+import { getCleanTextContent, getCleanCharCount } from '@/features/ln/reader/utils/blockPosition';
+import { createChapterBlockLookup, calculateCharOffsetFromBlock } from '@/features/ln/reader/utils/blockMap';
 
 // ============================================================================
 // Types
@@ -24,7 +19,7 @@ export interface DetectedBlock {
 
 /**
  * Find the block that's currently at the reading position for paged mode
- * 
+ *
  * @param container - The viewport container element
  * @param pageIndex - Current page index (0-based)
  * @param pageSize - Size of each page in pixels
@@ -38,7 +33,7 @@ export function detectVisibleBlockPaged(
     pageSize: number,
     isVertical: boolean,
     chapterIndex: number,
-    blockMaps?: BlockIndexMap[]
+    blockMaps?: BlockIndexMap[],
 ): DetectedBlock | null {
     // Get all blocks
     const allBlocks = container.querySelectorAll('[data-block-id]');
@@ -126,7 +121,7 @@ export function detectVisibleBlockPaged(
 
     // Calculate chapter character offset using blockMaps (precise!) or fallback to DOM counting
     let chapterCharOffset: number;
-    
+
     if (blockMaps && blockMaps.length > 0) {
         const chapterLookup = createChapterBlockLookup(blockMaps, chapterIndex);
         chapterCharOffset = calculateCharOffsetFromBlock(chapterLookup, blockId, blockLocalOffset);
@@ -158,7 +153,7 @@ export function findPageForBlock(
     container: HTMLElement,
     blockId: string,
     pageSize: number,
-    isVertical: boolean
+    isVertical: boolean,
 ): number {
     const block = container.querySelector(`[data-block-id="${blockId}"]`);
     if (!block) return 0;
@@ -186,7 +181,7 @@ export function restoreToBlockPaged(
     blockId: string,
     blockLocalOffset: number,
     pageSize: number,
-    isVertical: boolean
+    isVertical: boolean,
 ): { pageIndex: number; success: boolean } {
     const block = container.querySelector(`[data-block-id="${blockId}"]`);
 

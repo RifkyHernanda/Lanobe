@@ -1,9 +1,6 @@
 import { LNHighlight } from '@/lib/storage/AppStorage';
 
-export function injectHighlightsIntoHtml(
-    html: string,
-    highlights: LNHighlight[]
-): string {
+export function injectHighlightsIntoHtml(html: string, highlights: LNHighlight[]): string {
     if (highlights.length === 0) {
         return html;
     }
@@ -31,16 +28,16 @@ export function injectHighlightsIntoHtml(
 
         for (const hl of blockHighlights) {
             const { text, id } = hl;
-            
+
             const searchText = text.slice(0, 50);
             const textIndex = blockContent.indexOf(searchText);
-            
+
             if (textIndex !== -1) {
                 const before = blockContent.slice(0, textIndex);
                 const matched = blockContent.slice(textIndex, textIndex + text.length);
                 const after = blockContent.slice(textIndex + text.length);
-                
-                blockContent = before + `<mark class="highlight" data-highlight-id="${id}">${matched}</mark>` + after;
+
+                blockContent = `${before}<mark class="highlight" data-highlight-id="${id}">${matched}</mark>${after}`;
             }
         }
 

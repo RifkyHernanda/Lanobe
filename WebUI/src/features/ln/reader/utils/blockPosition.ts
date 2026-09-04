@@ -1,6 +1,6 @@
 /**
  * Block Position Calculator
- * 
+ *
  * Calculates reading position within blocks:
  * - Local character offset within a block
  * - Context snippets for validation
@@ -15,7 +15,7 @@ const NOISE_REGEX = /[^\p{L}\p{N}]+/gu;
  */
 export function getCleanTextContent(element: Element): string {
     const clone = element.cloneNode(true) as Element;
-    clone.querySelectorAll('rt, rp').forEach(node => node.remove());
+    clone.querySelectorAll('rt, rp').forEach((node) => node.remove());
     return (clone.textContent || '').trim();
 }
 
@@ -30,15 +30,11 @@ export function getCleanCharCount(text: string): number {
 
 /**
  * Calculate local character offset within a block based on scroll position
- * 
+ *
  * This estimates how far into the block the user has read based on
  * what portion of the block is above/left of the reading edge.
  */
-export function calculateBlockLocalOffset(
-    block: Element,
-    container: HTMLElement,
-    isVertical: boolean
-): number {
+export function calculateBlockLocalOffset(block: Element, container: HTMLElement, isVertical: boolean): number {
     const cleanText = getCleanTextContent(block);
     const totalChars = cleanText.length;
 
@@ -74,15 +70,12 @@ export function calculateBlockLocalOffset(
  * Calculate precise offset using caret position detection
  * This gets the EXACT character position at the reading edge
  */
-export function calculatePreciseBlockOffset(
-    block: Element,
-    container: HTMLElement,
-    isVertical: boolean
-): number {
+export function calculatePreciseBlockOffset(block: Element, container: HTMLElement, isVertical: boolean): number {
     const containerRect = container.getBoundingClientRect();
-    
-    let x: number, y: number;
-    
+
+    let x: number;
+    let y: number;
+
     if (isVertical) {
         x = containerRect.right - 30;
         y = containerRect.top + containerRect.height / 2;
@@ -99,11 +92,7 @@ export function calculatePreciseBlockOffset(
 
     // Calculate character offset within the block
     let offset = 0;
-    const walker = document.createTreeWalker(
-        block,
-        NodeFilter.SHOW_TEXT,
-        null
-    );
+    const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT, null);
 
     while (walker.nextNode()) {
         const node = walker.currentNode as Text;
@@ -121,11 +110,7 @@ export function calculatePreciseBlockOffset(
  * Extract context snippet around the current position
  * Used for validation during restoration
  */
-export function extractContextSnippet(
-    block: Element,
-    localOffset: number,
-    contextLength: number = 20
-): string {
+export function extractContextSnippet(block: Element, localOffset: number, contextLength: number = 20): string {
     const text = getCleanTextContent(block);
 
     if (text.length === 0) return '';
@@ -142,10 +127,7 @@ export function extractContextSnippet(
  * Extract the current sentence at position
  * Uses Japanese/Chinese sentence delimiters
  */
-export function extractSentenceAtOffset(
-    block: Element,
-    localOffset: number
-): string {
+export function extractSentenceAtOffset(block: Element, localOffset: number): string {
     const text = getCleanTextContent(block);
 
     if (text.length === 0) return '';
@@ -175,16 +157,12 @@ export function extractSentenceAtOffset(
  * Find text node and offset at a specific point in the document
  * Used for precise position detection
  */
-export function getTextPositionAtPoint(
-    x: number,
-    y: number
-): { node: Node; offset: number } | null {
+export function getTextPositionAtPoint(x: number, y: number): { node: Node; offset: number } | null {
     let range: Range | null = null;
 
     if (document.caretRangeFromPoint) {
         range = document.caretRangeFromPoint(x, y);
-    }
-    else if ((document as any).caretPositionFromPoint) {
+    } else if ((document as any).caretPositionFromPoint) {
         const pos = (document as any).caretPositionFromPoint(x, y);
         if (pos?.offsetNode) {
             range = document.createRange();
@@ -206,7 +184,7 @@ export function calculateChapterCharOffset(
     container: HTMLElement,
     blockId: string,
     blockLocalOffset: number,
-    chapterIndex: number
+    chapterIndex: number,
 ): number {
     const allBlocks = container.querySelectorAll(`[data-block-id^="ch${chapterIndex}-b"]`);
 
@@ -256,7 +234,7 @@ export interface BlockPositionInfo {
 export function buildBlockPosition(
     container: HTMLElement,
     block: Element,
-    isVertical: boolean
+    isVertical: boolean,
 ): BlockPositionInfo | null {
     const blockId = block.getAttribute('data-block-id');
     if (!blockId) return null;
@@ -264,12 +242,7 @@ export function buildBlockPosition(
     const chapterIndex = getChapterIndex(blockId);
     const blockLocalOffset = calculateBlockLocalOffset(block, container, isVertical);
     const contextSnippet = extractContextSnippet(block, blockLocalOffset, 20);
-    const chapterCharOffset = calculateChapterCharOffset(
-        container,
-        blockId,
-        blockLocalOffset,
-        chapterIndex
-    );
+    const chapterCharOffset = calculateChapterCharOffset(container, blockId, blockLocalOffset, chapterIndex);
 
     return {
         blockId,

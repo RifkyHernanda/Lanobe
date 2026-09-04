@@ -31,221 +31,213 @@ export const SelectionHandles: React.FC<SelectionHandlesProps> = ({
     const [endPos, setEndPos] = useState<TextPosition | null>(null);
     const [highlightRects, setHighlightRects] = useState<DOMRect[]>([]);
     const currentTheme = theme;
-    
+
     const isDraggingRef = useRef<'start' | 'end' | null>(null);
     const wasDraggingRef = useRef(false);
     const activeRangeRef = useRef<Range | null>(null);
     const containerRef2 = useRef(containerRef.current);
-const isRealChar = (ch: string) => !!ch && !/[\s\u00A0\u200B]/.test(ch);
-const getClosestBlockRoot = (node: Node, fallback: HTMLElement): Node => {
-    let el: Element | null =
-        node.nodeType === Node.ELEMENT_NODE
-            ? (node as Element)
-            : node.parentElement;
+    const isRealChar = (ch: string) => !!ch && !/[\s\u00A0\u200B]/.test(ch);
+    const getClosestBlockRoot = (node: Node, fallback: HTMLElement): Node => {
+        let el: Element | null = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
 
-    while (el && !el.hasAttribute('data-block-id')) {
-        el = el.parentElement;
-    }
+        while (el && !el.hasAttribute('data-block-id')) {
+            el = el.parentElement;
+        }
 
-    return el || fallback;
-};
+        return el || fallback;
+    };
 
-const getTextNodes = (root: Node): Text[] => {
-    const walker = document.createTreeWalker(
-        root,
-        NodeFilter.SHOW_TEXT,
-        {
+    const getTextNodes = (root: Node): Text[] => {
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
             acceptNode(node) {
                 return node.textContent && node.textContent.length > 0
                     ? NodeFilter.FILTER_ACCEPT
                     : NodeFilter.FILTER_REJECT;
             },
+        });
+
+        const nodes: Text[] = [];
+        let current: Node | null;
+        while ((current = walker.nextNode())) {
+            nodes.push(current as Text);
         }
-    );
+        return nodes;
+    };
 
-    const nodes: Text[] = [];
-    let current: Node | null;
-    while ((current = walker.nextNode())) {
-        nodes.push(current as Text);
-    }
-    return nodes;
-};
+    const makeTextPosition = (node: Text, offset: number): TextPosition | null => {
+        const text = node.textContent || '';
+        if (!text.length) return null;
 
-const makeTextPosition = (node: Text, offset: number): TextPosition | null => {
-    const text = node.textContent || '';
-    if (!text.length) return null;
+        const safeOffset = Math.max(0, Math.min(offset, text.length));
+        const range = document.createRange();
 
-    const safeOffset = Math.max(0, Math.min(offset, text.length));
-    const range = document.createRange();
+        // Use a 1-char range to get a usable rect
+        if (safeOffset < text.length) {
+            range.setStart(node, safeOffset);
+            range.setEnd(node, safeOffset + 1);
+        } else {
+            range.setStart(node, text.length - 1);
+            range.setEnd(node, text.length);
+        }
 
-    // Use a 1-char range to get a usable rect
-    if (safeOffset < text.length) {
-        range.setStart(node, safeOffset);
-        range.setEnd(node, safeOffset + 1);
-    } else {
-        range.setStart(node, text.length - 1);
-        range.setEnd(node, text.length);
-    }
+        const rect = range.getBoundingClientRect();
+        return { node, offset: safeOffset, rect };
+    };
 
-    const rect = range.getBoundingClientRect();
-    return { node, offset: safeOffset, rect };
-};
+    const snapToNearestRealText = (rawNode: Node, rawOffset: number, container: HTMLElement): TextPosition | null => {
+        const root = getClosestBlockRoot(rawNode, container);
+        const textNodes = getTextNodes(root);
+        if (!textNodes.length) return null;
 
-const snapToNearestRealText = (
-    rawNode: Node,
-    rawOffset: number,
-    container: HTMLElement
-): TextPosition | null => {
-    const root = getClosestBlockRoot(rawNode, container);
-    const textNodes = getTextNodes(root);
-    if (!textNodes.length) return null;
+        let currentNode: Text | null = null;
+        let currentOffset = 0;
 
-    let currentNode: Text | null = null;
-    let currentOffset = 0;
+        if (rawNode.nodeType === Node.TEXT_NODE) {
+            currentNode = rawNode as Text;
+            currentOffset = rawOffset;
+        } else {
+            // If caret landed on an element node, find the nearest text node in DOM order
+            const element = rawNode as Element;
+            const children = Array.from(element.childNodes);
 
-    if (rawNode.nodeType === Node.TEXT_NODE) {
-        currentNode = rawNode as Text;
-        currentOffset = rawOffset;
-    } else {
-        // If caret landed on an element node, find the nearest text node in DOM order
-        const element = rawNode as Element;
-        const children = Array.from(element.childNodes);
+            if (rawOffset < children.length) {
+                const startChild = children[rawOffset];
+                const startText = getTextNodes(startChild)[0];
+                if (startText) {
+                    currentNode = startText;
+                    currentOffset = 0;
+                }
+            }
 
-        if (rawOffset < children.length) {
-            const startChild = children[rawOffset];
-            const startText = getTextNodes(startChild)[0];
-            if (startText) {
-                currentNode = startText;
+            if (!currentNode && rawOffset > 0) {
+                const prevChild = children[rawOffset - 1];
+                const prevTexts = getTextNodes(prevChild);
+                const lastText = prevTexts[prevTexts.length - 1];
+                if (lastText) {
+                    currentNode = lastText;
+                    currentOffset = (lastText.textContent || '').length;
+                }
+            }
+
+            if (!currentNode) {
+                currentNode = textNodes[0];
                 currentOffset = 0;
             }
         }
 
-        if (!currentNode && rawOffset > 0) {
-            const prevChild = children[rawOffset - 1];
-            const prevTexts = getTextNodes(prevChild);
-            const lastText = prevTexts[prevTexts.length - 1];
-            if (lastText) {
-                currentNode = lastText;
-                currentOffset = (lastText.textContent || '').length;
+        const currentIndex = textNodes.indexOf(currentNode);
+        if (currentIndex === -1) return null;
+
+        const searchNode = (node: Text, offset: number): number | null => {
+            const text = node.textContent || '';
+            if (!text.length) return null;
+
+            const clamped = Math.max(0, Math.min(offset, text.length));
+
+            // exact
+            if (clamped < text.length && isRealChar(text[clamped])) return clamped;
+            if (clamped > 0 && isRealChar(text[clamped - 1])) return clamped - 1;
+
+            // nearest in same node
+            for (let d = 1; d <= text.length; d++) {
+                const right = clamped + d;
+                const left = clamped - d;
+
+                if (right < text.length && isRealChar(text[right])) return right;
+                if (left >= 0 && isRealChar(text[left])) return left;
             }
+
+            return null;
+        };
+
+        // 1) try current node
+        const sameNodeOffset = searchNode(currentNode, currentOffset);
+        if (sameNodeOffset !== null) {
+            return makeTextPosition(currentNode, sameNodeOffset);
         }
 
-        if (!currentNode) {
-            currentNode = textNodes[0];
-            currentOffset = 0;
-        }
-    }
+        // 2) walk outward to neighboring text nodes
+        for (let d = 1; d < textNodes.length; d++) {
+            const next = textNodes[currentIndex + d];
+            if (next) {
+                const nextOffset = searchNode(next, 0);
+                if (nextOffset !== null) {
+                    return makeTextPosition(next, nextOffset);
+                }
+            }
 
-    const currentIndex = textNodes.indexOf(currentNode);
-    if (currentIndex === -1) return null;
-
-    const searchNode = (node: Text, offset: number): number | null => {
-        const text = node.textContent || '';
-        if (!text.length) return null;
-
-        const clamped = Math.max(0, Math.min(offset, text.length));
-
-        // exact
-        if (clamped < text.length && isRealChar(text[clamped])) return clamped;
-        if (clamped > 0 && isRealChar(text[clamped - 1])) return clamped - 1;
-
-        // nearest in same node
-        for (let d = 1; d <= text.length; d++) {
-            const right = clamped + d;
-            const left = clamped - d;
-
-            if (right < text.length && isRealChar(text[right])) return right;
-            if (left >= 0 && isRealChar(text[left])) return left;
+            const prev = textNodes[currentIndex - d];
+            if (prev) {
+                const prevText = prev.textContent || '';
+                const prevOffset = searchNode(prev, prevText.length);
+                if (prevOffset !== null) {
+                    return makeTextPosition(prev, prevOffset);
+                }
+            }
         }
 
         return null;
     };
-
-    // 1) try current node
-    const sameNodeOffset = searchNode(currentNode, currentOffset);
-    if (sameNodeOffset !== null) {
-        return makeTextPosition(currentNode, sameNodeOffset);
-    }
-
-    // 2) walk outward to neighboring text nodes
-    for (let d = 1; d < textNodes.length; d++) {
-        const next = textNodes[currentIndex + d];
-        if (next) {
-            const nextOffset = searchNode(next, 0);
-            if (nextOffset !== null) {
-                return makeTextPosition(next, nextOffset);
-            }
-        }
-
-        const prev = textNodes[currentIndex - d];
-        if (prev) {
-            const prevText = prev.textContent || '';
-            const prevOffset = searchNode(prev, prevText.length);
-            if (prevOffset !== null) {
-                return makeTextPosition(prev, prevOffset);
-            }
-        }
-    }
-
-    return null;
-};
 
     useEffect(() => {
         containerRef2.current = containerRef.current;
     }, [containerRef]);
 
     const getTextPositionAtPoint = useCallback((x: number, y: number): TextPosition | null => {
-    const container = containerRef2.current;
-    if (!container) return null;
+        const container = containerRef2.current;
+        if (!container) return null;
 
-    const tryPoint = (px: number, py: number): TextPosition | null => {
-        let range: Range | null = null;
+        const tryPoint = (px: number, py: number): TextPosition | null => {
+            let range: Range | null = null;
 
-        if (document.caretRangeFromPoint) {
-            range = document.caretRangeFromPoint(px, py);
-        } else if ((document as any).caretPositionFromPoint) {
-            const pos = (document as any).caretPositionFromPoint(px, py);
-            if (pos) {
-                range = document.createRange();
-                range.setStart(pos.offsetNode, pos.offset);
-                range.collapse(true);
+            if (document.caretRangeFromPoint) {
+                range = document.caretRangeFromPoint(px, py);
+            } else if ((document as any).caretPositionFromPoint) {
+                const pos = (document as any).caretPositionFromPoint(px, py);
+                if (pos) {
+                    range = document.createRange();
+                    range.setStart(pos.offsetNode, pos.offset);
+                    range.collapse(true);
+                }
             }
+
+            if (!range) return null;
+            if (!container.contains(range.startContainer)) return null;
+
+            return snapToNearestRealText(range.startContainer, range.startOffset, container);
+        };
+
+        // exact point first, then nearby points
+        const probes = [
+            [0, 0],
+            [8, 0],
+            [-8, 0],
+            [0, 8],
+            [0, -8],
+            [12, 0],
+            [-12, 0],
+            [0, 12],
+            [0, -12],
+            [8, 8],
+            [-8, 8],
+            [8, -8],
+            [-8, -8],
+        ];
+
+        for (const [dx, dy] of probes) {
+            const pos = tryPoint(x + dx, y + dy);
+            if (pos) return pos;
         }
 
-        if (!range) return null;
-        if (!container.contains(range.startContainer)) return null;
-
-        return snapToNearestRealText(
-            range.startContainer,
-            range.startOffset,
-            container
-        );
-    };
-
-    // exact point first, then nearby points
-    const probes = [
-        [0, 0],
-        [8, 0], [-8, 0],
-        [0, 8], [0, -8],
-        [12, 0], [-12, 0],
-        [0, 12], [0, -12],
-        [8, 8], [-8, 8], [8, -8], [-8, -8],
-    ];
-
-    for (const [dx, dy] of probes) {
-        const pos = tryPoint(x + dx, y + dy);
-        if (pos) return pos;
-    }
-
-    return null;
-}, []);
+        return null;
+    }, []);
 
     const calculateHighlightRects = useCallback((start: TextPosition, end: TextPosition): DOMRect[] => {
         try {
             const range = document.createRange();
-            
+
             const comparison = start.node.compareDocumentPosition(end.node);
-            
+
             if (comparison & Node.DOCUMENT_POSITION_FOLLOWING) {
                 range.setStart(start.node, start.offset);
                 range.setEnd(end.node, end.offset);
@@ -260,7 +252,7 @@ const snapToNearestRealText = (
             }
 
             activeRangeRef.current = range;
-            
+
             const clientRects = range.getClientRects();
             return Array.from(clientRects);
         } catch {
@@ -268,89 +260,98 @@ const snapToNearestRealText = (
         }
     }, []);
 
-    const handleDrag = useCallback((clientX: number, clientY: number, handleType: 'start' | 'end') => {
-        const newPos = getTextPositionAtPoint(clientX, clientY);
-        if (!newPos) return;
+    const handleDrag = useCallback(
+        (clientX: number, clientY: number, handleType: 'start' | 'end') => {
+            const newPos = getTextPositionAtPoint(clientX, clientY);
+            if (!newPos) return;
 
-        if (handleType === 'start') {
-            setStartPos(newPos);
-            if (endPos) {
-                const rects = calculateHighlightRects(newPos, endPos);
-                setHighlightRects(rects);
-            }
-        } else {
-            setEndPos(newPos);
-            if (startPos) {
-                const rects = calculateHighlightRects(startPos, newPos);
-                setHighlightRects(rects);
-            }
-        }
-    }, [startPos, endPos, getTextPositionAtPoint, calculateHighlightRects]);
-
-    const startDrag = useCallback((handleType: 'start' | 'end', e: React.MouseEvent | React.TouchEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        isDraggingRef.current = handleType;
-
-        const onMove = (moveEvent: MouseEvent | TouchEvent) => {
-            moveEvent.preventDefault();
-            
-            let clientX: number, clientY: number;
-            if ('touches' in moveEvent) {
-                if (moveEvent.touches.length === 0) return;
-                clientX = moveEvent.touches[0].clientX;
-                clientY = moveEvent.touches[0].clientY;
+            if (handleType === 'start') {
+                setStartPos(newPos);
+                if (endPos) {
+                    const rects = calculateHighlightRects(newPos, endPos);
+                    setHighlightRects(rects);
+                }
             } else {
-                clientX = moveEvent.clientX;
-                clientY = moveEvent.clientY;
+                setEndPos(newPos);
+                if (startPos) {
+                    const rects = calculateHighlightRects(startPos, newPos);
+                    setHighlightRects(rects);
+                }
             }
+        },
+        [startPos, endPos, getTextPositionAtPoint, calculateHighlightRects],
+    );
 
-            handleDrag(clientX, clientY, handleType);
-        };
+    const startDrag = useCallback(
+        (handleType: 'start' | 'end', e: React.MouseEvent | React.TouchEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+            isDraggingRef.current = handleType;
 
-        const onEnd = () => {
-            if (isDraggingRef.current) {
-                wasDraggingRef.current = true;
-                setTimeout(() => { wasDraggingRef.current = false; }, 100);
+            const onMove = (moveEvent: MouseEvent | TouchEvent) => {
+                moveEvent.preventDefault();
+
+                let clientX: number;
+                let clientY: number;
+                if ('touches' in moveEvent) {
+                    if (moveEvent.touches.length === 0) return;
+                    clientX = moveEvent.touches[0].clientX;
+                    clientY = moveEvent.touches[0].clientY;
+                } else {
+                    clientX = moveEvent.clientX;
+                    clientY = moveEvent.clientY;
+                }
+
+                handleDrag(clientX, clientY, handleType);
+            };
+
+            const onEnd = () => {
+                if (isDraggingRef.current) {
+                    wasDraggingRef.current = true;
+                    setTimeout(() => {
+                        wasDraggingRef.current = false;
+                    }, 100);
+                }
+                isDraggingRef.current = null;
+
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onEnd);
+                document.removeEventListener('touchmove', onMove);
+                document.removeEventListener('touchend', onEnd);
+            };
+
+            if ('touches' in e) {
+                document.addEventListener('touchmove', onMove, { passive: false });
+                document.addEventListener('touchend', onEnd);
+            } else {
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onEnd);
             }
-            isDraggingRef.current = null;
-            
-            document.removeEventListener('mousemove', onMove);
-            document.removeEventListener('mouseup', onEnd);
-            document.removeEventListener('touchmove', onMove);
-            document.removeEventListener('touchend', onEnd);
-        };
-
-        if ('touches' in e) {
-            document.addEventListener('touchmove', onMove, { passive: false });
-            document.addEventListener('touchend', onEnd);
-        } else {
-            document.addEventListener('mousemove', onMove);
-            document.addEventListener('mouseup', onEnd);
-        }
-    }, [handleDrag]);
+        },
+        [handleDrag],
+    );
 
     const expandToSentenceBoundaries = (pos: TextPosition): Range | null => {
         try {
             const textNode = pos.node;
             const text = textNode.textContent || '';
-            
+
             if (text.length === 0) return null;
 
             const isCJK = /[\u3000-\u303f\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf]/.test(text);
-            
+
             let start = pos.offset;
             let end = pos.offset;
 
             if (isCJK) {
                 const cjkEndPunct = /[。！？．?!]/;
-                
+
                 while (start > 0) {
                     const char = text[start - 1];
                     if (cjkEndPunct.test(char)) break;
                     start--;
                 }
-                
+
                 while (end < text.length) {
                     const char = text[end];
                     if (cjkEndPunct.test(char)) {
@@ -366,12 +367,12 @@ const snapToNearestRealText = (
                 }
             } else {
                 const sentenceEnd = /[.!?。！？]/;
-                
+
                 while (start > 0) {
                     if (sentenceEnd.test(text[start - 1])) break;
                     start--;
                 }
-                
+
                 while (end < text.length) {
                     if (sentenceEnd.test(text[end])) {
                         end++;
@@ -384,7 +385,7 @@ const snapToNearestRealText = (
                     const wordBoundaryRegex = /\b/;
                     start = pos.offset;
                     end = pos.offset;
-                    
+
                     while (start > 0 && !wordBoundaryRegex.test(text[start - 1])) start--;
                     while (end < text.length && !wordBoundaryRegex.test(text[end])) end++;
 
@@ -410,54 +411,57 @@ const snapToNearestRealText = (
         }
     };
 
-    const initializeSelection = useCallback((clientX: number, clientY: number) => {
-        const container = containerRef2.current;
-        if (!container || !enabled) return false;
+    const initializeSelection = useCallback(
+        (clientX: number, clientY: number) => {
+            const container = containerRef2.current;
+            if (!container || !enabled) return false;
 
-        const pos = getTextPositionAtPoint(clientX, clientY);
-        if (!pos) return false;
+            const pos = getTextPositionAtPoint(clientX, clientY);
+            if (!pos) return false;
 
-        if (window.getSelection()) {
-            window.getSelection()?.removeAllRanges();
-        }
+            if (window.getSelection()) {
+                window.getSelection()?.removeAllRanges();
+            }
 
-        const expandedRange = expandToSentenceBoundaries(pos);
-        
-        if (!expandedRange) {
-            const range = document.createRange();
-            range.setStart(pos.node, pos.offset);
-            range.setEnd(pos.node, Math.min(pos.offset + 1, pos.node.textContent?.length || 0));
-            
-            const startRect = range.getBoundingClientRect();
-            const endRect = range.getBoundingClientRect();
-            
-            setStartPos({ node: range.startContainer, offset: range.startOffset, rect: startRect });
-            setEndPos({ node: range.endContainer, offset: range.endOffset, rect: endRect });
-            setHighlightRects([startRect]);
-            activeRangeRef.current = range;
-        } else {
-            const startRect = expandedRange.getBoundingClientRect();
-            const endRect = expandedRange.getBoundingClientRect();
-            
-            setStartPos({ 
-                node: expandedRange.startContainer, 
-                offset: expandedRange.startOffset, 
-                rect: startRect 
-            });
-            setEndPos({ 
-                node: expandedRange.endContainer, 
-                offset: expandedRange.endOffset, 
-                rect: endRect 
-            });
-            
-            const rects = Array.from(expandedRange.getClientRects());
-            setHighlightRects(rects);
-            activeRangeRef.current = expandedRange;
-        }
+            const expandedRange = expandToSentenceBoundaries(pos);
 
-        setIsActive(true);
-        return true;
-    }, [enabled, getTextPositionAtPoint]);
+            if (!expandedRange) {
+                const range = document.createRange();
+                range.setStart(pos.node, pos.offset);
+                range.setEnd(pos.node, Math.min(pos.offset + 1, pos.node.textContent?.length || 0));
+
+                const startRect = range.getBoundingClientRect();
+                const endRect = range.getBoundingClientRect();
+
+                setStartPos({ node: range.startContainer, offset: range.startOffset, rect: startRect });
+                setEndPos({ node: range.endContainer, offset: range.endOffset, rect: endRect });
+                setHighlightRects([startRect]);
+                activeRangeRef.current = range;
+            } else {
+                const startRect = expandedRange.getBoundingClientRect();
+                const endRect = expandedRange.getBoundingClientRect();
+
+                setStartPos({
+                    node: expandedRange.startContainer,
+                    offset: expandedRange.startOffset,
+                    rect: startRect,
+                });
+                setEndPos({
+                    node: expandedRange.endContainer,
+                    offset: expandedRange.endOffset,
+                    rect: endRect,
+                });
+
+                const rects = Array.from(expandedRange.getClientRects());
+                setHighlightRects(rects);
+                activeRangeRef.current = expandedRange;
+            }
+
+            setIsActive(true);
+            return true;
+        },
+        [enabled, getTextPositionAtPoint],
+    );
 
     const completeSelection = useCallback(() => {
         if (!activeRangeRef.current || !onSelectionComplete) {
@@ -467,7 +471,7 @@ const snapToNearestRealText = (
 
         const range = activeRangeRef.current;
         const text = range.toString().trim();
-        
+
         if (!text || text.length < 1) {
             cancel();
             return;
@@ -518,7 +522,7 @@ const snapToNearestRealText = (
         const onTouchStart = (e: TouchEvent) => {
             const target = e.target as HTMLElement;
             if (target.closest('button, a, .nav-btn, .dict-popup, .selection-handle')) return;
-            
+
             if (isActive) return;
 
             touchStartPos = {
@@ -538,10 +542,10 @@ const snapToNearestRealText = (
 
         const onTouchMove = (e: TouchEvent) => {
             if (!touchStartPos) return;
-            
+
             const dx = Math.abs(e.touches[0].clientX - touchStartPos.x);
             const dy = Math.abs(e.touches[0].clientY - touchStartPos.y);
-            
+
             if (dx > 10 || dy > 10) {
                 if (longPressTimer) {
                     clearTimeout(longPressTimer);
@@ -562,7 +566,7 @@ const snapToNearestRealText = (
         const onContextMenu = (e: MouseEvent) => {
             const target = e.target as HTMLElement;
             if (target.closest('button, a, img, .nav-btn')) return;
-            
+
             e.preventDefault();
             initializeSelection(e.clientX, e.clientY);
         };
@@ -586,7 +590,7 @@ const snapToNearestRealText = (
 
         const handleClickOutside = (e: MouseEvent) => {
             if (isDraggingRef.current || wasDraggingRef.current) return;
-            
+
             const target = e.target as HTMLElement;
             const isToolbar = target.closest('.selection-toolbar');
             const isHandle = target.closest('.selection-handle');
@@ -643,10 +647,38 @@ const snapToNearestRealText = (
 
     // Theme-based colors
     const themeColors = {
-        light: { bg: 'rgba(255, 255, 255, 0.95)', text: '#333333', highlight: '#FFEB3B', copy: '#2196F3', handle: '#2196F3', handleGlow: 'rgba(33, 150, 243, 0.4)' },
-        sepia: { bg: 'rgba(60, 50, 40, 0.95)', text: '#f4ecd8', highlight: '#FFD54F', copy: '#81D4FA', handle: '#FFD54F', handleGlow: 'rgba(255, 213, 79, 0.4)' },
-        dark: { bg: 'rgba(30, 30, 30, 0.95)', text: '#e0e0e0', highlight: '#FFEB3B', copy: '#64B5F6', handle: '#FFEB3B', handleGlow: 'rgba(255, 235, 59, 0.4)' },
-        black: { bg: 'rgba(20, 20, 20, 0.95)', text: '#ffffff', highlight: '#FFEB3B', copy: '#64B5F6', handle: '#FFEB3B', handleGlow: 'rgba(255, 235, 59, 0.4)' },
+        light: {
+            bg: 'rgba(255, 255, 255, 0.95)',
+            text: '#333333',
+            highlight: '#FFEB3B',
+            copy: '#2196F3',
+            handle: '#2196F3',
+            handleGlow: 'rgba(33, 150, 243, 0.4)',
+        },
+        sepia: {
+            bg: 'rgba(60, 50, 40, 0.95)',
+            text: '#f4ecd8',
+            highlight: '#FFD54F',
+            copy: '#81D4FA',
+            handle: '#FFD54F',
+            handleGlow: 'rgba(255, 213, 79, 0.4)',
+        },
+        dark: {
+            bg: 'rgba(30, 30, 30, 0.95)',
+            text: '#e0e0e0',
+            highlight: '#FFEB3B',
+            copy: '#64B5F6',
+            handle: '#FFEB3B',
+            handleGlow: 'rgba(255, 235, 59, 0.4)',
+        },
+        black: {
+            bg: 'rgba(20, 20, 20, 0.95)',
+            text: '#ffffff',
+            highlight: '#FFEB3B',
+            copy: '#64B5F6',
+            handle: '#FFEB3B',
+            handleGlow: 'rgba(255, 235, 59, 0.4)',
+        },
     };
     const colors = themeColors[currentTheme] || themeColors.dark;
 

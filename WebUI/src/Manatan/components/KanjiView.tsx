@@ -132,74 +132,80 @@ interface KanjiEntryProps {
     kanji: KanjiInfo;
 }
 
-const KanjiEntry: React.FC<KanjiEntryProps> = ({ kanji }) => {
-    return (
-        <div className="kanji-entry">
-            <div className="kanji-character">{kanji.character}</div>
-            
-            {kanji.tags.length > 0 && (
-                <div className="kanji-tags">
-                    {kanji.tags.map((tag, i) => (
-                        <span key={i} className="kanji-tag">{tag}</span>
-                    ))}
-                </div>
-            )}
-            
-            <div className="kanji-readings">
-                {kanji.onyomi.length > 0 && (
-                    <div className="kanji-reading-group">
-                        <span className="kanji-reading-label">On'yomi</span>
-                        <span className="kanji-reading-values">
-                            {kanji.onyomi.map((r, i) => (
-                                <span key={i} className="kanji-reading-value">{r}</span>
-                            ))}
-                        </span>
-                    </div>
-                )}
-                {kanji.kunyomi.length > 0 && (
-                    <div className="kanji-reading-group">
-                        <span className="kanji-reading-label">Kun'yomi</span>
-                        <span className="kanji-reading-values">
-                            {kanji.kunyomi.map((r, i) => (
-                                <span key={i} className="kanji-reading-value">{r}</span>
-                            ))}
-                        </span>
-                    </div>
-                )}
+const KanjiEntry: React.FC<KanjiEntryProps> = ({ kanji }) => (
+    <div className="kanji-entry">
+        <div className="kanji-character">{kanji.character}</div>
+
+        {kanji.tags.length > 0 && (
+            <div className="kanji-tags">
+                {kanji.tags.map((tag, i) => (
+                    <span key={i} className="kanji-tag">
+                        {tag}
+                    </span>
+                ))}
             </div>
-            
-            {kanji.meanings.length > 0 && (
-                <div className="kanji-meanings">
-                    {kanji.meanings.map((meaning, i) => (
-                        <span key={i} className="kanji-meaning">{meaning}</span>
-                    ))}
+        )}
+
+        <div className="kanji-readings">
+            {kanji.onyomi.length > 0 && (
+                <div className="kanji-reading-group">
+                    <span className="kanji-reading-label">On'yomi</span>
+                    <span className="kanji-reading-values">
+                        {kanji.onyomi.map((r, i) => (
+                            <span key={i} className="kanji-reading-value">
+                                {r}
+                            </span>
+                        ))}
+                    </span>
                 </div>
             )}
-            
-            {Object.keys(kanji.stats).length > 0 && (
-                <div className="kanji-stats">
-                    {Object.entries(kanji.stats).map(([key, value], i) => (
-                        <span key={i} className="kanji-stat">
-                            <span className="kanji-stat-label">{key}:</span>
-                            <span>{value}</span>
-                        </span>
-                    ))}
-                </div>
-            )}
-            
-            {kanji.frequencies.length > 0 && (
-                <div className="kanji-frequencies">
-                    {kanji.frequencies.map((freq, i) => (
-                        <span key={i} className="kanji-freq">
-                            <span className="kanji-freq-dict">{freq.dictionaryName}:</span>
-                            <span className="kanji-freq-value">{freq.value}</span>
-                        </span>
-                    ))}
+            {kanji.kunyomi.length > 0 && (
+                <div className="kanji-reading-group">
+                    <span className="kanji-reading-label">Kun'yomi</span>
+                    <span className="kanji-reading-values">
+                        {kanji.kunyomi.map((r, i) => (
+                            <span key={i} className="kanji-reading-value">
+                                {r}
+                            </span>
+                        ))}
+                    </span>
                 </div>
             )}
         </div>
-    );
-};
+
+        {kanji.meanings.length > 0 && (
+            <div className="kanji-meanings">
+                {kanji.meanings.map((meaning, i) => (
+                    <span key={i} className="kanji-meaning">
+                        {meaning}
+                    </span>
+                ))}
+            </div>
+        )}
+
+        {Object.keys(kanji.stats).length > 0 && (
+            <div className="kanji-stats">
+                {Object.entries(kanji.stats).map(([key, value], i) => (
+                    <span key={i} className="kanji-stat">
+                        <span className="kanji-stat-label">{key}:</span>
+                        <span>{value}</span>
+                    </span>
+                ))}
+            </div>
+        )}
+
+        {kanji.frequencies.length > 0 && (
+            <div className="kanji-frequencies">
+                {kanji.frequencies.map((freq, i) => (
+                    <span key={i} className="kanji-freq">
+                        <span className="kanji-freq-dict">{freq.dictionaryName}:</span>
+                        <span className="kanji-freq-value">{freq.value}</span>
+                    </span>
+                ))}
+            </div>
+        )}
+    </div>
+);
 
 export interface KanjiSectionProps {
     kanji: KanjiInfo[];

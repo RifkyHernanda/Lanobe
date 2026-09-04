@@ -1,20 +1,39 @@
 import React, { useState } from 'react';
 import {
-    Drawer, Box, Typography, Slider, Select, MenuItem,
-    FormControl, InputLabel, IconButton, Divider, Switch,
-    FormControlLabel, ToggleButtonGroup, ToggleButton,
-    SelectChangeEvent, Button, InputAdornment, TextField,
+    Drawer,
+    Box,
+    Typography,
+    Slider,
+    Select,
+    MenuItem,
+    FormControl,
+    InputLabel,
+    IconButton,
+    Divider,
+    Switch,
+    FormControlLabel,
+    ToggleButtonGroup,
+    ToggleButton,
+    SelectChangeEvent,
+    Button,
+    InputAdornment,
+    TextField,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
-import ClearIcon from '@mui/icons-material/Clear';
 import FormatAlignLeftIcon from '@mui/icons-material/FormatAlignLeft';
 import FormatAlignCenterIcon from '@mui/icons-material/FormatAlignCenter';
 import FormatAlignJustifyIcon from '@mui/icons-material/FormatAlignJustify';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { Settings } from '@/Manatan/types';
-import { importFontFile, saveCustomFont, loadCustomFonts, CustomFont, deleteCustomFont } from '../utils/fontUtils';
+import {
+    importFontFile,
+    saveCustomFont,
+    loadCustomFonts,
+    CustomFont,
+    deleteCustomFont,
+} from '@/features/ln/reader/utils/fontUtils';
 
 const THEMES = {
     light: { name: 'Light', bg: '#FFFFFF', fg: '#1a1a1a', preview: '#FFFFFF' },
@@ -23,7 +42,7 @@ const THEMES = {
     black: { name: 'Black', bg: '#000000', fg: '#CCCCCC', preview: '#000000' },
 } as const;
 
-// A safe cross-language fallback stack 
+// A safe cross-language fallback stack
 const UNIVERSAL_FALLBACK_STACK =
     'system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", serif';
 
@@ -36,7 +55,6 @@ const FONT_PRESETS = [
     { label: 'Yu Gothic', value: '"Yu Gothic", "YuGothic", sans-serif' },
     { label: 'System', value: UNIVERSAL_FALLBACK_STACK },
 ];
-
 
 interface Props {
     open: boolean;
@@ -111,14 +129,14 @@ export const ReaderControls: React.FC<Props> = ({
     const [fontSizeInput, setFontSizeInput] = useState(settings.lnFontSize.toString());
     const [lineHeightInput, setLineHeightInput] = useState(settings.lnLineHeight.toFixed(1));
     const [letterSpacingInput, setLetterSpacingInput] = useState(settings.lnLetterSpacing.toString());
-    
+
     // Custom fonts state
     const [customFonts, setCustomFonts] = useState<CustomFont[]>([]);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
     // Load custom fonts on mount
     React.useEffect(() => {
-        loadCustomFonts().then(fonts => {
+        loadCustomFonts().then((fonts) => {
             setCustomFonts(fonts);
         });
     }, []);
@@ -198,51 +216,46 @@ export const ReaderControls: React.FC<Props> = ({
     };
 
     const handleImportFont = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+        const file = event.target.files?.[0];
+        if (!file) return;
 
-    try {
-        
-        const font = await importFontFile(file);
-        
-        
-        
-        // Check for duplicate
-        if (customFonts.some(f => f.family === font.family)) {
-            alert(`Font "${font.family}" is already imported.`);
-            if (fileInputRef.current) {
-                fileInputRef.current.value = '';
+        try {
+            const font = await importFontFile(file);
+
+            // Check for duplicate
+            if (customFonts.some((f) => f.family === font.family)) {
+                alert(`Font "${font.family}" is already imported.`);
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                }
+                return;
             }
-            return;
+
+            await saveCustomFont(font);
+
+            const updatedFonts = [...customFonts, font];
+            setCustomFonts(updatedFonts);
+
+            const fontFamilyWithFallback = `"${font.family}", sans-serif`;
+            onUpdateSettings('lnFontFamily', fontFamilyWithFallback);
+        } catch (error) {
+            alert(`Failed to import font: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
-        
-        await saveCustomFont(font);
-        
-        const updatedFonts = [...customFonts, font];
-        setCustomFonts(updatedFonts);
-        
-        const fontFamilyWithFallback = `"${font.family}", sans-serif`;
-        onUpdateSettings('lnFontFamily', fontFamilyWithFallback);
-        
-        
-    } catch (error) {
-        alert('Failed to import font: ' + (error instanceof Error ? error.message : 'Unknown error'));
-    }
-    
-    // Reset input
-    if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-    }
-};
+
+        // Reset input
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    };
 
     const handleDeleteFont = async (font: CustomFont) => {
         if (!confirm(`Delete font "${font.name.replace(/\.(ttf|otf|woff|woff2)$/i, '')}"?`)) return;
-        
+
         try {
             await deleteCustomFont(font);
-            const updatedFonts = customFonts.filter(f => f.family !== font.family);
+            const updatedFonts = customFonts.filter((f) => f.family !== font.family);
             setCustomFonts(updatedFonts);
-            
+
             // Reset to default if current font was deleted
             const currentPrimaryFont = settings.lnFontFamily.split(',')[0].trim().replace(/['"]/g, '');
             if (currentPrimaryFont === font.family) {
@@ -297,9 +310,7 @@ export const ReaderControls: React.FC<Props> = ({
                                     height: 48,
                                     borderRadius: 1.5,
                                     bgcolor: t.preview,
-                                    border: settings.lnTheme === key
-                                        ? '3px solid #4890ff'
-                                        : `2px solid ${theme.fg}44`,
+                                    border: settings.lnTheme === key ? '3px solid #4890ff' : `2px solid ${theme.fg}44`,
                                     cursor: 'pointer',
                                     display: 'flex',
                                     flexDirection: 'column',
@@ -313,9 +324,7 @@ export const ReaderControls: React.FC<Props> = ({
                                 <Typography sx={{ fontSize: '0.7rem', fontWeight: 600, color: t.fg }}>
                                     {t.name}
                                 </Typography>
-                                <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: t.fg }}>
-                                    Aa
-                                </Typography>
+                                <Typography sx={{ fontSize: '1rem', fontWeight: 600, color: t.fg }}>Aa</Typography>
                             </Box>
                         ))}
                     </Box>
@@ -323,7 +332,9 @@ export const ReaderControls: React.FC<Props> = ({
                     {/* Text Brightness */}
                     <Box>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                            <Typography variant="caption" sx={{ opacity: 0.8 }}>Text Brightness</Typography>
+                            <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                                Text Brightness
+                            </Typography>
                             <TextField
                                 size="small"
                                 value={settings.lnTextBrightness ?? 100}
@@ -337,7 +348,11 @@ export const ReaderControls: React.FC<Props> = ({
                                 inputProps={{ min: 0, max: 200, step: 10 }}
                                 sx={getInputStyles(theme)}
                                 InputProps={{
-                                    endAdornment: <InputAdornment position="end" sx={{ color: theme.fg }}>%</InputAdornment>
+                                    endAdornment: (
+                                        <InputAdornment position="end" sx={{ color: theme.fg }}>
+                                            %
+                                        </InputAdornment>
+                                    ),
                                 }}
                             />
                         </Box>
@@ -362,183 +377,188 @@ export const ReaderControls: React.FC<Props> = ({
 
                     {/* Font Family */}
                     {/* Font Family */}
-<Box sx={{ mb: 2 }}>
-    <FormControl fullWidth size="small" sx={{ mb: 1 }}>
-        <InputLabel sx={{ color: theme.fg, '&.Mui-focused': { color: theme.fg } }}>
-            Font Family
-        </InputLabel>
-        <Select
-            value={(() => {
-                const currentFont = settings.lnFontFamily;
-                const primaryFont = currentFont.split(',')[0].trim().replace(/['"]/g, '');
-                
-                // Check if it's a custom font
-                const customFont = customFonts.find(f => f.family === primaryFont);
-                if (customFont) {
-                    return customFont.family;
-                }
-                
-                // Check if it's a preset (exact match)
-                const matchingPreset = FONT_PRESETS.find(p => p.value === currentFont);
-                if (matchingPreset) {
-                    return matchingPreset.value;
-                }
-                
-                // Fallback to first preset
-                return FONT_PRESETS[0].value;
-            })()}
-            label="Font Family"
-           onChange={(e: SelectChangeEvent) => {
-    const v = e.target.value;
-    
-    const selectedCustomFont = customFonts.find(f => f.family === v);
-    
-    if (selectedCustomFont) {
-        const currentFont = settings.lnFontFamily;
-        const currentPrimary = currentFont.split(',')[0].trim().replace(/['"]/g, '');
-        
-        if (currentPrimary === v && currentFont.includes('sans-serif')) {
-            return;
-        }
-        
-        const fontStack = `"${v}", sans-serif`; 
-        onUpdateSettings('lnFontFamily', fontStack);
-    } else {
-        onUpdateSettings('lnFontFamily', v);
-    }
-}}
-            sx={selectStyles}
-            MenuProps={menuProps}
-        >
-            {/* Presets */}
-            {FONT_PRESETS.map(p => (
-                <MenuItem key={p.label} value={p.value}>
-                    <span style={{ fontFamily: p.value }}>{p.label}</span>
-                </MenuItem>
-            ))}
-            
-            {/* Divider - only if custom fonts exist */}
-            {customFonts.length > 0 && (
-                <Divider key="custom-divider" sx={{ my: 1, borderColor: `${theme.fg}22` }} />
-            )}
-            
-            {/* Custom fonts */}
-            {customFonts.map(font => (
-                <MenuItem 
-                    key={`custom-${font.family}`} 
-                    value={font.family}
-                >
-                    <Box sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        width: '100%', 
-                        justifyContent: 'space-between' 
-                    }}>
-                        <span style={{ fontFamily: `"${font.family}", serif` }}>
-                            {font.name.replace(/\.(ttf|otf|woff|woff2)$/i, '')}
-                        </span>
-                        <IconButton
+                    <Box sx={{ mb: 2 }}>
+                        <FormControl fullWidth size="small" sx={{ mb: 1 }}>
+                            <InputLabel sx={{ color: theme.fg, '&.Mui-focused': { color: theme.fg } }}>
+                                Font Family
+                            </InputLabel>
+                            <Select
+                                value={(() => {
+                                    const currentFont = settings.lnFontFamily;
+                                    const primaryFont = currentFont.split(',')[0].trim().replace(/['"]/g, '');
+
+                                    // Check if it's a custom font
+                                    const customFont = customFonts.find((f) => f.family === primaryFont);
+                                    if (customFont) {
+                                        return customFont.family;
+                                    }
+
+                                    // Check if it's a preset (exact match)
+                                    const matchingPreset = FONT_PRESETS.find((p) => p.value === currentFont);
+                                    if (matchingPreset) {
+                                        return matchingPreset.value;
+                                    }
+
+                                    // Fallback to first preset
+                                    return FONT_PRESETS[0].value;
+                                })()}
+                                label="Font Family"
+                                onChange={(e: SelectChangeEvent) => {
+                                    const v = e.target.value;
+
+                                    const selectedCustomFont = customFonts.find((f) => f.family === v);
+
+                                    if (selectedCustomFont) {
+                                        const currentFont = settings.lnFontFamily;
+                                        const currentPrimary = currentFont.split(',')[0].trim().replace(/['"]/g, '');
+
+                                        if (currentPrimary === v && currentFont.includes('sans-serif')) {
+                                            return;
+                                        }
+
+                                        const fontStack = `"${v}", sans-serif`;
+                                        onUpdateSettings('lnFontFamily', fontStack);
+                                    } else {
+                                        onUpdateSettings('lnFontFamily', v);
+                                    }
+                                }}
+                                sx={selectStyles}
+                                MenuProps={menuProps}
+                            >
+                                {/* Presets */}
+                                {FONT_PRESETS.map((p) => (
+                                    <MenuItem key={p.label} value={p.value}>
+                                        <span style={{ fontFamily: p.value }}>{p.label}</span>
+                                    </MenuItem>
+                                ))}
+
+                                {/* Divider - only if custom fonts exist */}
+                                {customFonts.length > 0 && (
+                                    <Divider key="custom-divider" sx={{ my: 1, borderColor: `${theme.fg}22` }} />
+                                )}
+
+                                {/* Custom fonts */}
+                                {customFonts.map((font) => (
+                                    <MenuItem key={`custom-${font.family}`} value={font.family}>
+                                        <Box
+                                            sx={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                width: '100%',
+                                                justifyContent: 'space-between',
+                                            }}
+                                        >
+                                            <span style={{ fontFamily: `"${font.family}", serif` }}>
+                                                {font.name.replace(/\.(ttf|otf|woff|woff2)$/i, '')}
+                                            </span>
+                                            <IconButton
+                                                size="small"
+                                                onMouseDown={(e) => {
+                                                    e.stopPropagation();
+                                                    e.preventDefault();
+                                                }}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    e.preventDefault();
+                                                    handleDeleteFont(font);
+                                                }}
+                                                sx={{ color: theme.fg, opacity: 0.6, ml: 1 }}
+                                            >
+                                                <DeleteIcon fontSize="small" />
+                                            </IconButton>
+                                        </Box>
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+
+                        {/* Import Font Button */}
+                        <Button
+                            variant="outlined"
                             size="small"
-                            onMouseDown={(e) => {
-                                e.stopPropagation();
-                                e.preventDefault();
+                            fullWidth
+                            startIcon={<UploadFileIcon />}
+                            onClick={() => fileInputRef.current?.click()}
+                            sx={{
+                                mb: 1,
+                                borderColor: `${theme.fg}44`,
+                                color: theme.fg,
+                                '&:hover': { borderColor: theme.fg, bgcolor: `${theme.fg}11` },
                             }}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                e.preventDefault();
-                                handleDeleteFont(font);
-                            }}
-                            sx={{ color: theme.fg, opacity: 0.6, ml: 1 }}
                         >
-                            <DeleteIcon fontSize="small" />
-                        </IconButton>
+                            Import Font File
+                        </Button>
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept=".ttf,.otf,.woff,.woff2"
+                            style={{ display: 'none' }}
+                            onChange={handleImportFont}
+                        />
+
+                        {/* Font Weight */}
+                        <Box sx={{ mb: 2 }}>
+                            <FormControl fullWidth size="small" sx={{ mb: 1 }}>
+                                <InputLabel sx={{ color: theme.fg, '&.Mui-focused': { color: theme.fg } }}>
+                                    Font Weight
+                                </InputLabel>
+                                <Select
+                                    value={settings.lnFontWeight ?? 400}
+                                    label="Font Weight"
+                                    onChange={(e: SelectChangeEvent) =>
+                                        onUpdateSettings('lnFontWeight', Number(e.target.value))
+                                    }
+                                    sx={selectStyles}
+                                    MenuProps={menuProps}
+                                >
+                                    {FONT_WEIGHTS.map((fw) => (
+                                        <MenuItem key={fw.value} value={fw.value}>
+                                            {fw.label}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        </Box>
+
+                        {/* Secondary Font (Group 2) */}
+                        <Box sx={{ mb: 2 }}>
+                            <FormControl fullWidth size="small" sx={{ mb: 1 }}>
+                                <InputLabel sx={{ color: theme.fg, '&.Mui-focused': { color: theme.fg } }}>
+                                    Font Family (Group 2)
+                                </InputLabel>
+                                <Select
+                                    value={settings.lnSecondaryFontFamily || ''}
+                                    label="Font Family (Group 2)"
+                                    onChange={(e: SelectChangeEvent) =>
+                                        onUpdateSettings('lnSecondaryFontFamily', e.target.value)
+                                    }
+                                    sx={selectStyles}
+                                    MenuProps={menuProps}
+                                >
+                                    <MenuItem value="">None</MenuItem>
+                                    {FONT_PRESETS.map((p) => (
+                                        <MenuItem key={p.label} value={p.value}>
+                                            <span style={{ fontFamily: p.value }}>{p.label}</span>
+                                        </MenuItem>
+                                    ))}
+                                    {customFonts.map((font) => (
+                                        <MenuItem key={`custom2-${font.family}`} value={`"${font.family}", sans-serif`}>
+                                            <span style={{ fontFamily: `"${font.family}", serif` }}>
+                                                {font.name.replace(/\.(ttf|otf|woff|woff2)$/i, '')}
+                                            </span>
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        </Box>
                     </Box>
-                </MenuItem>
-            ))}
-        </Select>
-    </FormControl>
-
-    {/* Import Font Button */}
-    <Button
-        variant="outlined"
-        size="small"
-        fullWidth
-        startIcon={<UploadFileIcon />}
-        onClick={() => fileInputRef.current?.click()}
-        sx={{ 
-            mb: 1, 
-            borderColor: `${theme.fg}44`, 
-            color: theme.fg,
-            '&:hover': { borderColor: theme.fg, bgcolor: `${theme.fg}11` }
-        }}
-    >
-        Import Font File
-    </Button>
-    <input
-        ref={fileInputRef}
-        type="file"
-        accept=".ttf,.otf,.woff,.woff2"
-        style={{ display: 'none' }}
-        onChange={handleImportFont}
-    />
-
-    {/* Font Weight */}
-    <Box sx={{ mb: 2 }}>
-        <FormControl fullWidth size="small" sx={{ mb: 1 }}>
-            <InputLabel sx={{ color: theme.fg, '&.Mui-focused': { color: theme.fg } }}>
-                Font Weight
-            </InputLabel>
-            <Select
-                value={settings.lnFontWeight ?? 400}
-                label="Font Weight"
-                onChange={(e: SelectChangeEvent) => onUpdateSettings('lnFontWeight', Number(e.target.value))}
-                sx={selectStyles}
-                MenuProps={menuProps}
-            >
-                {FONT_WEIGHTS.map(fw => (
-                    <MenuItem key={fw.value} value={fw.value}>
-                        {fw.label}
-                    </MenuItem>
-                ))}
-            </Select>
-        </FormControl>
-    </Box>
-
-    {/* Secondary Font (Group 2) */}
-    <Box sx={{ mb: 2 }}>
-        <FormControl fullWidth size="small" sx={{ mb: 1 }}>
-            <InputLabel sx={{ color: theme.fg, '&.Mui-focused': { color: theme.fg } }}>
-                Font Family (Group 2)
-            </InputLabel>
-            <Select
-                value={settings.lnSecondaryFontFamily || ''}
-                label="Font Family (Group 2)"
-                onChange={(e: SelectChangeEvent) => onUpdateSettings('lnSecondaryFontFamily', e.target.value)}
-                sx={selectStyles}
-                MenuProps={menuProps}
-            >
-                <MenuItem value="">None</MenuItem>
-                {FONT_PRESETS.map(p => (
-                    <MenuItem key={p.label} value={p.value}>
-                        <span style={{ fontFamily: p.value }}>{p.label}</span>
-                    </MenuItem>
-                ))}
-                {customFonts.map(font => (
-                    <MenuItem key={`custom2-${font.family}`} value={`"${font.family}", sans-serif`}>
-                        <span style={{ fontFamily: `"${font.family}", serif` }}>
-                            {font.name.replace(/\.(ttf|otf|woff|woff2)$/i, '')}
-                        </span>
-                    </MenuItem>
-                ))}
-            </Select>
-        </FormControl>
-    </Box>
-</Box>
 
                     {/* Font Size */}
                     <Box sx={{ mb: 2 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                            <Typography variant="caption" sx={{ opacity: 0.8 }}>Font Size</Typography>
+                            <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                                Font Size
+                            </Typography>
                             <TextField
                                 size="small"
                                 value={fontSizeInput}
@@ -548,7 +568,11 @@ export const ReaderControls: React.FC<Props> = ({
                                 inputProps={{ min: 12, max: 50, step: 1 }}
                                 sx={getInputStyles(theme)}
                                 InputProps={{
-                                    endAdornment: <InputAdornment position="end" sx={{ color: theme.fg }}>px</InputAdornment>
+                                    endAdornment: (
+                                        <InputAdornment position="end" sx={{ color: theme.fg }}>
+                                            px
+                                        </InputAdornment>
+                                    ),
                                 }}
                             />
                         </Box>
@@ -565,7 +589,9 @@ export const ReaderControls: React.FC<Props> = ({
                     {/* Line Height */}
                     <Box sx={{ mb: 2 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                            <Typography variant="caption" sx={{ opacity: 0.8 }}>Line Height</Typography>
+                            <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                                Line Height
+                            </Typography>
                             <TextField
                                 size="small"
                                 value={lineHeightInput}
@@ -589,7 +615,9 @@ export const ReaderControls: React.FC<Props> = ({
                     {/* Letter Spacing */}
                     <Box sx={{ mb: 2 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                            <Typography variant="caption" sx={{ opacity: 0.8 }}>Letter Spacing</Typography>
+                            <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                                Letter Spacing
+                            </Typography>
                             <TextField
                                 size="small"
                                 value={letterSpacingInput}
@@ -599,7 +627,11 @@ export const ReaderControls: React.FC<Props> = ({
                                 inputProps={{ min: -2, max: 5, step: 0.5 }}
                                 sx={getInputStyles(theme)}
                                 InputProps={{
-                                    endAdornment: <InputAdornment position="end" sx={{ color: theme.fg }}>px</InputAdornment>
+                                    endAdornment: (
+                                        <InputAdornment position="end" sx={{ color: theme.fg }}>
+                                            px
+                                        </InputAdornment>
+                                    ),
                                 }}
                             />
                         </Box>
@@ -632,9 +664,18 @@ export const ReaderControls: React.FC<Props> = ({
                                 },
                             }}
                         >
-                            <ToggleButton value="left"><FormatAlignLeftIcon sx={{ mr: 0.5 }} />Left</ToggleButton>
-                            <ToggleButton value="center"><FormatAlignCenterIcon sx={{ mr: 0.5 }} />Center</ToggleButton>
-                            <ToggleButton value="justify"><FormatAlignJustifyIcon sx={{ mr: 0.5 }} />Justify</ToggleButton>
+                            <ToggleButton value="left">
+                                <FormatAlignLeftIcon sx={{ mr: 0.5 }} />
+                                Left
+                            </ToggleButton>
+                            <ToggleButton value="center">
+                                <FormatAlignCenterIcon sx={{ mr: 0.5 }} />
+                                Center
+                            </ToggleButton>
+                            <ToggleButton value="justify">
+                                <FormatAlignJustifyIcon sx={{ mr: 0.5 }} />
+                                Justify
+                            </ToggleButton>
                         </ToggleButtonGroup>
                     </Box>
                 </Box>
@@ -686,12 +727,14 @@ export const ReaderControls: React.FC<Props> = ({
                         <Typography variant="caption" sx={{ opacity: 0.8, mb: 1.5, display: 'block' }}>
                             Margins
                         </Typography>
-                        
-                        <Box sx={{ 
-                            display: 'grid', 
-                            gridTemplateColumns: '1fr 1fr', 
-                            gap: 2 
-                        }}>
+
+                        <Box
+                            sx={{
+                                display: 'grid',
+                                gridTemplateColumns: '1fr 1fr',
+                                gap: 2,
+                            }}
+                        >
                             {/* Top Margin */}
                             <Box>
                                 <Typography variant="caption" sx={{ opacity: 0.7, mb: 0.5, display: 'block' }}>
@@ -720,7 +763,11 @@ export const ReaderControls: React.FC<Props> = ({
                                         width: '100%',
                                     }}
                                     InputProps={{
-                                        endAdornment: <InputAdornment position="end" sx={{ color: theme.fg }}>px</InputAdornment>
+                                        endAdornment: (
+                                            <InputAdornment position="end" sx={{ color: theme.fg }}>
+                                                px
+                                            </InputAdornment>
+                                        ),
                                     }}
                                 />
                             </Box>
@@ -753,7 +800,11 @@ export const ReaderControls: React.FC<Props> = ({
                                         width: '100%',
                                     }}
                                     InputProps={{
-                                        endAdornment: <InputAdornment position="end" sx={{ color: theme.fg }}>px</InputAdornment>
+                                        endAdornment: (
+                                            <InputAdornment position="end" sx={{ color: theme.fg }}>
+                                                px
+                                            </InputAdornment>
+                                        ),
                                     }}
                                 />
                             </Box>
@@ -786,7 +837,11 @@ export const ReaderControls: React.FC<Props> = ({
                                         width: '100%',
                                     }}
                                     InputProps={{
-                                        endAdornment: <InputAdornment position="end" sx={{ color: theme.fg }}>px</InputAdornment>
+                                        endAdornment: (
+                                            <InputAdornment position="end" sx={{ color: theme.fg }}>
+                                                px
+                                            </InputAdornment>
+                                        ),
                                     }}
                                 />
                             </Box>
@@ -819,7 +874,11 @@ export const ReaderControls: React.FC<Props> = ({
                                         width: '100%',
                                     }}
                                     InputProps={{
-                                        endAdornment: <InputAdornment position="end" sx={{ color: theme.fg }}>px</InputAdornment>
+                                        endAdornment: (
+                                            <InputAdornment position="end" sx={{ color: theme.fg }}>
+                                                px
+                                            </InputAdornment>
+                                        ),
                                     }}
                                 />
                             </Box>
@@ -829,290 +888,333 @@ export const ReaderControls: React.FC<Props> = ({
 
                 <Divider sx={{ my: 3, borderColor: `${theme.fg}22` }} />
 
-{/* Bookmarking Section */}
-<Box sx={{ mb: 3 }}>
-    <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600, opacity: 0.8 }}>
-        Bookmarking
-    </Typography>
+                {/* Bookmarking Section */}
+                <Box sx={{ mb: 3 }}>
+                    <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600, opacity: 0.8 }}>
+                        Bookmarking
+                    </Typography>
 
-    <FormControlLabel
-        control={
-            <Switch
-                checked={settings.lnAutoBookmark ?? true}
-                onChange={(e) => onUpdateSettings('lnAutoBookmark', e.target.checked)}
-                sx={{
-                    '& .MuiSwitch-switchBase.Mui-checked': { color: theme.fg },
-                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: theme.fg },
-                }}
-            />
-        }
-        label={
-            <Box>
-                <Typography variant="body2">Auto-Bookmark</Typography>
-                <Typography variant="caption" sx={{ opacity: 0.6 }}>
-                    Automatically save position after delay
-                </Typography>
-            </Box>
-        }
-        sx={{ mb: 2, width: '100%' }}
-    />
-
-    {(settings.lnAutoBookmark ?? true) && (
-        <Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                    Auto-Bookmark Delay
-                </Typography>
-                <TextField
-                    size="small"
-                    value={settings.lnBookmarkDelay ?? 5}
-                    onChange={(e) => {
-                        const val = parseInt(e.target.value, 10);
-                        if (!isNaN(val) && val >= 0 && val <= 60) {
-                            onUpdateSettings('lnBookmarkDelay', val);
-                        }
-                    }}
-                    type="number"
-                    inputProps={{ min: 0, max: 60, step: 1 }}
-                    sx={getInputStyles(theme)}
-                    InputProps={{
-                        endAdornment: <InputAdornment position="end" sx={{ color: theme.fg }}>sec</InputAdornment>
-                    }}
-                />
-            </Box>
-            <Slider
-                value={settings.lnBookmarkDelay ?? 5}
-                min={0}
-                max={60}
-                step={1}
-                marks={[
-                    { value: 0, label: 'Off' },
-                    { value: 5, label: '5s' },
-                    { value: 15, label: '15s' },
-                    { value: 30, label: '30s' },
-                    { value: 60, label: '1m' },
-                ]}
-                onChange={(_, v) => onUpdateSettings('lnBookmarkDelay', v as number)}
-                sx={{ 
-                    color: theme.fg,
-                    '& .MuiSlider-markLabel': { color: theme.fg, fontSize: '0.7rem' }
-                }}
-            />
-            <Typography variant="caption" sx={{ display: 'block', mt: 0.5, opacity: 0.7 }}>
-                {(settings.lnBookmarkDelay ?? 5) === 0 
-                    ? 'Auto-bookmarking disabled (use manual bookmark only)' 
-                    : `Auto-bookmark after staying on a page for ${settings.lnBookmarkDelay ?? 5} seconds`}
-            </Typography>
-        </Box>
-    )}
-</Box>
-<Divider sx={{ my: 3, borderColor: `${theme.fg}22` }} />
-
-{/* Navigation Section */}
-<Box sx={{ mb: 3 }}>
-    <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600, opacity: 0.8 }}>
-        Navigation
-    </Typography>
-
-    {/* Show/Hide Nav Buttons */}
-    <FormControlLabel
-        control={
-            <Switch
-                checked={!(settings.lnHideNavButtons ?? false)}
-                onChange={(e) => onUpdateSettings('lnHideNavButtons', !e.target.checked)}
-                sx={{
-                    '& .MuiSwitch-switchBase.Mui-checked': { color: theme.fg },
-                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: theme.fg },
-                }}
-            />
-        }
-        label={
-            <Box>
-                <Typography variant="body2">Navigation Buttons</Typography>
-                <Typography variant="caption" sx={{ opacity: 0.6 }}>
-                    Show prev/next arrows on screen
-                </Typography>
-            </Box>
-        }
-        sx={{ mb: 2, width: '100%' }}
-    />
-
-    {/* Enable Swipe */}
-    <FormControlLabel
-        control={
-            <Switch
-                checked={settings.lnEnableSwipe ?? true}
-                onChange={(e) => onUpdateSettings('lnEnableSwipe', e.target.checked)}
-                sx={{
-                    '& .MuiSwitch-switchBase.Mui-checked': { color: theme.fg },
-                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: theme.fg },
-                }}
-            />
-        }
-        label={
-            <Box>
-                <Typography variant="body2">Swipe Navigation</Typography>
-                <Typography variant="caption" sx={{ opacity: 0.6 }}>
-                    Swipe to turn pages (touch devices)
-                </Typography>
-            </Box>
-        }
-        sx={{ mb: 2, width: '100%' }}
-    />
-
-    {/* Drag Threshold */}
-    <Box sx={{ mb: 3, width: '100%' }}>
-        <Typography variant="body2" sx={{ mb: 1 }}>
-            Drag Threshold: {settings.lnDragThreshold ?? 10}px
-        </Typography>
-        <Slider
-            value={settings.lnDragThreshold ?? 10}
-            min={1}
-            max={50}
-            step={1}
-            onChange={(_, v) => onUpdateSettings('lnDragThreshold', v as number)}
-            sx={{ color: theme.fg }}
-        />
-        <Typography variant="caption" sx={{ opacity: 0.6 }}>
-            Higher = requires more movement to detect drag
-        </Typography>
-    </Box>
-
-    {/* Click Zones - Only show in paginated mode */}
-    {settings.lnPaginationMode === 'paginated' && (
-        <>
-            <FormControlLabel
-                control={
-                    <Switch
-                        checked={settings.lnEnableClickZones ?? true}
-                        onChange={(e) => onUpdateSettings('lnEnableClickZones', e.target.checked)}
-                        sx={{
-                            '& .MuiSwitch-switchBase.Mui-checked': { color: theme.fg },
-                            '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: theme.fg },
-                        }}
-                    />
-                }
-                label={
-                    <Box>
-                        <Typography variant="body2">Click/Touch Zones</Typography>
-                        <Typography variant="caption" sx={{ opacity: 0.6 }}>
-                            Tap screen edges to navigate
-                        </Typography>
-                    </Box>
-                }
-                sx={{ mb: 2, width: '100%' }}
-            />
-
-            {(settings.lnEnableClickZones ?? true) && (
-                <>
-                    {/* Zone Size */}
-                    <Box sx={{ mb: 2 }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                            <Typography variant="caption" sx={{ opacity: 0.8 }}>Zone Size</Typography>
-                            <TextField
-                                size="small"
-                                value={settings.lnClickZoneSize ?? 10}
-                                onChange={(e) => {
-                                    const val = parseInt(e.target.value, 10);
-                                    if (!isNaN(val) && val >= 0 && val <= 50) {
-                                        onUpdateSettings('lnClickZoneSize', val);
-                                    }
-                                }}
-                                type="number"
-                                inputProps={{ min: 0, max: 50, step: 5 }}
-                                sx={getInputStyles(theme)}
-                                InputProps={{
-                                    endAdornment: <InputAdornment position="end" sx={{ color: theme.fg }}>%</InputAdornment>
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={settings.lnAutoBookmark ?? true}
+                                onChange={(e) => onUpdateSettings('lnAutoBookmark', e.target.checked)}
+                                sx={{
+                                    '& .MuiSwitch-switchBase.Mui-checked': { color: theme.fg },
+                                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                                        backgroundColor: theme.fg,
+                                    },
                                 }}
                             />
-                        </Box>
-                        <Slider
-                            value={settings.lnClickZoneSize ?? 10}
-                            min={0}
-                            max={50}
-                            step={5}
-                            onChange={(_, v) => onUpdateSettings('lnClickZoneSize', v as number)}
-                            sx={{ color: theme.fg }}
-                        />
-                    </Box>
+                        }
+                        label={
+                            <Box>
+                                <Typography variant="body2">Auto-Bookmark</Typography>
+                                <Typography variant="caption" sx={{ opacity: 0.6 }}>
+                                    Automatically save position after delay
+                                </Typography>
+                            </Box>
+                        }
+                        sx={{ mb: 2, width: '100%' }}
+                    />
 
-                    {/* Zone Placement */}
-                    <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                        <InputLabel sx={{ color: theme.fg, '&.Mui-focused': { color: theme.fg } }}>
-                            Zone Placement
-                        </InputLabel>
-                        <Select
-                            value={settings.lnClickZonePlacement ?? 'vertical'}
-                            label="Zone Placement"
-                            onChange={(e) => onUpdateSettings('lnClickZonePlacement', e.target.value)}
-                            sx={selectStyles}
-                            MenuProps={menuProps}
-                        >
-                            <MenuItem value="horizontal">Horizontal</MenuItem>
-                            <MenuItem value="vertical">Vertical</MenuItem>
-                        </Select>
-                    </FormControl>
-
-                    {/* Zone Position */}
-                    <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-                        <InputLabel sx={{ color: theme.fg, '&.Mui-focused': { color: theme.fg } }}>
-                            Zone Position
-                        </InputLabel>
-                        <Select
-                            value={settings.lnClickZonePosition ?? 'full'}
-                            label="Zone Position"
-                            onChange={(e) => onUpdateSettings('lnClickZonePosition', e.target.value)}
-                            sx={selectStyles}
-                            MenuProps={menuProps}
-                        >
-                            <MenuItem value="full">Full Edge</MenuItem>
-                            <MenuItem value="start">Start</MenuItem>
-                            <MenuItem value="center">Center</MenuItem>
-                            <MenuItem value="end">End</MenuItem>
-                        </Select>
-                    </FormControl>
-
-                    {/* Zone Coverage (only if not full) */}
-                    {(settings.lnClickZonePosition ?? 'full') !== 'full' && (
-                        <Box sx={{ mb: 2 }}>
+                    {(settings.lnAutoBookmark ?? true) && (
+                        <Box>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                                <Typography variant="caption" sx={{ opacity: 0.8 }}>Zone Coverage</Typography>
+                                <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                                    Auto-Bookmark Delay
+                                </Typography>
                                 <TextField
                                     size="small"
-                                    value={settings.lnClickZoneCoverage ?? 60}
+                                    value={settings.lnBookmarkDelay ?? 5}
                                     onChange={(e) => {
                                         const val = parseInt(e.target.value, 10);
-                                        if (!isNaN(val) && val >= 30 && val <= 100) {
-                                            onUpdateSettings('lnClickZoneCoverage', val);
+                                        if (!isNaN(val) && val >= 0 && val <= 60) {
+                                            onUpdateSettings('lnBookmarkDelay', val);
                                         }
                                     }}
                                     type="number"
-                                    inputProps={{ min: 30, max: 100, step: 10 }}
+                                    inputProps={{ min: 0, max: 60, step: 1 }}
                                     sx={getInputStyles(theme)}
                                     InputProps={{
-                                        endAdornment: <InputAdornment position="end" sx={{ color: theme.fg }}>%</InputAdornment>
+                                        endAdornment: (
+                                            <InputAdornment position="end" sx={{ color: theme.fg }}>
+                                                sec
+                                            </InputAdornment>
+                                        ),
                                     }}
                                 />
                             </Box>
                             <Slider
-                                value={settings.lnClickZoneCoverage ?? 60}
-                                min={30}
-                                max={100}
-                                step={10}
-                                onChange={(_, v) => onUpdateSettings('lnClickZoneCoverage', v as number)}
-                                sx={{ color: theme.fg }}
+                                value={settings.lnBookmarkDelay ?? 5}
+                                min={0}
+                                max={60}
+                                step={1}
+                                marks={[
+                                    { value: 0, label: 'Off' },
+                                    { value: 5, label: '5s' },
+                                    { value: 15, label: '15s' },
+                                    { value: 30, label: '30s' },
+                                    { value: 60, label: '1m' },
+                                ]}
+                                onChange={(_, v) => onUpdateSettings('lnBookmarkDelay', v as number)}
+                                sx={{
+                                    color: theme.fg,
+                                    '& .MuiSlider-markLabel': { color: theme.fg, fontSize: '0.7rem' },
+                                }}
                             />
                             <Typography variant="caption" sx={{ display: 'block', mt: 0.5, opacity: 0.7 }}>
-                                How much of the edge the zone covers
+                                {(settings.lnBookmarkDelay ?? 5) === 0
+                                    ? 'Auto-bookmarking disabled (use manual bookmark only)'
+                                    : `Auto-bookmark after staying on a page for ${settings.lnBookmarkDelay ?? 5} seconds`}
                             </Typography>
                         </Box>
                     )}
-                </>
-            )}
-        </>
-    )}
-</Box>
-<Divider sx={{ my: 3, borderColor: `${theme.fg}22` }} />
+                </Box>
+                <Divider sx={{ my: 3, borderColor: `${theme.fg}22` }} />
+
+                {/* Navigation Section */}
+                <Box sx={{ mb: 3 }}>
+                    <Typography variant="subtitle2" sx={{ mb: 1.5, fontWeight: 600, opacity: 0.8 }}>
+                        Navigation
+                    </Typography>
+
+                    {/* Show/Hide Nav Buttons */}
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={!(settings.lnHideNavButtons ?? false)}
+                                onChange={(e) => onUpdateSettings('lnHideNavButtons', !e.target.checked)}
+                                sx={{
+                                    '& .MuiSwitch-switchBase.Mui-checked': { color: theme.fg },
+                                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                                        backgroundColor: theme.fg,
+                                    },
+                                }}
+                            />
+                        }
+                        label={
+                            <Box>
+                                <Typography variant="body2">Navigation Buttons</Typography>
+                                <Typography variant="caption" sx={{ opacity: 0.6 }}>
+                                    Show prev/next arrows on screen
+                                </Typography>
+                            </Box>
+                        }
+                        sx={{ mb: 2, width: '100%' }}
+                    />
+
+                    {/* Enable Swipe */}
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={settings.lnEnableSwipe ?? true}
+                                onChange={(e) => onUpdateSettings('lnEnableSwipe', e.target.checked)}
+                                sx={{
+                                    '& .MuiSwitch-switchBase.Mui-checked': { color: theme.fg },
+                                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                                        backgroundColor: theme.fg,
+                                    },
+                                }}
+                            />
+                        }
+                        label={
+                            <Box>
+                                <Typography variant="body2">Swipe Navigation</Typography>
+                                <Typography variant="caption" sx={{ opacity: 0.6 }}>
+                                    Swipe to turn pages (touch devices)
+                                </Typography>
+                            </Box>
+                        }
+                        sx={{ mb: 2, width: '100%' }}
+                    />
+
+                    {/* Drag Threshold */}
+                    <Box sx={{ mb: 3, width: '100%' }}>
+                        <Typography variant="body2" sx={{ mb: 1 }}>
+                            Drag Threshold: {settings.lnDragThreshold ?? 10}px
+                        </Typography>
+                        <Slider
+                            value={settings.lnDragThreshold ?? 10}
+                            min={1}
+                            max={50}
+                            step={1}
+                            onChange={(_, v) => onUpdateSettings('lnDragThreshold', v as number)}
+                            sx={{ color: theme.fg }}
+                        />
+                        <Typography variant="caption" sx={{ opacity: 0.6 }}>
+                            Higher = requires more movement to detect drag
+                        </Typography>
+                    </Box>
+
+                    {/* Click Zones - Only show in paginated mode */}
+                    {settings.lnPaginationMode === 'paginated' && (
+                        <>
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={settings.lnEnableClickZones ?? true}
+                                        onChange={(e) => onUpdateSettings('lnEnableClickZones', e.target.checked)}
+                                        sx={{
+                                            '& .MuiSwitch-switchBase.Mui-checked': { color: theme.fg },
+                                            '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                                                backgroundColor: theme.fg,
+                                            },
+                                        }}
+                                    />
+                                }
+                                label={
+                                    <Box>
+                                        <Typography variant="body2">Click/Touch Zones</Typography>
+                                        <Typography variant="caption" sx={{ opacity: 0.6 }}>
+                                            Tap screen edges to navigate
+                                        </Typography>
+                                    </Box>
+                                }
+                                sx={{ mb: 2, width: '100%' }}
+                            />
+
+                            {(settings.lnEnableClickZones ?? true) && (
+                                <>
+                                    {/* Zone Size */}
+                                    <Box sx={{ mb: 2 }}>
+                                        <Box
+                                            sx={{
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
+                                                mb: 1,
+                                            }}
+                                        >
+                                            <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                                                Zone Size
+                                            </Typography>
+                                            <TextField
+                                                size="small"
+                                                value={settings.lnClickZoneSize ?? 10}
+                                                onChange={(e) => {
+                                                    const val = parseInt(e.target.value, 10);
+                                                    if (!isNaN(val) && val >= 0 && val <= 50) {
+                                                        onUpdateSettings('lnClickZoneSize', val);
+                                                    }
+                                                }}
+                                                type="number"
+                                                inputProps={{ min: 0, max: 50, step: 5 }}
+                                                sx={getInputStyles(theme)}
+                                                InputProps={{
+                                                    endAdornment: (
+                                                        <InputAdornment position="end" sx={{ color: theme.fg }}>
+                                                            %
+                                                        </InputAdornment>
+                                                    ),
+                                                }}
+                                            />
+                                        </Box>
+                                        <Slider
+                                            value={settings.lnClickZoneSize ?? 10}
+                                            min={0}
+                                            max={50}
+                                            step={5}
+                                            onChange={(_, v) => onUpdateSettings('lnClickZoneSize', v as number)}
+                                            sx={{ color: theme.fg }}
+                                        />
+                                    </Box>
+
+                                    {/* Zone Placement */}
+                                    <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                                        <InputLabel sx={{ color: theme.fg, '&.Mui-focused': { color: theme.fg } }}>
+                                            Zone Placement
+                                        </InputLabel>
+                                        <Select
+                                            value={settings.lnClickZonePlacement ?? 'vertical'}
+                                            label="Zone Placement"
+                                            onChange={(e) => onUpdateSettings('lnClickZonePlacement', e.target.value)}
+                                            sx={selectStyles}
+                                            MenuProps={menuProps}
+                                        >
+                                            <MenuItem value="horizontal">Horizontal</MenuItem>
+                                            <MenuItem value="vertical">Vertical</MenuItem>
+                                        </Select>
+                                    </FormControl>
+
+                                    {/* Zone Position */}
+                                    <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+                                        <InputLabel sx={{ color: theme.fg, '&.Mui-focused': { color: theme.fg } }}>
+                                            Zone Position
+                                        </InputLabel>
+                                        <Select
+                                            value={settings.lnClickZonePosition ?? 'full'}
+                                            label="Zone Position"
+                                            onChange={(e) => onUpdateSettings('lnClickZonePosition', e.target.value)}
+                                            sx={selectStyles}
+                                            MenuProps={menuProps}
+                                        >
+                                            <MenuItem value="full">Full Edge</MenuItem>
+                                            <MenuItem value="start">Start</MenuItem>
+                                            <MenuItem value="center">Center</MenuItem>
+                                            <MenuItem value="end">End</MenuItem>
+                                        </Select>
+                                    </FormControl>
+
+                                    {/* Zone Coverage (only if not full) */}
+                                    {(settings.lnClickZonePosition ?? 'full') !== 'full' && (
+                                        <Box sx={{ mb: 2 }}>
+                                            <Box
+                                                sx={{
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center',
+                                                    mb: 1,
+                                                }}
+                                            >
+                                                <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                                                    Zone Coverage
+                                                </Typography>
+                                                <TextField
+                                                    size="small"
+                                                    value={settings.lnClickZoneCoverage ?? 60}
+                                                    onChange={(e) => {
+                                                        const val = parseInt(e.target.value, 10);
+                                                        if (!isNaN(val) && val >= 30 && val <= 100) {
+                                                            onUpdateSettings('lnClickZoneCoverage', val);
+                                                        }
+                                                    }}
+                                                    type="number"
+                                                    inputProps={{ min: 30, max: 100, step: 10 }}
+                                                    sx={getInputStyles(theme)}
+                                                    InputProps={{
+                                                        endAdornment: (
+                                                            <InputAdornment position="end" sx={{ color: theme.fg }}>
+                                                                %
+                                                            </InputAdornment>
+                                                        ),
+                                                    }}
+                                                />
+                                            </Box>
+                                            <Slider
+                                                value={settings.lnClickZoneCoverage ?? 60}
+                                                min={30}
+                                                max={100}
+                                                step={10}
+                                                onChange={(_, v) =>
+                                                    onUpdateSettings('lnClickZoneCoverage', v as number)
+                                                }
+                                                sx={{ color: theme.fg }}
+                                            />
+                                            <Typography
+                                                variant="caption"
+                                                sx={{ display: 'block', mt: 0.5, opacity: 0.7 }}
+                                            >
+                                                How much of the edge the zone covers
+                                            </Typography>
+                                        </Box>
+                                    )}
+                                </>
+                            )}
+                        </>
+                    )}
+                </Box>
+                <Divider sx={{ my: 3, borderColor: `${theme.fg}22` }} />
 
                 {/* Features Section */}
                 <Box sx={{ mb: 2 }}>
@@ -1126,7 +1228,9 @@ export const ReaderControls: React.FC<Props> = ({
                                 onChange={(e) => onUpdateSettings('lnDisableAnimations', e.target.checked)}
                                 sx={{
                                     '& .MuiSwitch-switchBase.Mui-checked': { color: theme.fg },
-                                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: theme.fg },
+                                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                                        backgroundColor: theme.fg,
+                                    },
                                 }}
                             />
                         }
@@ -1147,7 +1251,9 @@ export const ReaderControls: React.FC<Props> = ({
                                 onChange={(e) => onUpdateSettings('lnEnableFurigana', e.target.checked)}
                                 sx={{
                                     '& .MuiSwitch-switchBase.Mui-checked': { color: theme.fg },
-                                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: theme.fg },
+                                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                                        backgroundColor: theme.fg,
+                                    },
                                 }}
                             />
                         }
@@ -1183,7 +1289,9 @@ export const ReaderControls: React.FC<Props> = ({
                                 onChange={(e) => onUpdateSettings('enableYomitan', e.target.checked)}
                                 sx={{
                                     '& .MuiSwitch-switchBase.Mui-checked': { color: theme.fg },
-                                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: theme.fg },
+                                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                                        backgroundColor: theme.fg,
+                                    },
                                 }}
                             />
                         }
@@ -1191,7 +1299,9 @@ export const ReaderControls: React.FC<Props> = ({
                             <Box>
                                 <Typography variant="body2">Dictionary Lookup</Typography>
                                 <Typography variant="caption" sx={{ opacity: 0.6 }}>
-                                    {settings.interactionMode === 'hover' ? 'Hover over text to lookup' : 'Tap text to lookup'}
+                                    {settings.interactionMode === 'hover'
+                                        ? 'Hover over text to lookup'
+                                        : 'Tap text to lookup'}
                                 </Typography>
                             </Box>
                         }

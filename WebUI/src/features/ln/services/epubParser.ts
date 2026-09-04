@@ -1,10 +1,13 @@
-
 import JSZip from 'jszip';
 import DOMPurify from 'dompurify';
-import { resolvePath } from '../reader/utils/pathUtils';
+import { resolvePath } from '@/features/ln/reader/utils/pathUtils';
 import { BookStats, LNMetadata, LNParsedBook } from '@/lib/storage/AppStorage';
-import { processChapterHTML, getCleanCharacterCount, logBlockMapStats } from '../reader/utils/blockProcessor';
-import { BlockIndexMap, ChapterBlockInfo } from '../reader/types/block';
+import {
+    processChapterHTML,
+    getCleanCharacterCount,
+    logBlockMapStats,
+} from '@/features/ln/reader/utils/blockProcessor';
+import { BlockIndexMap, ChapterBlockInfo } from '@/features/ln/reader/types/block';
 
 // ============================================================================
 // Types
@@ -119,8 +122,9 @@ function findCoverItem(opfDoc: Document): Element | null {
 
     // Strategy 3: ID convention (id="cover" or id="cover-image")
     if (!coverItem) {
-        coverItem = opfDoc.querySelector('manifest > item[id="cover"]')
-            || opfDoc.querySelector('manifest > item[id="cover-image"]');
+        coverItem =
+            opfDoc.querySelector('manifest > item[id="cover"]') ||
+            opfDoc.querySelector('manifest > item[id="cover-image"]');
     }
 
     // Strategy 4: Search manifest for href containing 'cover'
@@ -146,7 +150,7 @@ async function parseNcxToc(
     opfDoc: Document,
     opfPath: string,
     manifest: Record<string, { href: string; type: string }>,
-    spineIds: string[]
+    spineIds: string[],
 ): Promise<TocItem[]> {
     const tocItems: TocItem[] = [];
     const ncxItem = opfDoc.querySelector('manifest > item[media-type="application/x-dtbncx+xml"]');
@@ -171,10 +175,7 @@ async function parseNcxToc(
             point.querySelector('navLabel')?.textContent?.trim() ||
             'Untitled';
 
-        const src =
-            point.querySelector('content')?.getAttribute('src') ||
-            point.getAttribute('src') ||
-            '';
+        const src = point.querySelector('content')?.getAttribute('src') || point.getAttribute('src') || '';
 
         const cleanSrc = src.split('#')[0];
         if (!cleanSrc) return;
@@ -184,9 +185,11 @@ async function parseNcxToc(
             const normalizedManifest = val.href.split('#')[0];
             const normalizedClean = cleanSrc.split('#')[0];
 
-            return normalizedManifest === normalizedClean ||
+            return (
+                normalizedManifest === normalizedClean ||
                 normalizedManifest.endsWith(normalizedClean) ||
-                normalizedClean.endsWith(normalizedManifest);
+                normalizedClean.endsWith(normalizedManifest)
+            );
         });
 
         if (manifestEntry) {
@@ -209,7 +212,7 @@ async function parseNavToc(
     opfDoc: Document,
     opfPath: string,
     manifest: Record<string, { href: string; type: string }>,
-    spineIds: string[]
+    spineIds: string[],
 ): Promise<TocItem[]> {
     const tocItems: TocItem[] = [];
     const navItem = opfDoc.querySelector('manifest > item[properties*="nav"]');
@@ -234,9 +237,7 @@ async function parseNavToc(
 
         if (!cleanSrc) return;
 
-        const manifestEntry = Object.entries(manifest).find(([_, val]) =>
-            val.href.split('#')[0] === cleanSrc
-        );
+        const manifestEntry = Object.entries(manifest).find(([_, val]) => val.href.split('#')[0] === cleanSrc);
 
         if (manifestEntry) {
             const chapterIndex = spineIds.indexOf(manifestEntry[0]);
@@ -255,17 +256,13 @@ async function parseNavToc(
 
 /**
  * Parse EPUB file completely
- * 
+ *
  * @param file - EPUB file as Blob
  * @param bookId - Unique identifier for this book
  * @param onProgress - Optional callback for progress updates
  * @returns ParseResult with metadata and content, or error
  */
-export async function parseEpub(
-    file: Blob,
-    bookId: string,
-    onProgress?: ProgressCallback
-): Promise<ParseResult> {
+export async function parseEpub(file: Blob, bookId: string, onProgress?: ProgressCallback): Promise<ParseResult> {
     const report = (stage: ParseProgress['stage'], percent: number, message: string) => {
         onProgress?.({ stage, percent, message });
     };
@@ -308,12 +305,14 @@ export async function parseEpub(
 
         const title = opfDoc.querySelector('metadata > title, metadata title')?.textContent || 'Unknown Title';
         const author = opfDoc.querySelector('metadata > creator, metadata creator')?.textContent || 'Unknown Author';
-        
+
         // Extract language from dc:language or metadata > language
         let language = opfDoc.querySelector('metadata > language, dc\\:language')?.textContent || '';
         if (!language) {
             // Try getting from html element's lang attribute
-            const htmlElement = opfDoc.querySelector('package > metadata > *[name="language"], package > metadata > [namespace*="language"]');
+            const htmlElement = opfDoc.querySelector(
+                'package > metadata > *[name="language"], package > metadata > [namespace*="language"]',
+            );
             language = htmlElement?.textContent || '';
         }
         // Normalize language code (handle cases like "en-US" -> "en")
@@ -390,7 +389,7 @@ export async function parseEpub(
                 const fullPath = resolvePath(opfPath, cssPath);
                 const cssContent = await content.file(fullPath)?.async('string');
                 if (cssContent) {
-                    combinedCss += cssContent + '\n';
+                    combinedCss += `${cssContent}\n`;
                 }
             }
         }
@@ -453,20 +452,24 @@ export async function parseEpub(
                         console.error(`[EPUB Parser] Failed to process image ${path}:`, err);
                         return null;
                     }
-                })
+                }),
             );
 
             results.forEach((r) => {
                 if (r) {
                     // Store with multiple path variations for lookup
                     imageBlobs[r.path] = r.blob;
-                    imageBlobs['/' + r.path] = r.blob;
+                    imageBlobs[`/${r.path}`] = r.blob;
                     imageBlobs[r.path.replace(/^\//, '')] = r.blob;
                 }
             });
 
             const progressPercent = 15 + Math.round((i / Math.max(imageFiles.length, 1)) * 25);
-            report('images', progressPercent, `Processing images (${Math.min(i + BATCH_SIZE, imageFiles.length)}/${imageFiles.length})...`);
+            report(
+                'images',
+                progressPercent,
+                `Processing images (${Math.min(i + BATCH_SIZE, imageFiles.length)}/${imageFiles.length})...`,
+            );
         }
 
         // ====================================================================
@@ -546,10 +549,7 @@ export async function parseEpub(
 
             // Split single-paragraph content by <br> patterns
             // (Some EPUBs put entire chapters in one <p> with <br> for breaks)
-            const processedHTML = cleanHTML.replace(
-                /(<br[^>]*\/?>\s*){2,}/gi,
-                '</p><p>'
-            );
+            const processedHTML = cleanHTML.replace(/(<br[^>]*\/?>\s*){2,}/gi, '</p><p>');
 
             // Check if chapter has meaningful content
             const textContent = processedHTML.replace(/<[^>]*>/g, '').trim();
@@ -558,11 +558,11 @@ export async function parseEpub(
                 // Check if this is an image-only chapter
                 const isImageOnly =
                     textContent.length < 20 &&
-                    (processedHTML.includes('<img') || processedHTML.includes('<image') || processedHTML.includes('<svg'));
+                    (processedHTML.includes('<img') ||
+                        processedHTML.includes('<image') ||
+                        processedHTML.includes('<svg'));
 
-                chapters.push(
-                    isImageOnly ? `<div class="image-only-chapter">${processedHTML}</div>` : processedHTML
-                );
+                chapters.push(isImageOnly ? `<div class="image-only-chapter">${processedHTML}</div>` : processedHTML);
                 chapterFilenames.push(filename);
             }
 
@@ -664,7 +664,6 @@ export async function parseEpub(
             metadata,
             content: parsedBook,
         };
-
     } catch (err: any) {
         console.error('[EPUB Parser] Error:', err);
         return {

@@ -155,15 +155,14 @@ const getFlattenedPitchItems = (
     });
 };
 
-const renderPitchPositionHtml = (position: number): string => {
-    return [
+const renderPitchPositionHtml = (position: number): string =>
+    [
         `<span class="pronunciation-downstep-notation" data-downstep-position="${position}">`,
         '<span class="pronunciation-downstep-notation-prefix">[</span>',
         `<span class="pronunciation-downstep-notation-number">${position}</span>`,
         '<span class="pronunciation-downstep-notation-suffix">]</span>',
         '</span>',
     ].join('');
-};
 
 const getTermTagLabel = (tag: TermTagLike): string => {
     if (typeof tag === 'string') {
@@ -256,9 +255,9 @@ export const renderAnkiPitchAccentPositions = (
     pitchAccents: PitchAccentLike[] | undefined,
     fallbackReading: string,
 ): string => {
-    const items = getFlattenedPitchItems(pitchAccents, fallbackReading).map(({ pitch }) => {
-        return renderPitchPositionHtml(getPitchDownstepPosition(pitch));
-    });
+    const items = getFlattenedPitchItems(pitchAccents, fallbackReading).map(({ pitch }) =>
+        renderPitchPositionHtml(getPitchDownstepPosition(pitch)),
+    );
     if (items.length === 0) {
         return '';
     }

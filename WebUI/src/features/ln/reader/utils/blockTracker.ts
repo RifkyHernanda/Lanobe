@@ -1,4 +1,3 @@
-
 export interface BlockTrackerOptions {
     /** Vertical writing mode (Japanese RTL) */
     isVertical: boolean;
@@ -22,14 +21,17 @@ export interface BlockVisibility {
 
 export class BlockTracker {
     private observer: IntersectionObserver | null = null;
+
     private activeBlockId: string | null = null;
+
     private visibilityMap: Map<string, BlockVisibility> = new Map();
+
     private isRunning: boolean = false;
 
     constructor(
         private container: HTMLElement,
-        private options: BlockTrackerOptions
-    ) { }
+        private options: BlockTrackerOptions,
+    ) {}
 
     /**
      * Start tracking blocks in the container
@@ -42,21 +44,18 @@ export class BlockTracker {
         // For vertical: track blocks near the right edge (reading start)
         // For horizontal: track blocks near the top edge (reading start)
         const rootMargin = this.options.isVertical
-            ? '0px 0px 0px -85%'  // Only count blocks in rightmost 15%
+            ? '0px 0px 0px -85%' // Only count blocks in rightmost 15%
             : '0px 0px -85% 0px'; // Only count blocks in topmost 15%
 
-        this.observer = new IntersectionObserver(
-            (entries) => this.handleIntersection(entries),
-            {
-                root: this.options.isPaged ? null : this.container,
-                rootMargin,
-                threshold: [0, 0.1, 0.25, 0.5, 0.75, 1.0],
-            }
-        );
+        this.observer = new IntersectionObserver((entries) => this.handleIntersection(entries), {
+            root: this.options.isPaged ? null : this.container,
+            rootMargin,
+            threshold: [0, 0.1, 0.25, 0.5, 0.75, 1.0],
+        });
 
         // Observe all blocks in container
         const blocks = this.container.querySelectorAll('[data-block-id]');
-        blocks.forEach(block => {
+        blocks.forEach((block) => {
             this.observer?.observe(block);
         });
 
@@ -81,7 +80,7 @@ export class BlockTracker {
      */
     private handleIntersection(entries: IntersectionObserverEntry[]): void {
         // Update visibility map
-        entries.forEach(entry => {
+        entries.forEach((entry) => {
             const blockId = entry.target.getAttribute('data-block-id');
             if (!blockId) return;
 
@@ -112,7 +111,7 @@ export class BlockTracker {
         let best: BlockVisibility | null = null;
         let bestScore = -1;
 
-        this.visibilityMap.forEach(visibility => {
+        this.visibilityMap.forEach((visibility) => {
             if (!visibility.isVisible) return;
 
             // Score is based on intersection ratio
@@ -151,7 +150,7 @@ export class BlockTracker {
 
         // Re-observe all blocks (in case new ones were added)
         const blocks = this.container.querySelectorAll('[data-block-id]');
-        blocks.forEach(block => {
+        blocks.forEach((block) => {
             this.observer?.observe(block);
         });
     }
@@ -173,7 +172,7 @@ export class BlockTracker {
      */
     getVisibleBlocks(): BlockVisibility[] {
         return Array.from(this.visibilityMap.values())
-            .filter(v => v.isVisible)
+            .filter((v) => v.isVisible)
             .sort((a, b) => b.ratio - a.ratio);
     }
 
@@ -191,7 +190,7 @@ export class BlockTracker {
  */
 export function detectCurrentBlock(
     container: HTMLElement,
-    isVertical: boolean
+    isVertical: boolean,
 ): { blockId: string; element: Element } | null {
     const blocks = container.querySelectorAll('[data-block-id]');
     if (blocks.length === 0) return null;
@@ -200,13 +199,13 @@ export function detectCurrentBlock(
 
     // Reading position: right edge for vertical, top edge for horizontal
     const readingEdge = isVertical
-        ? containerRect.right - 50  // 50px from right edge
-        : containerRect.top + 50;   // 50px from top
+        ? containerRect.right - 50 // 50px from right edge
+        : containerRect.top + 50; // 50px from top
 
     let bestBlock: Element | null = null;
     let bestDistance = Infinity;
 
-    blocks.forEach(block => {
+    blocks.forEach((block) => {
         const rect = block.getBoundingClientRect();
 
         // Check if block is in viewport

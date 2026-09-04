@@ -1,14 +1,5 @@
 import { useCallback, useEffect, useState, useMemo } from 'react';
-import {
-    Box,
-    TextField,
-    IconButton,
-    Typography,
-    Paper,
-    Fade,
-    CircularProgress,
-    Stack,
-} from '@mui/material';
+import { Box, TextField, IconButton, Typography, Paper, Fade, CircularProgress, Stack } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
@@ -38,7 +29,9 @@ const getLookupTextFromHref = (href: string, fallback: string) => {
         return safeFallback;
     }
     if (trimmedHref.startsWith('?') || trimmedHref.includes('?')) {
-        const queryString = trimmedHref.startsWith('?') ? trimmedHref.slice(1) : trimmedHref.slice(trimmedHref.indexOf('?') + 1);
+        const queryString = trimmedHref.startsWith('?')
+            ? trimmedHref.slice(1)
+            : trimmedHref.slice(trimmedHref.indexOf('?') + 1);
         const params = new URLSearchParams(queryString);
         const queryText = extractQuery(params);
         if (queryText) return queryText;
@@ -48,7 +41,11 @@ const getLookupTextFromHref = (href: string, fallback: string) => {
         if (trimmedHref.startsWith('term://')) return decodeURIComponent(trimmedHref.slice('term://'.length));
         if (trimmedHref.startsWith('yomitan://')) {
             const parsed = new URL(trimmedHref);
-            return extractQuery(parsed.searchParams) || decodeURIComponent(parsed.pathname.replace(/^\//, '')) || safeFallback;
+            return (
+                extractQuery(parsed.searchParams) ||
+                decodeURIComponent(parsed.pathname.replace(/^\//, '')) ||
+                safeFallback
+            );
         }
     } catch (err) {
         console.warn('Failed to parse yomitan link', err);
@@ -88,47 +85,47 @@ export const Dictionary = () => {
     const maxHistory = settings.yomitanLookupMaxHistory || 10;
     const navMode = settings.yomitanLookupNavigationMode || 'stacked'; // 'stacked' or 'tabs'
 
-    const customCss = useMemo(
-        () => settings.yomitanPopupCustomCss?.trim() || '',
-        [settings.yomitanPopupCustomCss],
-    );
+    const customCss = useMemo(() => settings.yomitanPopupCustomCss?.trim() || '', [settings.yomitanPopupCustomCss]);
 
     const currentEntry = historyIndex >= 0 && historyIndex < history.length ? history[historyIndex] : null;
     const displayResults = currentEntry ? (currentEntry.isKanjiOnly ? [] : currentEntry.results) : results;
-    const displayKanjiResults = currentEntry ? (currentEntry.kanjiResults || []) : kanjiResults;
+    const displayKanjiResults = currentEntry ? currentEntry.kanjiResults || [] : kanjiResults;
     const displayIsLoading = currentEntry ? currentEntry.isLoading : isLoading;
     const displaySystemLoading = currentEntry ? currentEntry.systemLoading : false;
 
-    const handleSearch = useCallback(async (term: string, isFromHistory: boolean = false) => {
-        if (!term.trim()) return;
-        
-        if (!isFromHistory) {
-            setIsLoading(true);
-            setHasSearched(true);
-        }
+    const handleSearch = useCallback(
+        async (term: string, isFromHistory: boolean = false) => {
+            if (!term.trim()) return;
 
-        const res = await lookupYomitan(
-            cleanPunctuation(term, true),
-            0,
-            settings.resultGroupingMode || 'grouped',
-            settings.yomitanLanguage || 'japanese'
-        );
-        
-        console.log('[Dictionary] Raw lookup result:', JSON.stringify(res, null, 2));
-        
-        const loadedResults = res === 'loading' ? [] : (res as any).terms || res;
-        const loadedKanji = res === 'loading' ? [] : (res as any).kanji || [];
-        const isSystemLoading = res === 'loading';
+            if (!isFromHistory) {
+                setIsLoading(true);
+                setHasSearched(true);
+            }
 
-        setKanjiResults(loadedKanji);
+            const res = await lookupYomitan(
+                cleanPunctuation(term, true),
+                0,
+                settings.resultGroupingMode || 'grouped',
+                settings.yomitanLanguage || 'japanese',
+            );
 
-        if (!isFromHistory) {
-            setResults(loadedResults);
-            setIsLoading(false);
-        }
+            console.log('[Dictionary] Raw lookup result:', JSON.stringify(res, null, 2));
 
-        return { results: loadedResults, kanjiResults: loadedKanji, isSystemLoading };
-    }, [settings.resultGroupingMode, settings.yomitanLanguage]);
+            const loadedResults = res === 'loading' ? [] : (res as any).terms || res;
+            const loadedKanji = res === 'loading' ? [] : (res as any).kanji || [];
+            const isSystemLoading = res === 'loading';
+
+            setKanjiResults(loadedKanji);
+
+            if (!isFromHistory) {
+                setResults(loadedResults);
+                setIsLoading(false);
+            }
+
+            return { results: loadedResults, kanjiResults: loadedKanji, isSystemLoading };
+        },
+        [settings.resultGroupingMode, settings.yomitanLanguage],
+    );
 
     // Debounced search for text input
     useEffect(() => {
@@ -147,13 +144,15 @@ export const Dictionary = () => {
             if (result) {
                 // Initialize history with first search
                 const term = result.results[0]?.headword || trimmed;
-                setHistory([{
-                    term,
-                    results: result.results,
-                    kanjiResults: result.kanjiResults,
-                    isLoading: false,
-                    systemLoading: result.isSystemLoading
-                }]);
+                setHistory([
+                    {
+                        term,
+                        results: result.results,
+                        kanjiResults: result.kanjiResults,
+                        isLoading: false,
+                        systemLoading: result.isSystemLoading,
+                    },
+                ]);
                 setHistoryIndex(0);
             }
         }, 300);
@@ -161,200 +160,212 @@ export const Dictionary = () => {
         return () => clearTimeout(timeout);
     }, [searchTerm, handleSearch]);
 
-    const handleLinkClick = useCallback(async (href: string, text: string) => {
-        const newTerm = getLookupTextFromHref(href, text);
-        const cleanText = cleanPunctuation(newTerm, true).trim();
-        if (!cleanText) return;
+    const handleLinkClick = useCallback(
+        async (href: string, text: string) => {
+            const newTerm = getLookupTextFromHref(href, text);
+            const cleanText = cleanPunctuation(newTerm, true).trim();
+            if (!cleanText) return;
 
-        // Update search term to show in input
-        setSearchTerm(newTerm);
+            // Update search term to show in input
+            setSearchTerm(newTerm);
 
-        // Create new history entry
-        const newEntry: LookupHistoryEntry = { 
-            term: cleanText, 
-            results: [], 
-            isLoading: true, 
-            systemLoading: false 
-        };
+            // Create new history entry
+            const newEntry: LookupHistoryEntry = {
+                term: cleanText,
+                results: [],
+                isLoading: true,
+                systemLoading: false,
+            };
 
-        // Add to history based on navigation mode
-        setHistory(prev => {
-            const newHistory = prev.slice(0, historyIndex + 1);
-            newHistory.push(newEntry);
-            if (newHistory.length > maxHistory) newHistory.shift();
-            return newHistory;
-        });
-        setHistoryIndex(prev => Math.min(prev + 1, maxHistory - 1));
+            // Add to history based on navigation mode
+            setHistory((prev) => {
+                const newHistory = prev.slice(0, historyIndex + 1);
+                newHistory.push(newEntry);
+                if (newHistory.length > maxHistory) newHistory.shift();
+                return newHistory;
+            });
+            setHistoryIndex((prev) => Math.min(prev + 1, maxHistory - 1));
 
-        // Perform lookup
-        try {
-            const result = await handleSearch(cleanText, true);
-            if (result) {
-                setHistory(prev => {
+            // Perform lookup
+            try {
+                const result = await handleSearch(cleanText, true);
+                if (result) {
+                    setHistory((prev) => {
+                        const newHistory = [...prev];
+                        const idx = Math.min(historyIndex + 1, maxHistory - 1);
+                        if (newHistory[idx]) {
+                            const matchedTerm = result.results[0]?.headword || cleanText;
+                            newHistory[idx] = {
+                                term: matchedTerm,
+                                results: result.results,
+                                kanjiResults: result.kanjiResults,
+                                isLoading: false,
+                                systemLoading: result.isSystemLoading,
+                            };
+                        }
+                        return newHistory;
+                    });
+                }
+            } catch (err) {
+                console.warn('Failed to lookup link definition', err);
+                setHistory((prev) => {
                     const newHistory = [...prev];
                     const idx = Math.min(historyIndex + 1, maxHistory - 1);
                     if (newHistory[idx]) {
-                        const matchedTerm = result.results[0]?.headword || cleanText;
-                        newHistory[idx] = { 
-                            term: matchedTerm, 
-                            results: result.results, 
-                            kanjiResults: result.kanjiResults,
-                            isLoading: false, 
-                            systemLoading: result.isSystemLoading 
-                        };
+                        newHistory[idx] = { ...newHistory[idx], results: [], isLoading: false, systemLoading: false };
                     }
                     return newHistory;
                 });
             }
-        } catch (err) {
-            console.warn('Failed to lookup link definition', err);
-            setHistory(prev => {
-                const newHistory = [...prev];
-                const idx = Math.min(historyIndex + 1, maxHistory - 1);
-                if (newHistory[idx]) {
-                    newHistory[idx] = { ...newHistory[idx], results: [], isLoading: false, systemLoading: false };
-                }
+        },
+        [historyIndex, maxHistory, handleSearch],
+    );
+
+    const handleWordClick = useCallback(
+        async (text: string, position: number) => {
+            const cleanText = cleanPunctuation(text, true).trim();
+            if (!cleanText) return;
+
+            const textEncoder = new TextEncoder();
+            const prefixBytes = textEncoder.encode(text.slice(0, position)).length;
+
+            // Create new history entry
+            const newEntry: LookupHistoryEntry = {
+                term: cleanText,
+                results: [],
+                isLoading: true,
+                systemLoading: false,
+            };
+
+            setHistory((prev) => {
+                const newHistory = prev.slice(0, historyIndex + 1);
+                newHistory.push(newEntry);
+                if (newHistory.length > maxHistory) newHistory.shift();
                 return newHistory;
             });
-        }
-    }, [historyIndex, maxHistory, handleSearch]);
+            setHistoryIndex((prev) => Math.min(prev + 1, maxHistory - 1));
 
-    const handleWordClick = useCallback(async (text: string, position: number) => {
-        const cleanText = cleanPunctuation(text, true).trim();
-        if (!cleanText) return;
+            // Perform lookup with position
+            try {
+                const res = await lookupYomitan(
+                    cleanText,
+                    prefixBytes,
+                    settings.resultGroupingMode || 'grouped',
+                    settings.yomitanLanguage || 'japanese',
+                );
+                const loadedResults = res === 'loading' ? [] : (res as any).terms || res || [];
+                const loadedKanji = res === 'loading' ? [] : (res as any).kanji || [];
+                const isSystemLoading = res === 'loading';
 
-        const textEncoder = new TextEncoder();
-        const prefixBytes = textEncoder.encode(text.slice(0, position)).length;
+                setKanjiResults(loadedKanji);
 
-        // Create new history entry
-        const newEntry: LookupHistoryEntry = { 
-            term: cleanText, 
-            results: [], 
-            isLoading: true, 
-            systemLoading: false 
-        };
+                setHistory((prev) => {
+                    const newHistory = [...prev];
+                    const idx = Math.min(historyIndex + 1, maxHistory - 1);
+                    if (newHistory[idx]) {
+                        const matchedTerm = loadedResults[0]?.headword || cleanText;
+                        newHistory[idx] = {
+                            term: matchedTerm,
+                            results: loadedResults,
+                            kanjiResults: loadedKanji,
+                            isLoading: false,
+                            systemLoading: isSystemLoading,
+                        };
+                    }
+                    return newHistory;
+                });
+            } catch (err) {
+                console.warn('Failed to lookup word', err);
+                setHistory((prev) => {
+                    const newHistory = [...prev];
+                    const idx = Math.min(historyIndex + 1, maxHistory - 1);
+                    if (newHistory[idx]) {
+                        newHistory[idx] = { ...newHistory[idx], results: [], isLoading: false, systemLoading: false };
+                    }
+                    return newHistory;
+                });
+            }
+        },
+        [historyIndex, maxHistory, settings.resultGroupingMode, settings.yomitanLanguage],
+    );
 
-        setHistory(prev => {
-            const newHistory = prev.slice(0, historyIndex + 1);
-            newHistory.push(newEntry);
-            if (newHistory.length > maxHistory) newHistory.shift();
-            return newHistory;
-        });
-        setHistoryIndex(prev => Math.min(prev + 1, maxHistory - 1));
+    const handleKanjiLookup = useCallback(
+        async (char: string) => {
+            const cleanText = char.trim();
+            if (!cleanText) return;
 
-        // Perform lookup with position
-        try {
-            const res = await lookupYomitan(
-                cleanText,
-                prefixBytes,
-                settings.resultGroupingMode || 'grouped',
-                settings.yomitanLanguage || 'japanese'
-            );
-            const loadedResults = res === 'loading' ? [] : (res as any).terms || res || [];
-            const loadedKanji = res === 'loading' ? [] : (res as any).kanji || [];
-            const isSystemLoading = res === 'loading';
-            
-            setKanjiResults(loadedKanji);
+            const maxHistory = settings.yomitanLookupMaxHistory || 10;
+            const newEntry: LookupHistoryEntry = {
+                term: cleanText,
+                results: [],
+                kanjiResults: [],
+                isLoading: true,
+                systemLoading: false,
+                isKanjiOnly: true,
+            };
 
-            setHistory(prev => {
-                const newHistory = [...prev];
-                const idx = Math.min(historyIndex + 1, maxHistory - 1);
-                if (newHistory[idx]) {
-                    const matchedTerm = loadedResults[0]?.headword || cleanText;
-                    newHistory[idx] = { 
-                        term: matchedTerm, 
-                        results: loadedResults, 
-                        kanjiResults: loadedKanji,
-                        isLoading: false, 
-                        systemLoading: isSystemLoading 
-                    };
-                }
+            setHistory((prev) => {
+                const newHistory = prev.slice(0, historyIndex + 1);
+                newHistory.push(newEntry);
+                if (newHistory.length > maxHistory) newHistory.shift();
                 return newHistory;
             });
-        } catch (err) {
-            console.warn('Failed to lookup word', err);
-            setHistory(prev => {
-                const newHistory = [...prev];
-                const idx = Math.min(historyIndex + 1, maxHistory - 1);
-                if (newHistory[idx]) {
-                    newHistory[idx] = { ...newHistory[idx], results: [], isLoading: false, systemLoading: false };
-                }
-                return newHistory;
-            });
-        }
-    }, [historyIndex, maxHistory, settings.resultGroupingMode, settings.yomitanLanguage]);
+            setHistoryIndex((prev) => Math.min(prev + 1, maxHistory - 1));
 
-    const handleKanjiLookup = useCallback(async (char: string) => {
-        const cleanText = char.trim();
-        if (!cleanText) return;
+            try {
+                const res = await lookupYomitan(
+                    cleanText,
+                    0,
+                    settings.resultGroupingMode || 'grouped',
+                    settings.yomitanLanguage || 'japanese',
+                );
+                const loadedResults = res === 'loading' ? [] : (res as any).terms || res || [];
+                const loadedKanji = res === 'loading' ? [] : (res as any).kanji || [];
+                const isSystemLoading = res === 'loading';
 
-        const maxHistory = settings.yomitanLookupMaxHistory || 10;
-        const newEntry: LookupHistoryEntry = {
-            term: cleanText,
-            results: [],
-            kanjiResults: [],
-            isLoading: true,
-            systemLoading: false,
-            isKanjiOnly: true
-        };
+                setHistory((prev) => {
+                    const newHistory = [...prev];
+                    const idx = Math.min(historyIndex + 1, maxHistory - 1);
+                    if (newHistory[idx]) {
+                        newHistory[idx] = {
+                            term: cleanText,
+                            results: loadedResults,
+                            kanjiResults: loadedKanji,
+                            isLoading: false,
+                            systemLoading: isSystemLoading,
+                            isKanjiOnly: true,
+                        };
+                    }
+                    return newHistory;
+                });
+            } catch (err) {
+                console.warn('Failed to lookup kanji', err);
+                setHistory((prev) => {
+                    const newHistory = [...prev];
+                    const idx = Math.min(historyIndex + 1, maxHistory - 1);
+                    if (newHistory[idx]) {
+                        newHistory[idx] = { ...newHistory[idx], results: [], isLoading: false, systemLoading: false };
+                    }
+                    return newHistory;
+                });
+            }
+        },
+        [historyIndex, settings.resultGroupingMode, settings.yomitanLanguage, settings.yomitanLookupMaxHistory],
+    );
 
-        setHistory(prev => {
-            const newHistory = prev.slice(0, historyIndex + 1);
-            newHistory.push(newEntry);
-            if (newHistory.length > maxHistory) newHistory.shift();
-            return newHistory;
-        });
-        setHistoryIndex(prev => Math.min(prev + 1, maxHistory - 1));
-
-        try {
-            const res = await lookupYomitan(
-                cleanText,
-                0,
-                settings.resultGroupingMode || 'grouped',
-                settings.yomitanLanguage || 'japanese'
-            );
-            const loadedResults = res === 'loading' ? [] : (res as any).terms || res || [];
-            const loadedKanji = res === 'loading' ? [] : (res as any).kanji || [];
-            const isSystemLoading = res === 'loading';
-
-            setHistory(prev => {
-                const newHistory = [...prev];
-                const idx = Math.min(historyIndex + 1, maxHistory - 1);
-                if (newHistory[idx]) {
-                    newHistory[idx] = {
-                        term: cleanText,
-                        results: loadedResults,
-                        kanjiResults: loadedKanji,
-                        isLoading: false,
-                        systemLoading: isSystemLoading,
-                        isKanjiOnly: true
-                    };
-                }
-                return newHistory;
-            });
-        } catch (err) {
-            console.warn('Failed to lookup kanji', err);
-            setHistory(prev => {
-                const newHistory = [...prev];
-                const idx = Math.min(historyIndex + 1, maxHistory - 1);
-                if (newHistory[idx]) {
-                    newHistory[idx] = { ...newHistory[idx], results: [], isLoading: false, systemLoading: false };
-                }
-                return newHistory;
-            });
-        }
-    }, [historyIndex, settings.resultGroupingMode, settings.yomitanLanguage, settings.yomitanLookupMaxHistory]);
-
-    const navigateToHistory = useCallback((index: number) => {
-        if (index >= 0 && index < history.length) {
-            setHistoryIndex(index);
-            setSearchTerm(history[index].term);
-        }
-    }, [history]);
+    const navigateToHistory = useCallback(
+        (index: number) => {
+            if (index >= 0 && index < history.length) {
+                setHistoryIndex(index);
+                setSearchTerm(history[index].term);
+            }
+        },
+        [history],
+    );
 
     const goBack = useCallback(() => {
         if (historyIndex > 0) {
-            setHistoryIndex(prev => prev - 1);
+            setHistoryIndex((prev) => prev - 1);
             setSearchTerm(history[historyIndex - 1].term);
         }
     }, [historyIndex, history]);
@@ -374,9 +385,7 @@ export const Dictionary = () => {
                     {history.map((entry, i) => (
                         <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                             {i > 0 && (
-                                <Typography sx={{ color: 'text.secondary', fontSize: '0.7em', px: 0.5 }}>
-                                    →
-                                </Typography>
+                                <Typography sx={{ color: 'text.secondary', fontSize: '0.7em', px: 0.5 }}>→</Typography>
                             )}
                             <Box
                                 component="button"
@@ -386,12 +395,14 @@ export const Dictionary = () => {
                                     py: 0.5,
                                     borderRadius: 1,
                                     border: 'none',
-                                    background: i === historyIndex 
-                                        ? muiTheme.palette.primary.main 
-                                        : alpha(muiTheme.palette.primary.main, 0.1),
-                                    color: i === historyIndex 
-                                        ? muiTheme.palette.primary.contrastText 
-                                        : muiTheme.palette.text.primary,
+                                    background:
+                                        i === historyIndex
+                                            ? muiTheme.palette.primary.main
+                                            : alpha(muiTheme.palette.primary.main, 0.1),
+                                    color:
+                                        i === historyIndex
+                                            ? muiTheme.palette.primary.contrastText
+                                            : muiTheme.palette.text.primary,
                                     cursor: 'pointer',
                                     fontSize: '0.8rem',
                                     maxWidth: '120px',
@@ -400,10 +411,11 @@ export const Dictionary = () => {
                                     whiteSpace: 'nowrap',
                                     transition: 'all 0.2s',
                                     '&:hover': {
-                                        background: i === historyIndex 
-                                            ? muiTheme.palette.primary.dark 
-                                            : alpha(muiTheme.palette.primary.main, 0.2),
-                                    }
+                                        background:
+                                            i === historyIndex
+                                                ? muiTheme.palette.primary.dark
+                                                : alpha(muiTheme.palette.primary.main, 0.2),
+                                    },
                                 }}
                                 title={entry.term}
                             >
@@ -414,7 +426,8 @@ export const Dictionary = () => {
                     ))}
                 </Box>
             );
-        } else if (navMode === 'stacked' && historyIndex > 0) {
+        }
+        if (navMode === 'stacked' && historyIndex > 0) {
             return (
                 <Box sx={{ mb: 2 }}>
                     <Box
@@ -435,7 +448,7 @@ export const Dictionary = () => {
                             transition: 'all 0.2s',
                             '&:hover': {
                                 background: muiTheme.palette.primary.dark,
-                            }
+                            },
                         }}
                     >
                         <ArrowBackIcon sx={{ fontSize: 18 }} />
@@ -458,173 +471,183 @@ export const Dictionary = () => {
                     flexDirection: 'column',
                 }}
             >
-            {/* Header / Search Bar */}
-            <Box
-                sx={{
-                    p: 3,
-                    borderBottom: `1px solid ${muiTheme.palette.divider}`,
-                    position: 'sticky',
-                    top: 0,
-                    zIndex: 10,
-                }}
-            >
-                <Stack direction="row" spacing={2} alignItems="center">
-                    <TextField
-                        fullWidth
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                                (e.target as HTMLInputElement).blur();
-                                if (typeof window !== 'undefined' && (window as any).ManatanNative?.hideKeyboard) {
-                                    (window as any).ManatanNative.hideKeyboard();
+                {/* Header / Search Bar */}
+                <Box
+                    sx={{
+                        p: 3,
+                        borderBottom: `1px solid ${muiTheme.palette.divider}`,
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 10,
+                    }}
+                >
+                    <Stack direction="row" spacing={2} alignItems="center">
+                        <TextField
+                            fullWidth
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    (e.target as HTMLInputElement).blur();
+                                    if (typeof window !== 'undefined' && (window as any).ManatanNative?.hideKeyboard) {
+                                        (window as any).ManatanNative.hideKeyboard();
+                                    }
                                 }
-                            }
-                        }}
-                        placeholder="Search..."
-                        autoFocus
-                        size="medium"
-                        sx={{
-                            '& .MuiOutlinedInput-root': {
-                                backgroundColor: muiTheme.palette.background.paper,
-                                color: muiTheme.palette.text.primary,
-                                borderRadius: '12px',
-                                transition: 'all 0.2s ease',
-                                '&:hover fieldset': {
-                                    borderColor: muiTheme.palette.divider,
+                            }}
+                            placeholder="Search..."
+                            autoFocus
+                            size="medium"
+                            sx={{
+                                '& .MuiOutlinedInput-root': {
+                                    backgroundColor: muiTheme.palette.background.paper,
+                                    color: muiTheme.palette.text.primary,
+                                    borderRadius: '12px',
+                                    transition: 'all 0.2s ease',
+                                    '&:hover fieldset': {
+                                        borderColor: muiTheme.palette.divider,
+                                    },
+                                    '&.Mui-focused fieldset': {
+                                        borderColor: muiTheme.palette.primary.main,
+                                        borderWidth: '2px',
+                                    },
                                 },
-                                '&.Mui-focused fieldset': {
-                                    borderColor: muiTheme.palette.primary.main,
-                                    borderWidth: '2px',
+                                '& .MuiInputBase-input': {
+                                    fontSize: '1.1rem',
+                                    padding: '14px 16px',
                                 },
-                            },
-                            '& .MuiInputBase-input': {
-                                fontSize: '1.1rem',
-                                padding: '14px 16px',
-                            },
-                        }}
-                        InputProps={{
-                            startAdornment: (
-                                <SearchIcon sx={{ mr: 1, color: 'text.secondary', opacity: 0.7, ml: 1 }} />
-                            ),
-                            endAdornment: (
-                                <Box sx={{ display: 'flex', gap: 0.5, mr: 1 }}>
-                                    {searchTerm && (
-                                        <IconButton
-                                            size="small"
-                                            onClick={handleClear}
-                                            sx={{ color: 'text.secondary', opacity: 0.7, '&:hover': { opacity: 1 } }}
-                                        >
-                                            <ClearIcon fontSize="small" />
-                                        </IconButton>
-                                    )}
+                            }}
+                            InputProps={{
+                                startAdornment: (
+                                    <SearchIcon sx={{ mr: 1, color: 'text.secondary', opacity: 0.7, ml: 1 }} />
+                                ),
+                                endAdornment: (
+                                    <Box sx={{ display: 'flex', gap: 0.5, mr: 1 }}>
+                                        {searchTerm && (
+                                            <IconButton
+                                                size="small"
+                                                onClick={handleClear}
+                                                sx={{
+                                                    color: 'text.secondary',
+                                                    opacity: 0.7,
+                                                    '&:hover': { opacity: 1 },
+                                                }}
+                                            >
+                                                <ClearIcon fontSize="small" />
+                                            </IconButton>
+                                        )}
+                                    </Box>
+                                ),
+                            }}
+                        />
+                    </Stack>
+                </Box>
+
+                {/* Content */}
+                <Box
+                    sx={{
+                        flex: 1,
+                        overflow: 'auto',
+                        p: { xs: 2, sm: 3, md: 4 },
+                    }}
+                >
+                    {/* Empty State */}
+                    <Fade in={!displayIsLoading && !hasSearched} timeout={300} mountOnEnter unmountOnExit>
+                        <Box
+                            sx={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                minHeight: '50vh',
+                                opacity: 0.6,
+                            }}
+                        >
+                            <TranslateIcon sx={{ fontSize: 80, mb: 3, opacity: 0.3 }} />
+                            <Typography variant="h4" sx={{ mb: 1, fontWeight: 300, letterSpacing: '-0.5px' }}>
+                                Dictionary
+                            </Typography>
+                            <Typography variant="body1" sx={{ opacity: 0.7, textAlign: 'center', maxWidth: 400 }}>
+                                Enter text above to search your imported dictionaries
+                            </Typography>
+                        </Box>
+                    </Fade>
+
+                    {/* Loading State */}
+                    <Fade in={displayIsLoading} timeout={200} mountOnEnter unmountOnExit>
+                        <Box
+                            sx={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                minHeight: '30vh',
+                            }}
+                        >
+                            <CircularProgress size={40} thickness={4} sx={{ mb: 2, color: 'primary.main' }} />
+                            <Typography variant="body1" sx={{ opacity: 0.8 }}>
+                                Searching dictionary...
+                            </Typography>
+                        </Box>
+                    </Fade>
+
+                    {/* Results */}
+                    <Fade in={!displayIsLoading && hasSearched} timeout={300}>
+                        <Box sx={{ display: !displayIsLoading && hasSearched ? 'block' : 'none' }}>
+                            {displayResults.length > 0 || displayKanjiResults.length > 0 ? (
+                                <Box>
+                                    {renderHistoryNav()}
+                                    <Paper
+                                        elevation={0}
+                                        className={
+                                            muiTheme.palette.mode === 'dark'
+                                                ? 'yomitan-popup-dark'
+                                                : 'yomitan-popup-light'
+                                        }
+                                        sx={{
+                                            maxWidth: 900,
+                                            mx: 'auto',
+                                            backdropFilter: 'blur(10px)',
+                                            borderRadius: '16px',
+                                            border: `1px solid ${muiTheme.palette.divider}`,
+                                            overflow: 'hidden',
+                                            p: { xs: 2, sm: 3 },
+                                        }}
+                                    >
+                                        <DictionaryView
+                                            results={displayResults}
+                                            isLoading={displayIsLoading}
+                                            systemLoading={displaySystemLoading}
+                                            onLinkClick={handleLinkClick}
+                                            onWordClick={handleWordClick}
+                                            onKanjiClick={handleKanjiLookup}
+                                            kanjiResults={displayKanjiResults}
+                                        />
+                                    </Paper>
                                 </Box>
-                            ),
-                        }}
-                    />
-                </Stack>
-            </Box>
-
-            {/* Content */}
-            <Box
-                sx={{
-                    flex: 1,
-                    overflow: 'auto',
-                    p: { xs: 2, sm: 3, md: 4 },
-                }}
-            >
-                {/* Empty State */}
-                <Fade in={!displayIsLoading && !hasSearched} timeout={300} mountOnEnter unmountOnExit>
-                    <Box
-                        sx={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            minHeight: '50vh',
-                            opacity: 0.6,
-                        }}
-                    >
-                        <TranslateIcon sx={{ fontSize: 80, mb: 3, opacity: 0.3 }} />
-                        <Typography variant="h4" sx={{ mb: 1, fontWeight: 300, letterSpacing: '-0.5px' }}>
-                            Dictionary
-                        </Typography>
-                        <Typography variant="body1" sx={{ opacity: 0.7, textAlign: 'center', maxWidth: 400 }}>
-                            Enter text above to search your imported dictionaries
-                        </Typography>
-                    </Box>
-                </Fade>
-
-                {/* Loading State */}
-                <Fade in={displayIsLoading} timeout={200} mountOnEnter unmountOnExit>
-                    <Box
-                        sx={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            minHeight: '30vh',
-                        }}
-                    >
-                        <CircularProgress size={40} thickness={4} sx={{ mb: 2, color: 'primary.main' }} />
-                        <Typography variant="body1" sx={{ opacity: 0.8 }}>Searching dictionary...</Typography>
-                    </Box>
-                </Fade>
-
-                {/* Results */}
-                <Fade in={!displayIsLoading && hasSearched} timeout={300}>
-                    <Box sx={{ display: !displayIsLoading && hasSearched ? 'block' : 'none' }}>
-                        {(displayResults.length > 0 || displayKanjiResults.length > 0) ? (
-                            <Box>
-                                {renderHistoryNav()}
-                                <Paper
-                                    elevation={0}
-                                    className={muiTheme.palette.mode === 'dark' ? 'yomitan-popup-dark' : 'yomitan-popup-light'}
+                            ) : (
+                                /* No Results State */
+                                <Box
                                     sx={{
-                                        maxWidth: 900,
-                                        mx: 'auto',
-                                        backdropFilter: 'blur(10px)',
-                                        borderRadius: '16px',
-                                        border: `1px solid ${muiTheme.palette.divider}`,
-                                        overflow: 'hidden',
-                                        p: { xs: 2, sm: 3 },
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        minHeight: '30vh',
+                                        opacity: 0.7,
                                     }}
                                 >
-                                    <DictionaryView
-                                        results={displayResults}
-                                        isLoading={displayIsLoading}
-                                        systemLoading={displaySystemLoading}
-                                        onLinkClick={handleLinkClick}
-                                        onWordClick={handleWordClick}
-                                        onKanjiClick={handleKanjiLookup}
-                                        kanjiResults={displayKanjiResults}
-                                    />
-                                </Paper>
-                            </Box>
-                        ) : (
-                            /* No Results State */
-                            <Box
-                                sx={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    minHeight: '30vh',
-                                    opacity: 0.7,
-                                }}
-                            >
-                                <Typography variant="h5" sx={{ mb: 1, fontWeight: 400 }}>
-                                    No Results Found
-                                </Typography>
-                                <Typography variant="body2" sx={{ opacity: 0.7, textAlign: 'center' }}>
-                                    Try checking your spelling or search with different terms
-                                </Typography>
-                            </Box>
-                        )}
-                    </Box>
-                </Fade>
-            </Box>
-        </div>
+                                    <Typography variant="h5" sx={{ mb: 1, fontWeight: 400 }}>
+                                        No Results Found
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ opacity: 0.7, textAlign: 'center' }}>
+                                        Try checking your spelling or search with different terms
+                                    </Typography>
+                                </Box>
+                            )}
+                        </Box>
+                    </Fade>
+                </Box>
+            </div>
         </>
     );
 };

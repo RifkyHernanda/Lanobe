@@ -6,8 +6,8 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { jsonSaveParse } from '@/lib/HelperFunctions.ts';
 import localforage from 'localforage';
+import { jsonSaveParse } from '@/lib/HelperFunctions.ts';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
 import { HttpMethod } from '@/lib/requests/client/RestClient.ts';
 import { LNMetadata, LNProgress, LNParsedBook, LnCategory, LnCategoryMetadata } from '@/features/ln/LN.types';
@@ -154,14 +154,12 @@ class ServerStorage<T> {
             }
         }
 
-        return await this.fetchFromServer<R>(key);
+        return this.fetchFromServer<R>(key);
     }
 
     private async fetchFromServer<R = T>(key: string): Promise<R | null> {
         try {
-            const response = await requestManager.getClient().fetcher(
-                `${this.endpoint}/${encodeURIComponent(key)}`,
-            );
+            const response = await requestManager.getClient().fetcher(`${this.endpoint}/${encodeURIComponent(key)}`);
             if (response.status === 404) return null;
             const data = await response.json();
 
@@ -175,9 +173,7 @@ class ServerStorage<T> {
 
     async setItem(key: string, value: T): Promise<T> {
         try {
-            await requestManager
-                .getClient()
-                .fetcher(`${this.endpoint}/${encodeURIComponent(key)}`, {
+            await requestManager.getClient().fetcher(`${this.endpoint}/${encodeURIComponent(key)}`, {
                 httpMethod: HttpMethod.POST,
                 data: this.wrapPayload(value),
             });
@@ -191,9 +187,7 @@ class ServerStorage<T> {
 
     async removeItem(key: string): Promise<void> {
         try {
-            await requestManager
-                .getClient()
-                .fetcher(`${this.endpoint}/${encodeURIComponent(key)}`, {
+            await requestManager.getClient().fetcher(`${this.endpoint}/${encodeURIComponent(key)}`, {
                 httpMethod: HttpMethod.DELETE,
             });
             this.memCache.delete(key);
@@ -206,8 +200,8 @@ class ServerStorage<T> {
     async keys(): Promise<string[]> {
         if (this.storeName === 'novel_metadata') {
             const response = await requestManager.getClient().fetcher(this.endpoint);
-            const data = await response.json() as LNMetadata[];
-            return data.map(m => m.id);
+            const data = (await response.json()) as LNMetadata[];
+            return data.map((m) => m.id);
         }
         return Array.from(this.memCache.keys());
     }
@@ -227,6 +221,7 @@ class ServerStorage<T> {
 
 export class AppStorage {
     static readonly local = new Storage(AppStorage.getSafeStorage(() => window.localStorage));
+
     static readonly session = new Storage(AppStorage.getSafeStorage(() => window.sessionStorage));
 
     // Raw EPUB files
@@ -244,8 +239,8 @@ export class AppStorage {
                 const response = await requestManager
                     .getClient()
                     .fetcher(`/api/novel/file/${encodeURIComponent(key)}`, {
-                    checkResponseIsJson: false
-                });
+                        checkResponseIsJson: false,
+                    });
                 if (response.status === 404) return null;
                 return await response.blob();
             } catch (e) {
@@ -256,16 +251,16 @@ export class AppStorage {
             try {
                 const response = await requestManager.getClient().fetcher('/api/novel/discover');
                 if (response.status === 404) return [];
-                return await response.json() as LNDiscoveredEpub[];
+                return (await response.json()) as LNDiscoveredEpub[];
             } catch (e) {
                 console.error('[AppStorage] Failed to discover pending EPUB files:', e);
                 return [];
             }
         },
         async keys(): Promise<string[]> {
-            return await AppStorage.getNovelIdsForSyncStores();
+            return AppStorage.getNovelIdsForSyncStores();
         },
-        async removeItem(key: string): Promise<void> {}
+        async removeItem(key: string): Promise<void> {},
     };
 
     // Book metadata with stats
@@ -305,17 +300,15 @@ export class AppStorage {
                 imageBlobs[path] = await base64Promise;
             }
 
-            await requestManager
-                .getClient()
-                .fetcher(`/api/novel/content/${encodeURIComponent(key)}`, {
+            await requestManager.getClient().fetcher(`/api/novel/content/${encodeURIComponent(key)}`, {
                 httpMethod: HttpMethod.POST,
                 data: { ...content, imageBlobs },
             });
         },
         async keys(): Promise<string[]> {
-            return await AppStorage.getNovelIdsForSyncStores();
+            return AppStorage.getNovelIdsForSyncStores();
         },
-        async removeItem(key: string): Promise<void> {}
+        async removeItem(key: string): Promise<void> {},
     };
 
     // Reading progress (the bookmark)
@@ -325,7 +318,10 @@ export class AppStorage {
     static readonly lnCategories = new ServerStorage<LnCategory>('/api/novel/categories', 'novel_categories');
 
     // LN Category metadata (sort settings per category)
-    static readonly lnCategoryMetadata = new ServerStorage<LnCategoryMetadata>('/api/novel/categories/metadata', 'novel_category_metadata');
+    static readonly lnCategoryMetadata = new ServerStorage<LnCategoryMetadata>(
+        '/api/novel/categories/metadata',
+        'novel_category_metadata',
+    );
 
     // Custom imported fonts
     static readonly customFonts = localforage.createInstance({
@@ -357,7 +353,7 @@ export class AppStorage {
 
     static async saveLnProgress(
         bookId: string,
-        progress: Omit<LNProgress, 'lastRead' | 'lastModified' | 'syncVersion' | 'deviceId'>
+        progress: Omit<LNProgress, 'lastRead' | 'lastModified' | 'syncVersion' | 'deviceId'>,
     ): Promise<void> {
         const existing = await this.getLnProgress(bookId);
         const now = Date.now();
@@ -372,7 +368,7 @@ export class AppStorage {
     }
 
     static async getLnProgress(bookId: string): Promise<LNProgress | null> {
-        return await this.lnProgress.getItem(bookId);
+        return this.lnProgress.getItem(bookId);
     }
 
     static async hasProgress(bookId: string): Promise<boolean> {
@@ -385,7 +381,7 @@ export class AppStorage {
     // ========================================================================
 
     static async getLnMetadata(bookId: string): Promise<LNMetadata | null> {
-        return await this.lnMetadata.getItem(bookId);
+        return this.lnMetadata.getItem(bookId);
     }
 
     static async saveLnMetadata(metadata: LNMetadata): Promise<void> {
@@ -405,7 +401,7 @@ export class AppStorage {
     static async getAllLnMetadata(): Promise<LNMetadata[]> {
         try {
             const response = await requestManager.getClient().fetcher('/api/novel/metadata');
-            const data = await response.json() as LNMetadata[];
+            const data = (await response.json()) as LNMetadata[];
             // Instant library mirror update
             localStorage.setItem('manatan_novel_metadata_list', JSON.stringify(data));
             return data;
@@ -421,7 +417,7 @@ export class AppStorage {
     // ========================================================================
 
     static async getLnContent(bookId: string): Promise<LNParsedBook | null> {
-        return await this.lnContent.getItem(bookId);
+        return this.lnContent.getItem(bookId);
     }
 
     static async saveLnContent(bookId: string, content: LNParsedBook): Promise<void> {
@@ -434,7 +430,7 @@ export class AppStorage {
 
     static async deleteLnData(bookId: string): Promise<void> {
         await requestManager.getClient().fetcher(`/api/novel/metadata/${encodeURIComponent(bookId)}`, {
-            httpMethod: HttpMethod.DELETE
+            httpMethod: HttpMethod.DELETE,
         });
         console.log('[AppStorage] All data deleted for:', bookId);
     }
@@ -467,8 +463,8 @@ export class AppStorage {
     }
 
     static async mergeRemoteProgress(
-        bookId: string, 
-        remoteProgress: LNProgress
+        bookId: string,
+        remoteProgress: LNProgress,
     ): Promise<{ result: 'local' | 'remote' | 'conflict'; merged?: LNProgress }> {
         const localProgress = await this.getLnProgress(bookId);
 
@@ -496,15 +492,15 @@ export class AppStorage {
         if (remoteProgress.totalProgress > localProgress.totalProgress) {
             await this.lnProgress.setItem(bookId, remoteProgress);
             return { result: 'remote' };
-        } else if (localProgress.totalProgress > remoteProgress.totalProgress) {
-            return { result: 'local' };
-        } else {
-            if (remoteProgress.lastModified > localProgress.lastModified) {
-                await this.lnProgress.setItem(bookId, remoteProgress);
-                return { result: 'remote' };
-            }
+        }
+        if (localProgress.totalProgress > remoteProgress.totalProgress) {
             return { result: 'local' };
         }
+        if (remoteProgress.lastModified > localProgress.lastModified) {
+            await this.lnProgress.setItem(bookId, remoteProgress);
+            return { result: 'remote' };
+        }
+        return { result: 'local' };
     }
 
     static async exportProgressData(): Promise<string> {
@@ -643,7 +639,7 @@ export class AppStorage {
     }
 
     static async getLnCategory(categoryId: string): Promise<LnCategory | null> {
-        return await this.lnCategories.getItem(categoryId);
+        return this.lnCategories.getItem(categoryId);
     }
 
     static async saveLnCategory(category: LnCategory): Promise<void> {
@@ -653,7 +649,7 @@ export class AppStorage {
     static async createLnCategory(name: string): Promise<LnCategory> {
         const categories = await this.getLnCategories();
         const maxOrder = categories.reduce((max, c) => Math.max(max, c.order), -1);
-        
+
         const newCategory: LnCategory = {
             id: `lncat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             name,
@@ -687,7 +683,7 @@ export class AppStorage {
     }
 
     static async getLnCategoryMetadata(categoryId: string): Promise<LnCategoryMetadata | null> {
-        return await this.lnCategoryMetadata.getItem(categoryId);
+        return this.lnCategoryMetadata.getItem(categoryId);
     }
 
     static async setLnCategoryMetadata(categoryId: string, metadata: LnCategoryMetadata): Promise<void> {

@@ -13,7 +13,6 @@ const POPUP_MAX_WIDTH_PX = 1920;
 const POPUP_MIN_HEIGHT_PX = 200;
 const POPUP_MAX_HEIGHT_PX = 1080;
 
-
 interface LookupHistoryEntry {
     term: string;
     results: DictionaryResult[];
@@ -37,7 +36,7 @@ const HighlightOverlay = () => {
                 width: '100%',
                 height: '100%',
                 pointerEvents: 'none',
-                zIndex: 2147483645
+                zIndex: 2147483645,
             }}
         >
             {dictPopup.highlight.rects.map((rect, i) => (
@@ -73,7 +72,7 @@ export const YomitanPopup = () => {
             if (dictPopup.visible) {
                 window.getSelection()?.removeAllRanges();
                 notifyPopupClosed();
-                setDictPopup(prev => ({ ...prev, visible: false }));
+                setDictPopup((prev) => ({ ...prev, visible: false }));
                 return true;
             }
             return false;
@@ -93,15 +92,9 @@ export const YomitanPopup = () => {
 
     const currentEntry = historyIndex >= 0 && historyIndex < history.length ? history[historyIndex] : null;
 
-    const popupWidthPxRaw = Number.isFinite(settings.yomitanPopupWidthPx)
-        ? settings.yomitanPopupWidthPx
-        : 340;
-    const popupHeightPxRaw = Number.isFinite(settings.yomitanPopupHeightPx)
-        ? settings.yomitanPopupHeightPx
-        : 450;
-    const popupScaleRaw = Number.isFinite(settings.yomitanPopupScalePercent)
-        ? settings.yomitanPopupScalePercent
-        : 100;
+    const popupWidthPxRaw = Number.isFinite(settings.yomitanPopupWidthPx) ? settings.yomitanPopupWidthPx : 340;
+    const popupHeightPxRaw = Number.isFinite(settings.yomitanPopupHeightPx) ? settings.yomitanPopupHeightPx : 450;
+    const popupScaleRaw = Number.isFinite(settings.yomitanPopupScalePercent) ? settings.yomitanPopupScalePercent : 100;
     const popupScalePercent = Math.min(Math.max(popupScaleRaw, 50), 200);
     const popupScale = popupScalePercent / 100;
     const popupWidthPx = Math.min(Math.max(popupWidthPxRaw, POPUP_MIN_WIDTH_PX), POPUP_MAX_WIDTH_PX);
@@ -113,9 +106,9 @@ export const YomitanPopup = () => {
     );
 
     const processedEntries = currentEntry ? currentEntry.results : dictPopup.results;
-    const kanjiResults = currentEntry ? currentEntry.kanjiResults : (dictPopup.kanjiResults || []);
+    const kanjiResults = currentEntry ? currentEntry.kanjiResults : dictPopup.kanjiResults || [];
     const isLoading = currentEntry ? currentEntry.isLoading : dictPopup.isLoading;
-    const systemLoading = currentEntry ? currentEntry.systemLoading : dictPopup.systemLoading ?? false;
+    const systemLoading = currentEntry ? currentEntry.systemLoading : (dictPopup.systemLoading ?? false);
 
     // Sync history when initial lookup completes
     React.useEffect(() => {
@@ -124,276 +117,324 @@ export const YomitanPopup = () => {
             setHistoryIndex(-1);
             return;
         }
-        if ((dictPopup.results.length > 0 || (dictPopup.kanjiResults && dictPopup.kanjiResults.length > 0)) && !dictPopup.isLoading) {
-            const term = dictPopup.results[0]?.headword || dictPopup.kanjiResults?.[0]?.character || dictPopup.context?.sentence?.trim() || '';
-            setHistory([{
-                term,
-                results: dictPopup.results,
-                kanjiResults: dictPopup.kanjiResults || [],
-                isLoading: false,
-                systemLoading: false
-            }]);
+        if (
+            (dictPopup.results.length > 0 || (dictPopup.kanjiResults && dictPopup.kanjiResults.length > 0)) &&
+            !dictPopup.isLoading
+        ) {
+            const term =
+                dictPopup.results[0]?.headword ||
+                dictPopup.kanjiResults?.[0]?.character ||
+                dictPopup.context?.sentence?.trim() ||
+                '';
+            setHistory([
+                {
+                    term,
+                    results: dictPopup.results,
+                    kanjiResults: dictPopup.kanjiResults || [],
+                    isLoading: false,
+                    systemLoading: false,
+                },
+            ]);
             setHistoryIndex(0);
         }
-    }, [dictPopup.visible, dictPopup.results, dictPopup.kanjiResults, dictPopup.isLoading, dictPopup.systemLoading, dictPopup.context?.sentence]);
+    }, [
+        dictPopup.visible,
+        dictPopup.results,
+        dictPopup.kanjiResults,
+        dictPopup.isLoading,
+        dictPopup.systemLoading,
+        dictPopup.context?.sentence,
+    ]);
 
-    const handleDefinitionLink = useCallback(async (href: string, text: string) => {
-        // Extract lookup text from href
-        const safeFallback = text.trim();
-        const trimmedHref = href.trim();
-        let lookupText = safeFallback;
+    const handleDefinitionLink = useCallback(
+        async (href: string, text: string) => {
+            // Extract lookup text from href
+            const safeFallback = text.trim();
+            const trimmedHref = href.trim();
+            let lookupText = safeFallback;
 
-        if (trimmedHref) {
-            const extractQuery = (params: URLSearchParams) =>
-                params.get('query') || params.get('text') || params.get('term') || params.get('q') || '';
+            if (trimmedHref) {
+                const extractQuery = (params: URLSearchParams) =>
+                    params.get('query') || params.get('text') || params.get('term') || params.get('q') || '';
 
-            if (trimmedHref.startsWith('http://') || trimmedHref.startsWith('https://')) {
-                try {
-                    const parsed = new URL(trimmedHref);
-                    const queryText = extractQuery(parsed.searchParams);
+                if (trimmedHref.startsWith('http://') || trimmedHref.startsWith('https://')) {
+                    try {
+                        const parsed = new URL(trimmedHref);
+                        const queryText = extractQuery(parsed.searchParams);
+                        if (queryText) lookupText = queryText;
+                    } catch (err) {
+                        console.warn('Failed to parse http link', err);
+                    }
+                } else if (trimmedHref.startsWith('?') || trimmedHref.includes('?')) {
+                    const queryString = trimmedHref.startsWith('?')
+                        ? trimmedHref.slice(1)
+                        : trimmedHref.slice(trimmedHref.indexOf('?') + 1);
+                    const params = new URLSearchParams(queryString);
+                    const queryText = extractQuery(params);
                     if (queryText) lookupText = queryText;
-                } catch (err) {
-                    console.warn('Failed to parse http link', err);
-                }
-            } else if (trimmedHref.startsWith('?') || trimmedHref.includes('?')) {
-                const queryString = trimmedHref.startsWith('?')
-                    ? trimmedHref.slice(1)
-                    : trimmedHref.slice(trimmedHref.indexOf('?') + 1);
-                const params = new URLSearchParams(queryString);
-                const queryText = extractQuery(params);
-                if (queryText) lookupText = queryText;
-            } else if (trimmedHref.startsWith('term://')) {
-                lookupText = decodeURIComponent(trimmedHref.slice('term://'.length));
-            } else if (trimmedHref.startsWith('yomitan://')) {
-                try {
-                    const parsed = new URL(trimmedHref);
-                    const queryText = extractQuery(parsed.searchParams);
-                    if (queryText) lookupText = queryText;
-                    else lookupText = decodeURIComponent(parsed.pathname.replace(/^\//, ''));
-                } catch (err) {
-                    console.warn('Failed to parse yomitan link', err);
-                }
-            } else {
-                try {
-                    lookupText = decodeURIComponent(trimmedHref);
-                } catch (err) {
-                    lookupText = safeFallback || trimmedHref;
+                } else if (trimmedHref.startsWith('term://')) {
+                    lookupText = decodeURIComponent(trimmedHref.slice('term://'.length));
+                } else if (trimmedHref.startsWith('yomitan://')) {
+                    try {
+                        const parsed = new URL(trimmedHref);
+                        const queryText = extractQuery(parsed.searchParams);
+                        if (queryText) lookupText = queryText;
+                        else lookupText = decodeURIComponent(parsed.pathname.replace(/^\//, ''));
+                    } catch (err) {
+                        console.warn('Failed to parse yomitan link', err);
+                    }
+                } else {
+                    try {
+                        lookupText = decodeURIComponent(trimmedHref);
+                    } catch (err) {
+                        lookupText = safeFallback || trimmedHref;
+                    }
                 }
             }
-        }
 
-        const cleanText = cleanPunctuation(lookupText, true).trim();
-        if (!cleanText) return;
+            const cleanText = cleanPunctuation(lookupText, true).trim();
+            if (!cleanText) return;
 
-        const newEntry: LookupHistoryEntry = {
-            term: cleanText,
-            results: [],
-            kanjiResults: [],
-            isLoading: true,
-            systemLoading: false
-        };
+            const newEntry: LookupHistoryEntry = {
+                term: cleanText,
+                results: [],
+                kanjiResults: [],
+                isLoading: true,
+                systemLoading: false,
+            };
 
-        if (navMode === 'tabs') {
-            setHistory(prev => {
-                const newHistory = prev.slice(0, historyIndex + 1);
-                newHistory.push(newEntry);
-                if (newHistory.length > maxHistory) newHistory.shift();
-                return newHistory;
-            });
-            setHistoryIndex(prev => Math.min(prev + 1, maxHistory - 1));
-        } else {
-            setHistory(prev => {
-                const newHistory = prev.slice(0, historyIndex + 1);
-                newHistory.push(newEntry);
-                if (newHistory.length > maxHistory) newHistory.shift();
-                return newHistory;
-            });
-            setHistoryIndex(prev => Math.min(prev + 1, maxHistory - 1));
-        }
+            if (navMode === 'tabs') {
+                setHistory((prev) => {
+                    const newHistory = prev.slice(0, historyIndex + 1);
+                    newHistory.push(newEntry);
+                    if (newHistory.length > maxHistory) newHistory.shift();
+                    return newHistory;
+                });
+                setHistoryIndex((prev) => Math.min(prev + 1, maxHistory - 1));
+            } else {
+                setHistory((prev) => {
+                    const newHistory = prev.slice(0, historyIndex + 1);
+                    newHistory.push(newEntry);
+                    if (newHistory.length > maxHistory) newHistory.shift();
+                    return newHistory;
+                });
+                setHistoryIndex((prev) => Math.min(prev + 1, maxHistory - 1));
+            }
 
-        try {
-            const results = await lookupYomitan(cleanText, 0, settings.resultGroupingMode || 'grouped', settings.yomitanLanguage || 'japanese');
-            const loadedResults = results === 'loading' ? [] : ((results as any).terms || results || []);
-            const loadedKanji = results === 'loading' ? [] : ((results as any).kanji || []);
-            const isSystemLoading = results === 'loading';
+            try {
+                const results = await lookupYomitan(
+                    cleanText,
+                    0,
+                    settings.resultGroupingMode || 'grouped',
+                    settings.yomitanLanguage || 'japanese',
+                );
+                const loadedResults = results === 'loading' ? [] : (results as any).terms || results || [];
+                const loadedKanji = results === 'loading' ? [] : (results as any).kanji || [];
+                const isSystemLoading = results === 'loading';
 
-            setHistory(prev => {
-                const newHistory = [...prev];
-                const idx = Math.min(historyIndex + 1, maxHistory - 1);
-                if (newHistory[idx]) {
-                    newHistory[idx] = {
-                        ...newHistory[idx],
-                        results: loadedResults,
-                        kanjiResults: loadedKanji,
-                        isLoading: false,
-                        systemLoading: isSystemLoading
-                    };
-                }
-                return newHistory;
-            });
-        } catch (err) {
-            console.warn('Failed to lookup link definition', err);
-            setHistory(prev => {
-                const newHistory = [...prev];
-                const idx = Math.min(historyIndex + 1, maxHistory - 1);
-                if (newHistory[idx]) {
-                    newHistory[idx] = { ...newHistory[idx], results: [], isLoading: false, systemLoading: false };
-                }
-                return newHistory;
-            });
-        }
-    }, [setDictPopup, navMode, historyIndex, maxHistory]);
+                setHistory((prev) => {
+                    const newHistory = [...prev];
+                    const idx = Math.min(historyIndex + 1, maxHistory - 1);
+                    if (newHistory[idx]) {
+                        newHistory[idx] = {
+                            ...newHistory[idx],
+                            results: loadedResults,
+                            kanjiResults: loadedKanji,
+                            isLoading: false,
+                            systemLoading: isSystemLoading,
+                        };
+                    }
+                    return newHistory;
+                });
+            } catch (err) {
+                console.warn('Failed to lookup link definition', err);
+                setHistory((prev) => {
+                    const newHistory = [...prev];
+                    const idx = Math.min(historyIndex + 1, maxHistory - 1);
+                    if (newHistory[idx]) {
+                        newHistory[idx] = { ...newHistory[idx], results: [], isLoading: false, systemLoading: false };
+                    }
+                    return newHistory;
+                });
+            }
+        },
+        [setDictPopup, navMode, historyIndex, maxHistory],
+    );
 
-    const handleWordClick = useCallback(async (text: string, position: number) => {
-        const textEncoder = new TextEncoder();
-        const prefixBytes = textEncoder.encode(text.slice(0, position)).length;
-        
-        const cleanText = cleanPunctuation(text, true).trim();
-        if (!cleanText) return;
+    const handleWordClick = useCallback(
+        async (text: string, position: number) => {
+            const textEncoder = new TextEncoder();
+            const prefixBytes = textEncoder.encode(text.slice(0, position)).length;
 
-        const newEntry: LookupHistoryEntry = {
-            term: cleanText,
-            results: [],
-            kanjiResults: [],
-            isLoading: true,
-            systemLoading: false
-        };
+            const cleanText = cleanPunctuation(text, true).trim();
+            if (!cleanText) return;
 
-        if (navMode === 'tabs') {
-            setHistory(prev => {
-                const newHistory = prev.slice(0, historyIndex + 1);
-                newHistory.push(newEntry);
-                if (newHistory.length > maxHistory) newHistory.shift();
-                return newHistory;
-            });
-            setHistoryIndex(prev => Math.min(prev + 1, maxHistory - 1));
-        } else {
-            setHistory(prev => {
-                const newHistory = prev.slice(0, historyIndex + 1);
-                newHistory.push(newEntry);
-                if (newHistory.length > maxHistory) newHistory.shift();
-                return newHistory;
-            });
-            setHistoryIndex(prev => Math.min(prev + 1, maxHistory - 1));
-        }
+            const newEntry: LookupHistoryEntry = {
+                term: cleanText,
+                results: [],
+                kanjiResults: [],
+                isLoading: true,
+                systemLoading: false,
+            };
 
-        try {
-            const results = await lookupYomitan(cleanText, prefixBytes, settings.resultGroupingMode || 'grouped', settings.yomitanLanguage || 'japanese');
-            const loadedResults = results === 'loading' ? [] : ((results as any).terms || results || []);
-            const loadedKanji = results === 'loading' ? [] : ((results as any).kanji || []);
-            const isSystemLoading = results === 'loading';
+            if (navMode === 'tabs') {
+                setHistory((prev) => {
+                    const newHistory = prev.slice(0, historyIndex + 1);
+                    newHistory.push(newEntry);
+                    if (newHistory.length > maxHistory) newHistory.shift();
+                    return newHistory;
+                });
+                setHistoryIndex((prev) => Math.min(prev + 1, maxHistory - 1));
+            } else {
+                setHistory((prev) => {
+                    const newHistory = prev.slice(0, historyIndex + 1);
+                    newHistory.push(newEntry);
+                    if (newHistory.length > maxHistory) newHistory.shift();
+                    return newHistory;
+                });
+                setHistoryIndex((prev) => Math.min(prev + 1, maxHistory - 1));
+            }
 
-            setHistory(prev => {
-                const newHistory = [...prev];
-                const idx = Math.min(historyIndex + 1, maxHistory - 1);
-                if (newHistory[idx]) {
-                    const matchedTerm = loadedResults[0]?.headword || loadedKanji[0]?.character || cleanText;
-                    newHistory[idx] = {
-                        ...newHistory[idx],
-                        term: matchedTerm,
-                        results: loadedResults,
-                        kanjiResults: loadedKanji,
-                        isLoading: false,
-                        systemLoading: isSystemLoading
-                    };
-                }
-                return newHistory;
-            });
-        } catch (err) {
-            console.warn('Failed to lookup word', err);
-            setHistory(prev => {
-                const newHistory = [...prev];
-                const idx = Math.min(historyIndex + 1, maxHistory - 1);
-                if (newHistory[idx]) {
-                    newHistory[idx] = { ...newHistory[idx], results: [], isLoading: false, systemLoading: false };
-                }
-                return newHistory;
-            });
-        }
-    }, [navMode, historyIndex, maxHistory]);
+            try {
+                const results = await lookupYomitan(
+                    cleanText,
+                    prefixBytes,
+                    settings.resultGroupingMode || 'grouped',
+                    settings.yomitanLanguage || 'japanese',
+                );
+                const loadedResults = results === 'loading' ? [] : (results as any).terms || results || [];
+                const loadedKanji = results === 'loading' ? [] : (results as any).kanji || [];
+                const isSystemLoading = results === 'loading';
 
-    const handleKanjiClick = useCallback(async (char: string) => {
-        const newEntry: LookupHistoryEntry = {
-            term: char,
-            results: [],
-            kanjiResults: [],
-            isLoading: true,
-            systemLoading: false,
-            isKanjiOnly: true
-        };
+                setHistory((prev) => {
+                    const newHistory = [...prev];
+                    const idx = Math.min(historyIndex + 1, maxHistory - 1);
+                    if (newHistory[idx]) {
+                        const matchedTerm = loadedResults[0]?.headword || loadedKanji[0]?.character || cleanText;
+                        newHistory[idx] = {
+                            ...newHistory[idx],
+                            term: matchedTerm,
+                            results: loadedResults,
+                            kanjiResults: loadedKanji,
+                            isLoading: false,
+                            systemLoading: isSystemLoading,
+                        };
+                    }
+                    return newHistory;
+                });
+            } catch (err) {
+                console.warn('Failed to lookup word', err);
+                setHistory((prev) => {
+                    const newHistory = [...prev];
+                    const idx = Math.min(historyIndex + 1, maxHistory - 1);
+                    if (newHistory[idx]) {
+                        newHistory[idx] = { ...newHistory[idx], results: [], isLoading: false, systemLoading: false };
+                    }
+                    return newHistory;
+                });
+            }
+        },
+        [navMode, historyIndex, maxHistory],
+    );
 
-        if (navMode === 'tabs') {
-            setHistory(prev => {
-                const newHistory = prev.slice(0, historyIndex + 1);
-                newHistory.push(newEntry);
-                if (newHistory.length > maxHistory) newHistory.shift();
-                return newHistory;
-            });
-            setHistoryIndex(prev => Math.min(prev + 1, maxHistory - 1));
-        } else {
-            setHistory(prev => {
-                const newHistory = prev.slice(0, historyIndex + 1);
-                newHistory.push(newEntry);
-                if (newHistory.length > maxHistory) newHistory.shift();
-                return newHistory;
-            });
-            setHistoryIndex(prev => Math.min(prev + 1, maxHistory - 1));
-        }
+    const handleKanjiClick = useCallback(
+        async (char: string) => {
+            const newEntry: LookupHistoryEntry = {
+                term: char,
+                results: [],
+                kanjiResults: [],
+                isLoading: true,
+                systemLoading: false,
+                isKanjiOnly: true,
+            };
 
-        try {
-            const results = await lookupYomitan(char, 0, settings.resultGroupingMode || 'grouped', settings.yomitanLanguage || 'japanese');
-            const loadedKanji = results === 'loading' ? [] : ((results as any).kanji || []);
-            const isSystemLoading = results === 'loading';
+            if (navMode === 'tabs') {
+                setHistory((prev) => {
+                    const newHistory = prev.slice(0, historyIndex + 1);
+                    newHistory.push(newEntry);
+                    if (newHistory.length > maxHistory) newHistory.shift();
+                    return newHistory;
+                });
+                setHistoryIndex((prev) => Math.min(prev + 1, maxHistory - 1));
+            } else {
+                setHistory((prev) => {
+                    const newHistory = prev.slice(0, historyIndex + 1);
+                    newHistory.push(newEntry);
+                    if (newHistory.length > maxHistory) newHistory.shift();
+                    return newHistory;
+                });
+                setHistoryIndex((prev) => Math.min(prev + 1, maxHistory - 1));
+            }
 
-            setHistory(prev => {
-                const newHistory = [...prev];
-                const idx = Math.min(historyIndex + 1, maxHistory - 1);
-                if (newHistory[idx]) {
-                    newHistory[idx] = {
-                        ...newHistory[idx],
-                        kanjiResults: loadedKanji,
-                        isLoading: false,
-                        systemLoading: isSystemLoading
-                    };
-                }
-                return newHistory;
-            });
-        } catch (err) {
-            console.warn('Failed to lookup kanji', err);
-            setHistory(prev => {
-                const newHistory = [...prev];
-                const idx = Math.min(historyIndex + 1, maxHistory - 1);
-                if (newHistory[idx]) {
-                    newHistory[idx] = { ...newHistory[idx], kanjiResults: [], isLoading: false, systemLoading: false };
-                }
-                return newHistory;
-            });
-        }
-    }, [navMode, historyIndex, maxHistory, settings.resultGroupingMode, settings.yomitanLanguage]);
+            try {
+                const results = await lookupYomitan(
+                    char,
+                    0,
+                    settings.resultGroupingMode || 'grouped',
+                    settings.yomitanLanguage || 'japanese',
+                );
+                const loadedKanji = results === 'loading' ? [] : (results as any).kanji || [];
+                const isSystemLoading = results === 'loading';
 
-    const navigateToHistory = useCallback((index: number) => {
-        if (index >= 0 && index < history.length) {
-            setHistoryIndex(index);
-        }
-    }, [history.length]);
+                setHistory((prev) => {
+                    const newHistory = [...prev];
+                    const idx = Math.min(historyIndex + 1, maxHistory - 1);
+                    if (newHistory[idx]) {
+                        newHistory[idx] = {
+                            ...newHistory[idx],
+                            kanjiResults: loadedKanji,
+                            isLoading: false,
+                            systemLoading: isSystemLoading,
+                        };
+                    }
+                    return newHistory;
+                });
+            } catch (err) {
+                console.warn('Failed to lookup kanji', err);
+                setHistory((prev) => {
+                    const newHistory = [...prev];
+                    const idx = Math.min(historyIndex + 1, maxHistory - 1);
+                    if (newHistory[idx]) {
+                        newHistory[idx] = {
+                            ...newHistory[idx],
+                            kanjiResults: [],
+                            isLoading: false,
+                            systemLoading: false,
+                        };
+                    }
+                    return newHistory;
+                });
+            }
+        },
+        [navMode, historyIndex, maxHistory, settings.resultGroupingMode, settings.yomitanLanguage],
+    );
+
+    const navigateToHistory = useCallback(
+        (index: number) => {
+            if (index >= 0 && index < history.length) {
+                setHistoryIndex(index);
+            }
+        },
+        [history.length],
+    );
 
     const goBack = useCallback(() => {
         if (historyIndex > 0) {
-            setHistoryIndex(prev => prev - 1);
+            setHistoryIndex((prev) => prev - 1);
         }
     }, [historyIndex]);
 
     useLayoutEffect(() => {
         if (!dictPopup.visible) return;
 
-        const visualViewport = window.visualViewport;
+        const { visualViewport } = window;
         const viewport = visualViewport
             ? {
-                left: visualViewport.offsetLeft,
-                top: visualViewport.offsetTop,
-                right: visualViewport.offsetLeft + visualViewport.width,
-                bottom: visualViewport.offsetTop + visualViewport.height,
-            }
+                  left: visualViewport.offsetLeft,
+                  top: visualViewport.offsetTop,
+                  right: visualViewport.offsetLeft + visualViewport.width,
+                  bottom: visualViewport.offsetTop + visualViewport.height,
+              }
             : { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight };
 
         const popupEl = popupRef.current;
@@ -420,9 +461,7 @@ export const YomitanPopup = () => {
                 .filter((rect) => rect.width > 0 && rect.height > 0);
         })();
 
-        const sourceRects = dictPopup.highlight?.rects?.length
-            ? dictPopup.highlight.rects
-            : selectionRects;
+        const sourceRects = dictPopup.highlight?.rects?.length ? dictPopup.highlight.rects : selectionRects;
 
         const fallbackRect = { x: dictPopup.x, y: dictPopup.y, width: 1, height: 1 };
         const rects = sourceRects.length ? sourceRects : [fallbackRect];
@@ -468,15 +507,7 @@ export const YomitanPopup = () => {
         finalTop = clamp(finalTop, viewport.top + POPUP_GAP, viewport.bottom - popupHeightScaled - POPUP_GAP);
 
         setPosStyle({ top: finalTop, left: finalLeft, maxHeight: `${baseMaxHeight}px`, width: `${baseWidth}px` });
-    }, [
-        dictPopup.visible,
-        dictPopup.x,
-        dictPopup.y,
-        dictPopup.highlight,
-        popupHeightPx,
-        popupWidthPx,
-        popupScale,
-    ]);
+    }, [dictPopup.visible, dictPopup.x, dictPopup.y, dictPopup.highlight, popupHeightPx, popupWidthPx, popupScale]);
 
     useLayoutEffect(() => {
         const el = backdropRef.current;
@@ -485,7 +516,7 @@ export const YomitanPopup = () => {
         const closePopup = () => {
             window.getSelection()?.removeAllRanges();
             notifyPopupClosed();
-            setDictPopup(prev => ({ ...prev, visible: false }));
+            setDictPopup((prev) => ({ ...prev, visible: false }));
         };
 
         const onTouchStart = (e: TouchEvent) => {
@@ -533,12 +564,18 @@ export const YomitanPopup = () => {
         width: popupWidthStyle,
         maxWidth: `calc((100% - ${POPUP_GAP * 2}px) / ${popupScale})`,
         overflowY: 'auto',
-        backgroundColor: theme.bg, color: theme.fg, border: `1px solid ${theme.border}`,
-        borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-        padding: '16px', fontFamily: 'sans-serif', fontSize: '14px', lineHeight: '1.5',
+        backgroundColor: theme.bg,
+        color: theme.fg,
+        border: `1px solid ${theme.border}`,
+        borderRadius: '8px',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+        padding: '16px',
+        fontFamily: 'sans-serif',
+        fontSize: '14px',
+        lineHeight: '1.5',
         transform: `scale(${popupScale})`,
         transformOrigin: 'top left',
-        ...posStyle
+        ...posStyle,
     };
 
     return createPortal(
@@ -549,7 +586,11 @@ export const YomitanPopup = () => {
                 ref={backdropRef}
                 className="yomitan-backdrop"
                 style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
                     zIndex: 2147483646,
                     cursor: 'default',
                     outline: 'none',
@@ -566,15 +607,23 @@ export const YomitanPopup = () => {
                     ...popupStyle,
                     outline: 'none',
                 }}
-                onMouseDown={e => e.stopPropagation()}
-                onTouchStart={e => e.stopPropagation()}
-                onClick={e => e.stopPropagation()}
-                onWheel={e => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+                onTouchStart={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                onWheel={(e) => e.stopPropagation()}
             >
                 {(navMode === 'tabs' ? history.length > 1 : historyIndex > 0) && (
                     <div className="lookup-history-nav" style={{ marginBottom: '8px' }}>
                         {navMode === 'tabs' ? (
-                            <div style={{ display: 'flex', gap: '4px', overflowX: 'auto', paddingBottom: '4px', alignItems: 'center' }}>
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    gap: '4px',
+                                    overflowX: 'auto',
+                                    paddingBottom: '4px',
+                                    alignItems: 'center',
+                                }}
+                            >
                                 {history.map((entry, i) => (
                                     <React.Fragment key={i}>
                                         {i > 0 && (
@@ -606,24 +655,22 @@ export const YomitanPopup = () => {
                                     </React.Fragment>
                                 ))}
                             </div>
-                        ) : (
-                            historyIndex > 0 ? (
-                                <button
-                                    onClick={goBack}
-                                    style={{
-                                        padding: '4px 8px',
-                                        borderRadius: '4px',
-                                        border: 'none',
-                                        background: theme.accent,
-                                        color: 'white',
-                                        cursor: 'pointer',
-                                        fontSize: '0.75em',
-                                    }}
-                                >
-                                    ← Back
-                                </button>
-                            ) : null
-                        )}
+                        ) : historyIndex > 0 ? (
+                            <button
+                                onClick={goBack}
+                                style={{
+                                    padding: '4px 8px',
+                                    borderRadius: '4px',
+                                    border: 'none',
+                                    background: theme.accent,
+                                    color: 'white',
+                                    cursor: 'pointer',
+                                    fontSize: '0.75em',
+                                }}
+                            >
+                                ← Back
+                            </button>
+                        ) : null}
                     </div>
                 )}
                 <DictionaryView
@@ -636,11 +683,17 @@ export const YomitanPopup = () => {
                     context={dictPopup.context}
                     variant="popup"
                     popupTheme={theme}
-                    kanjiResults={currentEntry?.isKanjiOnly || processedEntries.length === 0 || settings.yomitanShowKanjiInNormalLookup ? kanjiResults : []}
+                    kanjiResults={
+                        currentEntry?.isKanjiOnly ||
+                        processedEntries.length === 0 ||
+                        settings.yomitanShowKanjiInNormalLookup
+                            ? kanjiResults
+                            : []
+                    }
                     grouped={settings.resultGroupingMode === 'grouped'}
                 />
             </div>
         </>,
-        document.body
+        document.body,
     );
 };

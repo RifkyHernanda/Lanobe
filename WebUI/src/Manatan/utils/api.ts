@@ -1,12 +1,14 @@
-import { DictionaryResult, LookupResponse, YomitanLanguage } from '../types';
+import { LookupResponse, YomitanLanguage } from '@/Manatan/types';
 import { isNoSpaceLanguage } from '@/Manatan/utils/language';
+
+import { requestManager } from '@/lib/requests/RequestManager';
 
 export type AuthCredentials = { user?: string; pass?: string };
 
-export type ChapterStatus = 
+export type ChapterStatus =
     | { status: 'processed' }
-    | { status: 'processing', progress: number, total: number }
-    | { status: 'idle', cached: number, total: number };
+    | { status: 'processing'; progress: number; total: number }
+    | { status: 'idle'; cached: number; total: number };
 
 export interface DictionaryMeta {
     id: number;
@@ -27,8 +29,6 @@ const fetchChapterPages = async (mangaId: number, chapterIndex: number): Promise
     return json?.pages as string[] | undefined;
 };
 
-import { requestManager } from '@/lib/requests/RequestManager';
-
 export const buildChapterBaseUrl = (chapterPath: string): string =>
     `${requestManager.getBaseUrl()}/api/v1${chapterPath}/page/`;
 
@@ -38,7 +38,7 @@ export const apiRequest = async <T>(
     options: { method?: string; body?: any; headers?: any } = {},
 ): Promise<T> => {
     const fullUrl = url.startsWith('http') ? url : `${requestManager.getBaseUrl()}${url}`;
-    
+
     const response = await fetch(fullUrl, {
         method: options.method || 'GET',
         headers: { 'Content-Type': 'application/json', ...options.headers },
@@ -59,30 +59,30 @@ export const apiRequest = async <T>(
     }
 
     const text = await response.text();
-    
+
     // Check for HTTP errors
     if (!response.ok) {
         const errorMessage = text || `HTTP ${response.status}: ${response.statusText}`;
         throw new Error(errorMessage);
     }
-    
+
     if (!text) return {} as T;
 
     try {
         return JSON.parse(text);
     } catch (e) {
         console.warn(`[API] Response from ${url} was not JSON:`, text.substring(0, 50));
-        return {} as T; 
+        return {} as T;
     }
 };
 
 // --- YOMITAN API ---
 
 export const lookupYomitan = async (
-    text: string, 
-    index: number = 0, 
+    text: string,
+    index: number = 0,
     groupingMode: 'grouped' | 'flat' = 'grouped',
-    language?: YomitanLanguage
+    language?: YomitanLanguage,
 ): Promise<LookupResponse | 'loading'> => {
     try {
         // Convert dropdown value to backend boolean
@@ -90,32 +90,32 @@ export const lookupYomitan = async (
         const languageParam = language ? `&language=${encodeURIComponent(language)}` : '';
         const url = `/api/yomitan/lookup?text=${encodeURIComponent(text)}&index=${index}&group=${groupParam}${languageParam}`;
         const res = await apiRequest<any>(url);
-        
+
         if (res && res.error === 'loading') return 'loading';
         if (res && res.terms) return res as LookupResponse;
-        
+
         return { terms: [], kanji: [] };
     } catch (e) {
-        console.error("Lookup failed:", e);
+        console.error('Lookup failed:', e);
         return { terms: [], kanji: [] };
     }
 };
 
 export const getDictionaries = async (): Promise<DictionaryMeta[] | null> => {
     try {
-        const res = await apiRequest<{ dictionaries: any[], status: string }>('/api/yomitan/dictionaries');
+        const res = await apiRequest<{ dictionaries: any[]; status: string }>('/api/yomitan/dictionaries');
         if (res.status && res.status !== 'ready') {
             return null;
         }
         // Backend returns "dictionaries" array with {id: [number], name, priority, enabled}
-        return res.dictionaries.map(d => ({
+        return res.dictionaries.map((d) => ({
             id: d.id, // Rust DictionaryId is a tuple struct or plain integer based on serialization
             name: d.name,
             priority: d.priority,
-            enabled: d.enabled
+            enabled: d.enabled,
         }));
     } catch (e) {
-        console.error("Failed to fetch dictionaries", e);
+        console.error('Failed to fetch dictionaries', e);
         return null;
     }
 };
@@ -126,26 +126,25 @@ export const getFrequencyDictionaries = async (): Promise<string[]> => {
             return [];
         }
         // Return all dictionary names (not just filtered ones)
-        return dicts.map(d => d.name);
+        return dicts.map((d) => d.name);
     } catch (e) {
         console.error('Failed to fetch dictionaries', e);
         return [];
     }
 };
 
-export const manageDictionary = async (action: 'Toggle' | 'Delete' | 'Reorder', payload: any) => {
-    return apiRequest<{status: string}>('/api/yomitan/manage', {
+export const manageDictionary = async (action: 'Toggle' | 'Delete' | 'Reorder', payload: any) =>
+    apiRequest<{ status: string }>('/api/yomitan/manage', {
         method: 'POST',
-        body: { action, payload }
+        body: { action, payload },
     });
-};
 
 // --- OCR / CHAPTER API ---
 
 export const checkChapterStatus = async (
     baseUrl: string,
     creds?: AuthCredentials,
-    language?: YomitanLanguage
+    language?: YomitanLanguage,
 ): Promise<ChapterStatus> => {
     try {
         const body: any = { base_url: baseUrl, context: 'Check Status' };
@@ -155,9 +154,9 @@ export const checkChapterStatus = async (
 
         const res = await apiRequest<any>('/api/ocr/is-chapter-preprocessed', {
             method: 'POST',
-            body: body
+            body,
         });
-        
+
         const pickNumber = (value: any): number => {
             if (typeof value === 'number' && !Number.isNaN(value)) return value;
             if (typeof value === 'string') {
@@ -177,24 +176,24 @@ export const checkChapterStatus = async (
         const totalProgress = pickNumber(res.total ?? res.total_pages ?? res.totalPages ?? res.total_expected);
 
         if (res.status === 'processing') {
-            return { 
-                status: 'processing', 
-                progress, 
-                total: totalProgress 
+            return {
+                status: 'processing',
+                progress,
+                total: totalProgress,
             };
         }
-        
+
         if (res.status === 'processed') {
             return { status: 'processed' };
         }
-        
-        return { 
-            status: 'idle', 
-            cached, 
-            total: totalExpected 
+
+        return {
+            status: 'idle',
+            cached,
+            total: totalExpected,
         };
     } catch (e) {
-        console.error("Failed to check chapter status", e);
+        console.error('Failed to check chapter status', e);
         return { status: 'idle', cached: 0, total: 0 };
     }
 };
@@ -202,11 +201,11 @@ export const checkChapterStatus = async (
 export const checkChaptersStatus = async (
     baseUrls: string[],
     creds?: AuthCredentials,
-    language?: YomitanLanguage
+    language?: YomitanLanguage,
 ): Promise<Record<string, ChapterStatus>> => {
     try {
         const body: any = {
-            chapters: baseUrls.map(baseUrl => ({ base_url: baseUrl })),
+            chapters: baseUrls.map((baseUrl) => ({ base_url: baseUrl })),
         };
         if (creds?.user) body.user = creds.user;
         if (creds?.pass) body.pass = creds.pass;
@@ -262,23 +261,23 @@ export const preprocessChapter = async (
     baseUrl: string,
     chapterPath: string,
     creds?: AuthCredentials,
-    language?: YomitanLanguage
+    language?: YomitanLanguage,
 ): Promise<void> => {
     const mangaMatch = chapterPath.match(/\/manga\/(\d+)/);
     const chapterMatch = chapterPath.match(/\/chapter\/([\d.]+)/);
 
     if (!mangaMatch || !chapterMatch) {
-        throw new Error("Could not parse Manga ID or Chapter Number from path");
+        throw new Error('Could not parse Manga ID or Chapter Number from path');
     }
 
     const mangaId = parseInt(mangaMatch[1], 10);
-    const chapterNum = parseInt(chapterMatch[1], 10); 
+    const chapterNum = parseInt(chapterMatch[1], 10);
 
     const pages = await fetchChapterPages(mangaId, chapterNum);
 
-    if (!pages || pages.length === 0) throw new Error("No pages found via REST");
+    if (!pages || pages.length === 0) throw new Error('No pages found via REST');
 
-    const absolutePages = pages.map(p => {
+    const absolutePages = pages.map((p) => {
         if (p.startsWith('http')) return p;
         return `${requestManager.getBaseUrl()}${p}`;
     });
@@ -295,7 +294,7 @@ export const preprocessChapter = async (
 
     await apiRequest('/api/ocr/preprocess-chapter', {
         method: 'POST',
-        body: body
+        body,
     });
 };
 
@@ -356,27 +355,26 @@ export const cleanPunctuation = (text: string, preserveSpaces: boolean = false):
 
 export const getAppVersion = async (): Promise<AppVersionInfo> => {
     try {
-        const res = await apiRequest<{version: string, variant?: string, update_status?: string}>('/api/system/version');
+        const res = await apiRequest<{ version: string; variant?: string; update_status?: string }>(
+            '/api/system/version',
+        );
         return {
             version: res.version || '0.0.0',
             variant: (res.variant as any) || 'unknown',
-            update_status: (res.update_status as any) || 'idle' // <--- Essential mapping
+            update_status: (res.update_status as any) || 'idle', // <--- Essential mapping
         };
     } catch (e) {
         return { version: '0.0.0', variant: 'unknown', update_status: 'idle' };
     }
 };
 
-export const triggerAppUpdate = async (url: string, filename: string) => {
-    return apiRequest('/api/system/download-update', {
+export const triggerAppUpdate = async (url: string, filename: string) =>
+    apiRequest('/api/system/download-update', {
         method: 'POST',
-        body: { url, filename }
+        body: { url, filename },
     });
-};
 
-export const installAppUpdate = async () => {
-    return apiRequest('/api/system/install-update', { method: 'POST' });
-};
+export const installAppUpdate = async () => apiRequest('/api/system/install-update', { method: 'POST' });
 
 const UPDATE_RELEASE_URLS = [
     'https://api.github.com/repos/KolbyML/Manatan/releases/latest',
@@ -400,20 +398,28 @@ export const checkForUpdates = async (currentVersion: string, variant: string) =
         if (!json) return { hasUpdate: false };
         const latestTag = json.tag_name?.replace(/^v/, '');
         const current = currentVersion.replace(/^v/, '');
-        
+
         if (latestTag && latestTag !== current) {
             let targetString = '';
             if (variant === 'native-webview') targetString = 'Android-NativeWebview';
             else if (variant === 'browser') targetString = 'Android-Browser';
-            
+
             if (!targetString) return { hasUpdate: false };
 
             const asset = json.assets.find((a: any) => a.name.includes(targetString) && a.name.endsWith('.apk'));
-            
+
             if (asset) {
-                return { hasUpdate: true, version: latestTag, url: asset.browser_download_url, name: asset.name, releaseUrl: json.html_url };
+                return {
+                    hasUpdate: true,
+                    version: latestTag,
+                    url: asset.browser_download_url,
+                    name: asset.name,
+                    releaseUrl: json.html_url,
+                };
             }
         }
         return { hasUpdate: false };
-    } catch (e) { return { hasUpdate: false }; }
+    } catch (e) {
+        return { hasUpdate: false };
+    }
 };

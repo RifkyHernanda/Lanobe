@@ -1,4 +1,4 @@
-import { Block, BlockIndexMap, ChapterBlockInfo, BlockType } from '../types/block';
+import { Block, BlockIndexMap, ChapterBlockInfo, BlockType } from '@/features/ln/reader/types/block';
 
 // ============================================================================
 // Constants
@@ -7,29 +7,13 @@ import { Block, BlockIndexMap, ChapterBlockInfo, BlockType } from '../types/bloc
 const NON_COUNTABLE_REGEX = /[\s\u200B-\u200D\uFEFF\u00A0\t\r\n\p{P}\p{S}]+/gu;
 
 // Primary block selectors (high priority)
-const PRIMARY_SELECTORS = [
-    'p',
-    'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-    'blockquote',
-    'pre',
-];
+const PRIMARY_SELECTORS = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre'];
 
 // Secondary block selectors (medium priority)
-const SECONDARY_SELECTORS = [
-    'li',
-    'figcaption',
-    'caption',
-    'th',
-    'td',
-];
+const SECONDARY_SELECTORS = ['li', 'figcaption', 'caption', 'th', 'td'];
 
 // Container selectors that might contain blocks
-const CONTAINER_SELECTORS = [
-    'div',
-    'section',
-    'article',
-    'figure',
-];
+const CONTAINER_SELECTORS = ['div', 'section', 'article', 'figure'];
 
 // Elements to skip entirely
 const SKIP_TAGS = new Set(['script', 'style', 'noscript', 'rt', 'rp', 'ruby']);
@@ -63,7 +47,7 @@ export function getCleanTextContent(element: Element | Node): string {
     const clone = el.cloneNode(true) as Element;
 
     // Remove ruby annotations (rt, rp)
-    clone.querySelectorAll('rt, rp').forEach(node => node.remove());
+    clone.querySelectorAll('rt, rp').forEach((node) => node.remove());
 
     return (clone.textContent || '').trim();
 }
@@ -75,7 +59,7 @@ export function getCleanTextContent(element: Element | Node): string {
 interface BlockCandidate {
     element: Element;
     priority: number; // Higher = better
-    depth: number;    // DOM depth
+    depth: number; // DOM depth
 }
 
 /**
@@ -107,26 +91,26 @@ function findBlockCandidates(doc: Document): BlockCandidate[] {
     };
 
     // 1. Find primary selectors (highest priority)
-    PRIMARY_SELECTORS.forEach(selector => {
-        doc.querySelectorAll(selector).forEach(el => {
+    PRIMARY_SELECTORS.forEach((selector) => {
+        doc.querySelectorAll(selector).forEach((el) => {
             addCandidate(el, 100, getDepth(el));
         });
     });
 
     // 2. Find secondary selectors
-    SECONDARY_SELECTORS.forEach(selector => {
-        doc.querySelectorAll(selector).forEach(el => {
+    SECONDARY_SELECTORS.forEach((selector) => {
+        doc.querySelectorAll(selector).forEach((el) => {
             addCandidate(el, 50, getDepth(el));
         });
     });
 
     // 3. Find divs with text content (but not containers of other blocks)
-    doc.querySelectorAll('div').forEach(div => {
+    doc.querySelectorAll('div').forEach((div) => {
         // Skip if already added
         if (seen.has(div)) return;
 
         // Skip if contains other block elements
-        const hasChildBlocks = PRIMARY_SELECTORS.some(sel => div.querySelector(sel));
+        const hasChildBlocks = PRIMARY_SELECTORS.some((sel) => div.querySelector(sel));
         if (hasChildBlocks) return;
 
         // Check if has direct text content
@@ -137,14 +121,14 @@ function findBlockCandidates(doc: Document): BlockCandidate[] {
     });
 
     // 4. Find figure/image containers
-    doc.querySelectorAll('figure, div.image-only-chapter, div[class*="image"], div[class*="img"]').forEach(el => {
+    doc.querySelectorAll('figure, div.image-only-chapter, div[class*="image"], div[class*="img"]').forEach((el) => {
         if (!seen.has(el)) {
             addCandidate(el, 20, getDepth(el));
         }
     });
 
     // 5. Find standalone images
-    doc.querySelectorAll('img, svg, image').forEach(img => {
+    doc.querySelectorAll('img, svg, image').forEach((img) => {
         const parent = img.parentElement;
         if (parent && !seen.has(parent)) {
             // Use parent as block
@@ -208,8 +192,7 @@ function sortInDocumentOrder(candidates: BlockCandidate[]): BlockCandidate[] {
  * Check if an element contains images
  */
 function hasImages(element: Element): boolean {
-    return element.querySelector('img, svg, image') !== null ||
-        element.tagName.toLowerCase() === 'img';
+    return element.querySelector('img, svg, image') !== null || element.tagName.toLowerCase() === 'img';
 }
 
 /**
@@ -232,7 +215,10 @@ function getElementPath(element: Element): string {
         if (current.id) {
             selector += `#${current.id}`;
         } else if (current.className && typeof current.className === 'string') {
-            const classes = current.className.trim().split(/\s+/).filter(c => c);
+            const classes = current.className
+                .trim()
+                .split(/\s+/)
+                .filter((c) => c);
             if (classes.length > 0) {
                 selector += `.${classes[0]}`;
             }
@@ -241,9 +227,7 @@ function getElementPath(element: Element): string {
         // Add nth-of-type for uniqueness
         const parent = current.parentElement;
         if (parent) {
-            const siblings = Array.from(parent.children).filter(
-                c => c.tagName === current!.tagName
-            );
+            const siblings = Array.from(parent.children).filter((c) => c.tagName === current!.tagName);
             if (siblings.length > 1) {
                 const index = siblings.indexOf(current) + 1;
                 selector += `:nth-of-type(${index})`;
@@ -262,7 +246,7 @@ function getElementPath(element: Element): string {
  */
 export function processChapterHTML(
     html: string,
-    chapterIndex: number
+    chapterIndex: number,
 ): {
     processedHtml: string;
     blockMap: BlockIndexMap[];
@@ -295,10 +279,10 @@ export function processChapterHTML(
 
         // Determine block type
         const tagName = el.tagName.toLowerCase();
-        const blockType: BlockType = PRIMARY_SELECTORS.includes(tagName) ||
-            SECONDARY_SELECTORS.includes(tagName)
-            ? tagName as BlockType
-            : 'div';
+        const blockType: BlockType =
+            PRIMARY_SELECTORS.includes(tagName) || SECONDARY_SELECTORS.includes(tagName)
+                ? (tagName as BlockType)
+                : 'div';
 
         // Generate block ID
         const blockId = `ch${chapterIndex}-b${blockOrder}`;
@@ -337,7 +321,7 @@ export function processChapterHTML(
     // FALLBACK: If no blocks found, create one for the entire body
     // ========================================================================
     if (blocks.length === 0) {
-        const body = doc.body;
+        const { body } = doc;
         const cleanText = getCleanTextContent(body);
         const cleanCharCount = getCleanCharacterCount(cleanText);
         const containsImages = hasImages(body);
@@ -371,19 +355,23 @@ export function processChapterHTML(
         blocks.push(block);
         totalChars = cleanCharCount;
 
-        console.log(`[BlockProcessor] Chapter ${chapterIndex}: No blocks found, created fallback block (${cleanCharCount} chars, hasImages: ${containsImages})`);
+        console.log(
+            `[BlockProcessor] Chapter ${chapterIndex}: No blocks found, created fallback block (${cleanCharCount} chars, hasImages: ${containsImages})`,
+        );
     }
 
     // Log summary
-    const significantBlocks = blocks.filter(b => (b as any).isSignificant).length;
-    const imageBlocks = blocks.filter(b => (b as any).hasImages).length;
+    const significantBlocks = blocks.filter((b) => (b as any).isSignificant).length;
+    const imageBlocks = blocks.filter((b) => (b as any).hasImages).length;
 
     if (blocks.length > 0) {
-        console.log(`[BlockProcessor] Chapter ${chapterIndex}: ${blocks.length} blocks, ${totalChars} chars, ${significantBlocks} significant, ${imageBlocks} with images`);
+        console.log(
+            `[BlockProcessor] Chapter ${chapterIndex}: ${blocks.length} blocks, ${totalChars} chars, ${significantBlocks} significant, ${imageBlocks} with images`,
+        );
     }
 
     // Convert to flat BlockIndexMap format
-    const blockIndexMap: BlockIndexMap[] = blocks.map(block => ({
+    const blockIndexMap: BlockIndexMap[] = blocks.map((block) => ({
         blockId: block.id,
         startOffset: block.cleanCharStart,
         endOffset: block.cleanCharStart + block.cleanCharCount,
@@ -411,16 +399,13 @@ export function processChapterHTML(
  * Find a block by ID in chapter block info
  */
 export function findBlockById(chapterInfo: ChapterBlockInfo, blockId: string): Block | undefined {
-    return chapterInfo.blocks.find(b => b.id === blockId);
+    return chapterInfo.blocks.find((b) => b.id === blockId);
 }
 
 /**
  * Find block containing a specific character offset within the chapter
  */
-export function findBlockAtCharOffset(
-    chapterInfo: ChapterBlockInfo,
-    charOffset: number
-): Block | undefined {
+export function findBlockAtCharOffset(chapterInfo: ChapterBlockInfo, charOffset: number): Block | undefined {
     for (const block of chapterInfo.blocks) {
         const blockEnd = block.cleanCharStart + block.cleanCharCount;
         if (charOffset >= block.cleanCharStart && charOffset < blockEnd) {
@@ -442,7 +427,7 @@ export function findBlockAtCharOffset(
 export function calculateCharOffsetFromBlock(
     chapterInfo: ChapterBlockInfo,
     blockId: string,
-    localOffset: number
+    localOffset: number,
 ): number {
     const block = findBlockById(chapterInfo, blockId);
     if (!block) return 0;
@@ -454,7 +439,7 @@ export function calculateCharOffsetFromBlock(
  * Get the first significant block in a chapter
  */
 export function getFirstSignificantBlock(chapterInfo: ChapterBlockInfo): Block | undefined {
-    return chapterInfo.blocks.find(b => (b as any).isSignificant) || chapterInfo.blocks[0];
+    return chapterInfo.blocks.find((b) => (b as any).isSignificant) || chapterInfo.blocks[0];
 }
 
 /**
@@ -464,7 +449,7 @@ export function isImageOnlyChapter(chapterInfo: ChapterBlockInfo): boolean {
     if (chapterInfo.blocks.length === 0) return false;
 
     const hasText = chapterInfo.totalChars > 50;
-    const hasImages = chapterInfo.blocks.some(b => (b as any).hasImages);
+    const hasImages = chapterInfo.blocks.some((b) => (b as any).hasImages);
 
     return !hasText && hasImages;
 }
@@ -474,8 +459,8 @@ export function isImageOnlyChapter(chapterInfo: ChapterBlockInfo): boolean {
  */
 export function logBlockMapStats(chapterInfo: ChapterBlockInfo): void {
     const totalBlocks = chapterInfo.blocks.length;
-    const significantBlocks = chapterInfo.blocks.filter(b => (b as any).isSignificant).length;
-    const imageBlocks = chapterInfo.blocks.filter(b => (b as any).hasImages).length;
+    const significantBlocks = chapterInfo.blocks.filter((b) => (b as any).isSignificant).length;
+    const imageBlocks = chapterInfo.blocks.filter((b) => (b as any).hasImages).length;
 
     console.log(`[BlockMap Stats] Chapter ${chapterInfo.chapterIndex}:`, {
         totalBlocks,

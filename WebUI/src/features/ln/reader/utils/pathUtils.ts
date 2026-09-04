@@ -36,6 +36,5 @@ export const resolvePath = (base: string, relative: string): string => {
 
     const result = resultParts.join('/');
 
-
     return result;
 };

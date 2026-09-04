@@ -1,5 +1,5 @@
 import React from 'react';
-import './ClickZones.css';
+import '@/features/ln/reader/components/ClickZones.css';
 
 export type ZonePosition = 'full' | 'start' | 'center' | 'end';
 export type ZonePlacement = 'horizontal' | 'vertical';
@@ -45,7 +45,7 @@ export const ClickZones: React.FC<ClickZonesProps> = ({
     if (!isVisible && !useGlobalVisibility) return null;
 
     // Determine actual zone orientation based on placement setting
-    const zonesAreVertical = zonePlacement === 'horizontal' ? false : true;
+    const zonesAreVertical = zonePlacement !== 'horizontal';
 
     const thickness = `${Math.min(Math.max(zoneSize, 0), 50)}%`;
 
@@ -56,9 +56,7 @@ export const ClickZones: React.FC<ClickZonesProps> = ({
 
         if (zonesAreVertical) {
             // Vertical zones: prev on right, next on left
-            const baseStyle: React.CSSProperties = isPrev 
-                ? { right: 0 } 
-                : { left: 0 };
+            const baseStyle: React.CSSProperties = isPrev ? { right: 0 } : { left: 0 };
 
             if (zonePosition === 'full') {
                 // Full edge: span entire height
@@ -76,9 +74,7 @@ export const ClickZones: React.FC<ClickZonesProps> = ({
             }
         } else {
             // Horizontal zones: prev on top, next on bottom
-            const baseStyle: React.CSSProperties = isPrev 
-                ? { top: 0 } 
-                : { bottom: 0 };
+            const baseStyle: React.CSSProperties = isPrev ? { top: 0 } : { bottom: 0 };
 
             if (zonePosition === 'full') {
                 // Full edge: span entire width
@@ -115,7 +111,7 @@ export const ClickZones: React.FC<ClickZonesProps> = ({
                 }}
                 aria-label="Previous page zone"
             />
-            
+
             {/* Next zone - visual only */}
             <div
                 className={`click-zone-visual ${zonesAreVertical ? 'vertical' : 'horizontal'} next ${visualClass} ${hiddenClass} ${globalClass} ${!canGoNext ? 'disabled' : ''}`}
@@ -129,7 +125,6 @@ export const ClickZones: React.FC<ClickZonesProps> = ({
     );
 };
 
-
 export function getClickZone(
     clientX: number,
     clientY: number,
@@ -138,9 +133,9 @@ export function getClickZone(
     zonePlacement: ZonePlacement,
     zoneSize: number,
     zonePosition: ZonePosition,
-    zoneCoverage: number
+    zoneCoverage: number,
 ): 'prev' | 'next' | null {
-    const zonesAreVertical = zonePlacement === 'horizontal' ? false : true;
+    const zonesAreVertical = zonePlacement !== 'horizontal';
     const size = Math.min(Math.max(zoneSize, 0), 50) / 100;
     const coverage = Math.min(Math.max(zoneCoverage, 30), 100) / 100;
 
@@ -154,7 +149,7 @@ export function getClickZone(
         if (zonePosition !== 'full') {
             const zoneHeight = coverage;
             const zoneOffset = (1 - zoneHeight) / 2;
-            
+
             switch (zonePosition) {
                 case 'start':
                     zoneStartY = 0;
@@ -178,14 +173,13 @@ export function getClickZone(
         if (relX <= size) return 'next';
         if (relX >= 1 - size) return 'prev';
     } else {
-       
         let zoneStartX = 0;
         let zoneEndX = 1;
 
         if (zonePosition !== 'full') {
             const zoneWidth = coverage;
             const zoneOffset = (1 - zoneWidth) / 2;
-            
+
             switch (zonePosition) {
                 case 'start':
                     zoneStartX = 0;

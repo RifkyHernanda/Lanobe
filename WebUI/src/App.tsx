@@ -33,10 +33,7 @@ const { About } = loadable(() => import('@/features/settings/screens/About.tsx')
 const { Appearance } = loadable(() => import('@/features/settings/screens/Appearance.tsx'), lazyLoadFallback);
 const { More } = loadable(() => import('@/features/settings/screens/More.tsx'), lazyLoadFallback);
 const { LNLibrary } = loadable(() => import('@/features/ln/screens/LNLibrary.tsx'), lazyLoadFallback);
-const { LNReaderScreen } = loadable(
-    () => import('@/features/ln/reader/screens/LNReaderScreen.tsx'),
-    lazyLoadFallback,
-);
+const { LNReaderScreen } = loadable(() => import('@/features/ln/reader/screens/LNReaderScreen.tsx'), lazyLoadFallback);
 const { Dictionary } = loadable(() => import('@/features/dictionary/Dictionary.tsx'), lazyLoadFallback);
 
 const ScrollToTop = () => {

@@ -1,24 +1,23 @@
 export function getDownscaledSize(width: number, height: number, maxWidth?: number, maxHeight?: number) {
     let ratio = 1;
     if (maxWidth && width > maxWidth) ratio = maxWidth / width;
-    if (maxHeight && (height * ratio) > maxHeight) ratio = Math.min(ratio, maxHeight / height);
+    if (maxHeight && height * ratio > maxHeight) ratio = Math.min(ratio, maxHeight / height);
     return {
         width: Math.round(width * ratio),
-        height: Math.round(height * ratio)
+        height: Math.round(height * ratio),
     };
 }
-
 
 export async function canvasToBase64Webp(
     canvas: OffscreenCanvas,
     quality: number,
     maxWidth?: number,
-    maxHeight?: number
+    maxHeight?: number,
 ): Promise<string | null> {
     try {
         let finalCanvas = canvas;
         const { width, height } = getDownscaledSize(canvas.width, canvas.height, maxWidth, maxHeight);
-        
+
         if (width !== canvas.width || height !== canvas.height) {
             finalCanvas = new OffscreenCanvas(width, height);
             const ctx = finalCanvas.getContext('2d');
@@ -29,7 +28,7 @@ export async function canvasToBase64Webp(
 
         const blob = await finalCanvas.convertToBlob({
             type: 'image/webp',
-            quality: quality
+            quality,
         });
 
         return new Promise((resolve) => {
@@ -39,7 +38,7 @@ export async function canvasToBase64Webp(
             reader.readAsDataURL(blob);
         });
     } catch (e) {
-        console.error("Failed to convert canvas to base64 WebP", e);
+        console.error('Failed to convert canvas to base64 WebP', e);
         return null;
     }
 }

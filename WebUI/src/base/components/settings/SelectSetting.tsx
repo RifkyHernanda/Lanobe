@@ -93,40 +93,41 @@ export const SelectSetting = <SettingValue extends string | number>({
                     {!!dialogDescription && (
                         <DialogContentText sx={{ paddingBottom: '10px' }}>{dialogDescription}</DialogContentText>
                     )}
-                    {(dialogValueDisplayInfo && (!!dialogValueDisplayInfo.description || !!dialogValueDisplayInfo.disclaimer)) && (
-                        <DialogContentText sx={{ paddingBottom: '10px' }} component="div">
-                            {dialogValueDisplayInfo.description && (
-                                <Typography
-                                    variant="body1"
-                                    sx={{
-                                        whiteSpace: 'pre-line',
-                                    }}
-                                >
-                                    {t(dialogValueDisplayInfo.description as TranslationKey)}
-                                </Typography>
-                            )}
-                            {dialogValueDisplayInfo.disclaimer && (
-                                <Stack
-                                    direction="row"
-                                    sx={{
-                                        alignItems: 'center',
-                                    }}
-                                >
-                                    <InfoIcon color="warning" />
+                    {dialogValueDisplayInfo &&
+                        (!!dialogValueDisplayInfo.description || !!dialogValueDisplayInfo.disclaimer) && (
+                            <DialogContentText sx={{ paddingBottom: '10px' }} component="div">
+                                {dialogValueDisplayInfo.description && (
                                     <Typography
                                         variant="body1"
                                         sx={{
-                                            marginLeft: '10px',
-                                            marginTop: '5px',
                                             whiteSpace: 'pre-line',
                                         }}
                                     >
-                                        {t(dialogValueDisplayInfo.disclaimer as TranslationKey)}
+                                        {t(dialogValueDisplayInfo.description as TranslationKey)}
                                     </Typography>
-                                </Stack>
-                            )}
-                        </DialogContentText>
-                    )}
+                                )}
+                                {dialogValueDisplayInfo.disclaimer && (
+                                    <Stack
+                                        direction="row"
+                                        sx={{
+                                            alignItems: 'center',
+                                        }}
+                                    >
+                                        <InfoIcon color="warning" />
+                                        <Typography
+                                            variant="body1"
+                                            sx={{
+                                                marginLeft: '10px',
+                                                marginTop: '5px',
+                                                whiteSpace: 'pre-line',
+                                            }}
+                                        >
+                                            {t(dialogValueDisplayInfo.disclaimer as TranslationKey)}
+                                        </Typography>
+                                    </Stack>
+                                )}
+                            </DialogContentText>
+                        )}
                     <FormControl fullWidth>
                         <Select
                             id="dialog-select"

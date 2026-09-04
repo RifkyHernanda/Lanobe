@@ -1,14 +1,14 @@
 import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ChapterProcessButton } from './ChapterProcessButton';
 import { useLocation } from 'react-router-dom';
+import { ChapterProcessButton } from '@/Manatan/components/ChapterProcessButton';
 import { useOCR } from '@/Manatan/context/OCRContext';
 import { AuthCredentials, ChapterStatus, buildChapterBaseUrl, checkChaptersStatus } from '@/Manatan/utils/api';
 
 export const ChapterListInjector: React.FC = () => {
     const location = useLocation();
     const { serverSettings, settings } = useOCR();
-    
+
     const credsRef = useRef<AuthCredentials | undefined>(undefined);
     const languageRef = useRef(settings.yomitanLanguage);
     const statusCacheRef = useRef<Map<string, ChapterStatus>>(new Map());
@@ -33,7 +33,7 @@ export const ChapterListInjector: React.FC = () => {
         if (serverSettings) {
             credsRef.current = {
                 user: serverSettings.authUsername,
-                pass: serverSettings.authPassword
+                pass: serverSettings.authPassword,
             };
         } else {
             credsRef.current = undefined;
@@ -75,11 +75,7 @@ export const ChapterListInjector: React.FC = () => {
             inFlightRef.current = true;
             try {
                 const baseUrls = pending.map(buildChapterBaseUrl);
-                const statuses = await checkChaptersStatus(
-                    baseUrls,
-                    credsRef.current,
-                    languageRef.current,
-                );
+                const statuses = await checkChaptersStatus(baseUrls, credsRef.current, languageRef.current);
                 pending.forEach((path, index) => {
                     const baseUrl = baseUrls[index];
                     const status = statuses[baseUrl] || { status: 'idle', cached: 0, total: 0 };
@@ -87,12 +83,12 @@ export const ChapterListInjector: React.FC = () => {
                     const root = rootsRef.current.get(path);
                     if (root) {
                         root.render(
-                            <ChapterProcessButton 
-                                chapterPath={path} 
-                                creds={credsRef.current} 
+                            <ChapterProcessButton
+                                chapterPath={path}
+                                creds={credsRef.current}
                                 language={languageRef.current}
                                 initialStatus={status}
-                            />
+                            />,
                         );
                     }
                 });
@@ -115,9 +111,10 @@ export const ChapterListInjector: React.FC = () => {
     };
 
     const injectButton = (link: HTMLAnchorElement) => {
-        const moreButton = link.parentElement?.querySelector('button[aria-label="more"]') 
-                        || link.closest('tr')?.querySelector('button[aria-label="more"]')
-                        || link.parentElement?.parentElement?.querySelector('button[aria-label="more"]');
+        const moreButton =
+            link.parentElement?.querySelector('button[aria-label="more"]') ||
+            link.closest('tr')?.querySelector('button[aria-label="more"]') ||
+            link.parentElement?.parentElement?.querySelector('button[aria-label="more"]');
 
         if (!moreButton || !moreButton.parentElement) return;
 
@@ -134,7 +131,7 @@ export const ChapterListInjector: React.FC = () => {
 
         const wrapper = document.createElement('div');
         wrapper.className = 'ocr-chapter-btn-wrapper';
-        
+
         container.insertBefore(wrapper, moreButton);
 
         const root = createRoot(wrapper);
@@ -144,12 +141,12 @@ export const ChapterListInjector: React.FC = () => {
         const initialStatus = statusCacheRef.current.get(urlPath);
 
         root.render(
-            <ChapterProcessButton 
-                chapterPath={urlPath} 
-                creds={credsRef.current} 
+            <ChapterProcessButton
+                chapterPath={urlPath}
+                creds={credsRef.current}
                 language={languageRef.current}
                 initialStatus={initialStatus}
-            />
+            />,
         );
 
         if (!statusCacheRef.current.has(urlPath)) {

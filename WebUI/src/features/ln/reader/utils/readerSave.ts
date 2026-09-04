@@ -48,7 +48,7 @@ export interface SaveSchedulerOptions {
 export function calculateProgress(
     chapterIndex: number,
     chapterCharOffset: number,
-    stats: BookStats
+    stats: BookStats,
 ): ProgressCalculation {
     if (!stats || stats.totalLength === 0) {
         return {
@@ -80,10 +80,7 @@ export function calculateProgress(
 // Save Function
 // ============================================================================
 
-export async function saveReadingPosition(
-    bookId: string,
-    position: SaveablePosition
-): Promise<boolean> {
+export async function saveReadingPosition(bookId: string, position: SaveablePosition): Promise<boolean> {
     if (!bookId) {
         console.warn('[readerSave] No bookId provided');
         return false;
@@ -121,13 +118,9 @@ export async function saveReadingPosition(
 // Save Scheduler
 // ============================================================================
 
-export function createSaveScheduler(
-    bookIdOrOptions: string | SaveSchedulerOptions,
-    debounceMs: number = 3000
-) {
-    const initialOptions: SaveSchedulerOptions = typeof bookIdOrOptions === 'string'
-        ? { bookId: bookIdOrOptions, debounceMs }
-        : bookIdOrOptions;
+export function createSaveScheduler(bookIdOrOptions: string | SaveSchedulerOptions, debounceMs: number = 3000) {
+    const initialOptions: SaveSchedulerOptions =
+        typeof bookIdOrOptions === 'string' ? { bookId: bookIdOrOptions, debounceMs } : bookIdOrOptions;
 
     let currentOptions = {
         bookId: initialOptions.bookId,
@@ -171,7 +164,7 @@ export function createSaveScheduler(
 
         // Check if position changed from what's saved
         const positionChanged = position.blockId !== savedBlockId;
-        
+
         if (positionChanged) {
             updateSaveStatus(false);
         }

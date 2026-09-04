@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { resolveFirstAvailableWordAudioSource } from './wordAudioSourceResolver';
-import type { WordAudioSource } from '../types';
+import { resolveFirstAvailableWordAudioSource } from '@/Manatan/utils/wordAudioSourceResolver';
+import type { WordAudioSource } from '@/Manatan/types';
 
 test('word audio source resolver short-circuits once a source has a URL', async () => {
     const calls: WordAudioSource[] = [];

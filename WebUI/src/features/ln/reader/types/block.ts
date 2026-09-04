@@ -36,7 +36,12 @@ export interface Block {
 
 export type BlockType =
     | 'p'
-    | 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6'
+    | 'h1'
+    | 'h2'
+    | 'h3'
+    | 'h4'
+    | 'h5'
+    | 'h6'
     | 'blockquote'
     | 'figure'
     | 'li'
@@ -55,10 +60,10 @@ export type BlockType =
 export interface BlockIndexMap {
     /** Block identifier (e.g., "ch4-b12") */
     blockId: string;
-    
+
     /** Character offset where this block starts */
     startOffset: number;
-    
+
     /** Character offset where this block ends */
     endOffset: number;
 }
@@ -69,10 +74,10 @@ export interface BlockIndexMap {
 export interface ChapterBlockInfo {
     /** All blocks in this chapter */
     blocks: Block[];
-    
+
     /** Total clean characters in chapter */
     totalChars: number;
-    
+
     /** Chapter index (0-indexed) */
     chapterIndex: number;
 }

@@ -1,6 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useMemo, useCallback, useRef } from 'react';
-import { Settings, DEFAULT_SETTINGS, MergeState, OcrBlock, COLOR_THEMES, ServerSettingsData, DictPopupState, OcrStatus, DialogState } from '@/Manatan/types';
 import { useLocation } from 'react-router-dom';
+import {
+    Settings,
+    DEFAULT_SETTINGS,
+    MergeState,
+    OcrBlock,
+    COLOR_THEMES,
+    ServerSettingsData,
+    DictPopupState,
+    OcrStatus,
+    DialogState,
+} from '@/Manatan/types';
 import {
     AuthCredentials,
     ChapterStatus,
@@ -16,7 +26,11 @@ import {
     normalizeLegacyTextBoxContextMenuTrigger,
     normalizeTextBoxContextMenuHotkeys,
 } from '@/Manatan/utils/contextMenuTrigger';
-import { MANATAN_SETTINGS_META_KEY, getServerMetaJson, setServerMetaJson } from '@/Manatan/services/ServerMetaStorage.ts';
+import {
+    MANATAN_SETTINGS_META_KEY,
+    getServerMetaJson,
+    setServerMetaJson,
+} from '@/Manatan/services/ServerMetaStorage.ts';
 
 interface OCRContextType {
     settings: Settings;
@@ -33,7 +47,7 @@ interface OCRContextType {
     ocrCache: Map<string, OcrBlock[]>;
     updateOcrData: (imgSrc: string, data: OcrBlock[]) => void;
     ocrStatusMap: Map<string, OcrStatus>;
-    setOcrStatus: (imgSrc: string, status: OcrStatus) => void;    
+    setOcrStatus: (imgSrc: string, status: OcrStatus) => void;
 
     chapterOcrStatusMap: Map<string, ChapterStatus>;
     refreshChapterOcrStatus: (chapterPath: string) => Promise<ChapterStatus>;
@@ -44,7 +58,7 @@ interface OCRContextType {
     setMergeAnchor: React.Dispatch<React.SetStateAction<MergeState>>;
     activeImageSrc: string | null;
     setActiveImageSrc: React.Dispatch<React.SetStateAction<string | null>>;
-    
+
     // Dictionary State
     dictPopup: DictPopupState;
     setDictPopup: React.Dispatch<React.SetStateAction<DictPopupState>>;
@@ -161,7 +175,7 @@ export const OCRProvider = ({ children }: { children: ReactNode }) => {
     const closeSetup = useCallback(() => setIsSetupOpen(false), []);
 
     const [ocrCache, setOcrCache] = useState<Map<string, OcrBlock[]>>(new Map());
-    const [ocrStatusMap, setOcrStatusMap] = useState<Map<string, OcrStatus>>(new Map());    
+    const [ocrStatusMap, setOcrStatusMap] = useState<Map<string, OcrStatus>>(new Map());
     const [chapterOcrStatusMap, setChapterOcrStatusMap] = useState<Map<string, ChapterStatus>>(new Map());
 
     const chapterPollTimeoutsRef = useRef<Map<string, number>>(new Map());
@@ -198,7 +212,12 @@ export const OCRProvider = ({ children }: { children: ReactNode }) => {
     const [debugLog, setDebugLog] = useState<string[]>([]);
 
     const [dictPopup, setDictPopup] = useState<DictPopupState>({
-        visible: false, x: 0, y: 0, results: [], isLoading: false, systemLoading: false
+        visible: false,
+        x: 0,
+        y: 0,
+        results: [],
+        isLoading: false,
+        systemLoading: false,
     });
 
     // --- POPUP COORDINATION ---
@@ -208,27 +227,30 @@ export const OCRProvider = ({ children }: { children: ReactNode }) => {
         lastPopupCloseRef.current = Date.now();
     }, []);
 
-    const wasPopupClosedRecently = useCallback(() => {
-        return Date.now() - lastPopupCloseRef.current < 1000;
-    }, []);
+    const wasPopupClosedRecently = useCallback(() => Date.now() - lastPopupCloseRef.current < 1000, []);
 
     const [dialogState, setDialogState] = useState<DialogState>({
-        isOpen: false, type: 'alert', message: ''
+        isOpen: false,
+        type: 'alert',
+        message: '',
     });
 
-    const addLog = useCallback((msg: string) => {
-        if (!settings.debugMode) return;
-        const entry = `[${new Date().toLocaleTimeString()}] ${msg}`;
-        setDebugLog((prev) => [...prev.slice(-99), entry]);
-        console.log(`[OCR] ${entry}`);
-    }, [settings.debugMode]);
+    const addLog = useCallback(
+        (msg: string) => {
+            if (!settings.debugMode) return;
+            const entry = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            setDebugLog((prev) => [...prev.slice(-99), entry]);
+            console.log(`[OCR] ${entry}`);
+        },
+        [settings.debugMode],
+    );
 
     const updateOcrData = useCallback((imgSrc: string, data: OcrBlock[]) => {
         setOcrCache((prev) => new Map(prev).set(imgSrc, data));
     }, []);
 
     const setOcrStatus = useCallback((imgSrc: string, status: OcrStatus) => {
-         setOcrStatusMap((prev) => new Map(prev).set(imgSrc, status));
+        setOcrStatusMap((prev) => new Map(prev).set(imgSrc, status));
     }, []);
 
     const refreshChapterOcrStatus = useCallback(
@@ -253,9 +275,13 @@ export const OCRProvider = ({ children }: { children: ReactNode }) => {
     const pollChapterUntilDone = useCallback(
         async (chapterPath: string) => {
             if (chapterPollInFlightRef.current.has(chapterPath)) {
-                scheduleChapterPoll(chapterPath, () => {
-                    void pollChapterUntilDone(chapterPath);
-                }, 250);
+                scheduleChapterPoll(
+                    chapterPath,
+                    () => {
+                        void pollChapterUntilDone(chapterPath);
+                    },
+                    250,
+                );
                 return;
             }
 
@@ -273,9 +299,13 @@ export const OCRProvider = ({ children }: { children: ReactNode }) => {
                 const shouldKeepPolling = res.status === 'processing' || (startingUntil > 0 && now < startingUntil);
 
                 if (shouldKeepPolling) {
-                    scheduleChapterPoll(chapterPath, () => {
-                        void pollChapterUntilDone(chapterPath);
-                    }, 500);
+                    scheduleChapterPoll(
+                        chapterPath,
+                        () => {
+                            void pollChapterUntilDone(chapterPath);
+                        },
+                        500,
+                    );
                 } else {
                     stopChapterPolling(chapterPath);
                     chapterStartingUntilRef.current.delete(chapterPath);
@@ -352,33 +382,42 @@ export const OCRProvider = ({ children }: { children: ReactNode }) => {
     );
 
     // --- Dialog Helpers ---
-    
+
     const showDialog = useCallback((config: Partial<DialogState>) => {
-        setDialogState(prev => ({ 
-            ...prev, 
-            isOpen: true, 
-            onConfirm: undefined, 
+        setDialogState((prev) => ({
+            ...prev,
+            isOpen: true,
+            onConfirm: undefined,
             onCancel: undefined,
             ...({ confirmText: undefined, cancelText: undefined, extraAction: undefined } as any),
-            ...config 
+            ...config,
         }));
     }, []);
 
     const closeDialog = useCallback(() => {
-        setDialogState(prev => ({ ...prev, isOpen: false }));
+        setDialogState((prev) => ({ ...prev, isOpen: false }));
     }, []);
 
-    const showConfirm = useCallback((title: string, message: React.ReactNode, onConfirm: () => void) => {
-        showDialog({ type: 'confirm', title, message, onConfirm });
-    }, [showDialog]);
+    const showConfirm = useCallback(
+        (title: string, message: React.ReactNode, onConfirm: () => void) => {
+            showDialog({ type: 'confirm', title, message, onConfirm });
+        },
+        [showDialog],
+    );
 
-    const showAlert = useCallback((title: string, message: React.ReactNode) => {
-        showDialog({ type: 'alert', title, message });
-    }, [showDialog]);
+    const showAlert = useCallback(
+        (title: string, message: React.ReactNode) => {
+            showDialog({ type: 'alert', title, message });
+        },
+        [showDialog],
+    );
 
-    const showProgress = useCallback((message: string) => {
-        showDialog({ type: 'progress', title: 'Processing', message });
-    }, [showDialog]);
+    const showProgress = useCallback(
+        (message: string) => {
+            showDialog({ type: 'progress', title: 'Processing', message });
+        },
+        [showDialog],
+    );
 
     useEffect(() => {
         let cancelled = false;
@@ -386,7 +425,10 @@ export const OCRProvider = ({ children }: { children: ReactNode }) => {
         const loadSettingsFromServer = async () => {
             const legacySettings = readLegacyManatanSettings();
             try {
-                const serverSettings = await getServerMetaJson<Partial<Settings> | null>(MANATAN_SETTINGS_META_KEY, null);
+                const serverSettings = await getServerMetaJson<Partial<Settings> | null>(
+                    MANATAN_SETTINGS_META_KEY,
+                    null,
+                );
                 if (cancelled) {
                     return;
                 }
@@ -486,25 +528,70 @@ export const OCRProvider = ({ children }: { children: ReactNode }) => {
 
     const contextValue = useMemo(
         () => ({
-            settings, setSettings, serverSettings,
-            isSettingsOpen, openSettings, closeSettings,
-            isSetupOpen, openSetup, closeSetup,
-            ocrCache, updateOcrData, ocrStatusMap, setOcrStatus,
-            chapterOcrStatusMap, refreshChapterOcrStatus, startChapterOcr, deleteChapterOcr,
-            mergeAnchor, setMergeAnchor, activeImageSrc, setActiveImageSrc,
-            dictPopup, setDictPopup, notifyPopupClosed, wasPopupClosedRecently,
-            debugLog, addLog,
-            dialogState, showDialog, closeDialog, showConfirm, showAlert, showProgress
+            settings,
+            setSettings,
+            serverSettings,
+            isSettingsOpen,
+            openSettings,
+            closeSettings,
+            isSetupOpen,
+            openSetup,
+            closeSetup,
+            ocrCache,
+            updateOcrData,
+            ocrStatusMap,
+            setOcrStatus,
+            chapterOcrStatusMap,
+            refreshChapterOcrStatus,
+            startChapterOcr,
+            deleteChapterOcr,
+            mergeAnchor,
+            setMergeAnchor,
+            activeImageSrc,
+            setActiveImageSrc,
+            dictPopup,
+            setDictPopup,
+            notifyPopupClosed,
+            wasPopupClosedRecently,
+            debugLog,
+            addLog,
+            dialogState,
+            showDialog,
+            closeDialog,
+            showConfirm,
+            showAlert,
+            showProgress,
         }),
         [
-            settings, serverSettings, 
-            isSettingsOpen, openSettings, closeSettings,
-            isSetupOpen, openSetup, closeSetup,
-            ocrCache, updateOcrData, ocrStatusMap, setOcrStatus, 
-            chapterOcrStatusMap, refreshChapterOcrStatus, startChapterOcr, deleteChapterOcr,
-            mergeAnchor, activeImageSrc, dictPopup, notifyPopupClosed, wasPopupClosedRecently,
-            debugLog, addLog,
-            dialogState, showDialog, closeDialog, showConfirm, showAlert, showProgress
+            settings,
+            serverSettings,
+            isSettingsOpen,
+            openSettings,
+            closeSettings,
+            isSetupOpen,
+            openSetup,
+            closeSetup,
+            ocrCache,
+            updateOcrData,
+            ocrStatusMap,
+            setOcrStatus,
+            chapterOcrStatusMap,
+            refreshChapterOcrStatus,
+            startChapterOcr,
+            deleteChapterOcr,
+            mergeAnchor,
+            activeImageSrc,
+            dictPopup,
+            notifyPopupClosed,
+            wasPopupClosedRecently,
+            debugLog,
+            addLog,
+            dialogState,
+            showDialog,
+            closeDialog,
+            showConfirm,
+            showAlert,
+            showProgress,
         ],
     );
 

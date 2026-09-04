@@ -48,13 +48,7 @@ export const RecordHotkey = ({
     }, []);
 
     return (
-        <Dialog
-            open
-            onClose={onClose}
-            fullWidth
-            disablePortal={disablePortal}
-            container={container ?? undefined}
-        >
+        <Dialog open onClose={onClose} fullWidth disablePortal={disablePortal} container={container ?? undefined}>
             <DialogTitle>{t('hotkeys.create.dialog.title')}</DialogTitle>
             <DialogContent>
                 <Stack sx={{ flexDirection: 'row', gap: 1 }}>

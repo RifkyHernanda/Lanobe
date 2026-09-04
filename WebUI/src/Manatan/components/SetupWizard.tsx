@@ -77,7 +77,7 @@ export const SetupWizard = () => {
 
     useEffect(() => {
         if (!isSetupOpen) return;
-        setDictionaryChoice(showFirstPage ? 'builtin' : (settings.enableYomitan ? 'builtin' : 'custom'));
+        setDictionaryChoice(showFirstPage ? 'builtin' : settings.enableYomitan ? 'builtin' : 'custom');
         const currentLanguage = settings.yomitanLanguage || 'japanese';
         setLanguage(currentLanguage);
         setInitialLanguage(currentLanguage);
@@ -191,13 +191,19 @@ export const SetupWizard = () => {
                                         textAlign: 'left',
                                         padding: '14px 16px',
                                         borderRadius: '10px',
-                                        border: dictionaryChoice === 'builtin' ? '2px solid var(--ocr-accent)' : '1px solid #3a3a3a',
-                                        background: dictionaryChoice === 'builtin' ? 'rgba(39, 174, 96, 0.08)' : '#1b1b1f',
+                                        border:
+                                            dictionaryChoice === 'builtin'
+                                                ? '2px solid var(--ocr-accent)'
+                                                : '1px solid #3a3a3a',
+                                        background:
+                                            dictionaryChoice === 'builtin' ? 'rgba(39, 174, 96, 0.08)' : '#1b1b1f',
                                         color: 'white',
                                         cursor: 'pointer',
                                     }}
                                 >
-                                    <div style={{ fontWeight: 600, fontSize: '1rem' }}>Use built-in Manatan Popup Dictionary</div>
+                                    <div style={{ fontWeight: 600, fontSize: '1rem' }}>
+                                        Use built-in Manatan Popup Dictionary
+                                    </div>
                                     <div style={{ fontSize: '0.85em', color: '#aaa', marginTop: '6px' }}>
                                         Installs a dictionary automatically and enables popups.
                                     </div>
@@ -209,8 +215,12 @@ export const SetupWizard = () => {
                                         textAlign: 'left',
                                         padding: '14px 16px',
                                         borderRadius: '10px',
-                                        border: dictionaryChoice === 'custom' ? '2px solid var(--ocr-accent)' : '1px solid #3a3a3a',
-                                        background: dictionaryChoice === 'custom' ? 'rgba(39, 174, 96, 0.08)' : '#1b1b1f',
+                                        border:
+                                            dictionaryChoice === 'custom'
+                                                ? '2px solid var(--ocr-accent)'
+                                                : '1px solid #3a3a3a',
+                                        background:
+                                            dictionaryChoice === 'custom' ? 'rgba(39, 174, 96, 0.08)' : '#1b1b1f',
                                         color: 'white',
                                         cursor: 'pointer',
                                     }}
@@ -226,9 +236,7 @@ export const SetupWizard = () => {
 
                     {step === 'language' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            <div style={{ fontSize: '0.95em', color: '#bbb' }}>
-                                Which language are you learning?
-                            </div>
+                            <div style={{ fontSize: '0.95em', color: '#bbb' }}>Which language are you learning?</div>
                             <select
                                 value={language}
                                 onChange={(e) => setLanguage(e.target.value as YomitanLanguage)}
@@ -254,9 +262,7 @@ export const SetupWizard = () => {
 
                     {step === 'jimaku' && (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                            <div style={{ fontSize: '0.95em', color: '#bbb' }}>
-                                Jimaku API Key (Optional)
-                            </div>
+                            <div style={{ fontSize: '0.95em', color: '#bbb' }}>Jimaku API Key (Optional)</div>
                             <input
                                 type="password"
                                 value={jimakuKey}
@@ -267,10 +273,15 @@ export const SetupWizard = () => {
                                 Optional, but required to auto fetch Japanese subtitles.
                                 <div>
                                     Get an API key from{' '}
-                                    <a href="https://jimaku.cc" target="_blank" rel="noreferrer">jimaku.cc</a>
+                                    <a href="https://jimaku.cc" target="_blank" rel="noreferrer">
+                                        jimaku.cc
+                                    </a>
                                 </div>
                                 <div>
-                                    1. Sign up here: <a href="https://jimaku.cc/account" target="_blank" rel="noreferrer">https://jimaku.cc/account</a>
+                                    1. Sign up here:{' '}
+                                    <a href="https://jimaku.cc/account" target="_blank" rel="noreferrer">
+                                        https://jimaku.cc/account
+                                    </a>
                                 </div>
                                 <div>2. Generate an API key under the "API" heading and copy it</div>
                             </div>
@@ -278,26 +289,23 @@ export const SetupWizard = () => {
                     )}
 
                     {errorMessage && (
-                        <div style={{ marginTop: '12px', color: '#e74c3c', fontSize: '0.9em' }}>
-                            {errorMessage}
-                        </div>
+                        <div style={{ marginTop: '12px', color: '#e74c3c', fontSize: '0.9em' }}>{errorMessage}</div>
                     )}
                 </div>
                 <div className="ocr-modal-footer">
                     {(step === 'language' && showFirstPage) || step === 'jimaku' ? (
-                        <button type="button" onClick={handleBack} disabled={isInstalling}>Back</button>
+                        <button type="button" onClick={handleBack} disabled={isInstalling}>
+                            Back
+                        </button>
                     ) : (
                         <div />
                     )}
                     {!isFirstRun && (
-                        <button type="button" onClick={closeSetup} disabled={isInstalling}>Close</button>
+                        <button type="button" onClick={closeSetup} disabled={isInstalling}>
+                            Close
+                        </button>
                     )}
-                    <button
-                        type="button"
-                        className="primary"
-                        onClick={handleNext}
-                        disabled={isInstalling}
-                    >
+                    <button type="button" className="primary" onClick={handleNext} disabled={isInstalling}>
                         {isInstalling ? 'Installing...' : isFinalStep ? 'Finish' : 'Continue'}
                     </button>
                 </div>

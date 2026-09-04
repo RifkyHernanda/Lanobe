@@ -28,8 +28,7 @@ export const useBackButton = () => {
                 return 0;
             }
 
-            const isLastPageInHistoryCurrentPage =
-                historyToCheck.length === 1 && historyToCheck[0] === currentPage;
+            const isLastPageInHistoryCurrentPage = historyToCheck.length === 1 && historyToCheck[0] === currentPage;
             if (isLastPageInHistoryCurrentPage) {
                 return 0;
             }

@@ -57,9 +57,7 @@ export const useHistory = () => {
                 case NavigationType.Pop: {
                     const existingIndex = prevHistory.findIndex((entry) => entry.key === current.key);
                     nextHistory =
-                        existingIndex === -1
-                            ? [...prevHistory, current]
-                            : prevHistory.slice(0, existingIndex + 1);
+                        existingIndex === -1 ? [...prevHistory, current] : prevHistory.slice(0, existingIndex + 1);
                     break;
                 }
                 default:

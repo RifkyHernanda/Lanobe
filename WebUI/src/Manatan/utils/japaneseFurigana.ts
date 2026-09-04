@@ -112,9 +112,7 @@ const getFuriganaKanaSegments = (text: string, reading: string): FuriganaSegment
         if (state === newState) {
             continue;
         }
-        newSegments.push(
-            createFuriganaSegment(text.substring(start, i), state ? '' : reading.substring(start, i)),
-        );
+        newSegments.push(createFuriganaSegment(text.substring(start, i), state ? '' : reading.substring(start, i)));
         state = newState;
         start = i;
     }
@@ -241,11 +239,7 @@ const getStemLength = (text1: string, text2: string): number => {
     return i;
 };
 
-export const distributeFuriganaInflected = (
-    term: string,
-    reading: string,
-    source: string,
-): FuriganaSegment[] => {
+export const distributeFuriganaInflected = (term: string, reading: string, source: string): FuriganaSegment[] => {
     const termNormalized = convertKatakanaToHiragana(term);
     const readingNormalized = convertKatakanaToHiragana(reading);
     const sourceNormalized = convertKatakanaToHiragana(source);

@@ -6,7 +6,16 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import React, { ReactNode, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, {
+    ReactNode,
+    useCallback,
+    useContext,
+    useEffect,
+    useLayoutEffect,
+    useMemo,
+    useRef,
+    useState,
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { Direction, ThemeProvider, useColorScheme } from '@mui/material/styles';
 import { CacheProvider } from '@emotion/react';
@@ -148,7 +157,7 @@ export const AppThemeContextProvider = ({ children }: { children: ReactNode }) =
     }, [theme.palette.background.default]);
 
     useEffect(() => {
-        const mode = theme.palette.mode;
+        const { mode } = theme.palette;
         document.documentElement.style.colorScheme = mode;
     }, [theme.palette.mode]);
 
@@ -161,9 +170,7 @@ export const AppThemeContextProvider = ({ children }: { children: ReactNode }) =
         <AppThemeContext.Provider value={appThemeContext}>
             <CacheProvider value={DIRECTION_TO_CACHE[currentDirection]}>
                 <ThemeProvider theme={theme}>
-                    <ThemeModeInitializer mode={actualThemeMode as ThemeMode}>
-                        {children}
-                    </ThemeModeInitializer>
+                    <ThemeModeInitializer mode={actualThemeMode as ThemeMode}>{children}</ThemeModeInitializer>
                 </ThemeProvider>
             </CacheProvider>
         </AppThemeContext.Provider>

@@ -7,20 +7,40 @@ import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { bindTrigger, usePopupState } from 'material-ui-popup-state/hooks';
 import { useOCR } from '@/Manatan/context/OCRContext';
 import { COLOR_THEMES, DEFAULT_SETTINGS } from '@/Manatan/types';
-import { apiRequest, getAppVersion, checkForUpdates, triggerAppUpdate, installAppUpdate, getFrequencyDictionaries, getDictionaries } from '@/Manatan/utils/api';
-import { DictionaryManager } from './DictionaryManager';
+import {
+    apiRequest,
+    getAppVersion,
+    checkForUpdates,
+    triggerAppUpdate,
+    installAppUpdate,
+    getFrequencyDictionaries,
+    getDictionaries,
+} from '@/Manatan/utils/api';
+import { DictionaryManager } from '@/Manatan/components/DictionaryManager';
 import { getAnkiVersion, getDeckNames, getModelNames, getModelFields, logAnkiError } from '@/Manatan/utils/anki';
 import { ResetButton } from '@/base/components/buttons/ResetButton.tsx';
 import { Hotkey } from '@/features/hotkeys/components/Hotkey.tsx';
 import { RecordHotkey } from '@/features/hotkeys/components/RecordHotkey.tsx';
-import { AnimeHotkey, ANIME_HOTKEYS, ANIME_HOTKEY_LABELS, DEFAULT_ANIME_HOTKEYS } from '@/Manatan/hotkeys/AnimeHotkeys.ts';
+import {
+    AnimeHotkey,
+    ANIME_HOTKEYS,
+    ANIME_HOTKEY_LABELS,
+    DEFAULT_ANIME_HOTKEYS,
+} from '@/Manatan/hotkeys/AnimeHotkeys.ts';
 
 const checkboxLabelStyle: React.CSSProperties = {
-    display: 'flex', alignItems: 'center', marginBottom: '8px', cursor: 'pointer', textAlign: 'left', 
+    display: 'flex',
+    alignItems: 'center',
+    marginBottom: '8px',
+    cursor: 'pointer',
+    textAlign: 'left',
 };
 
 const checkboxInputStyle: React.CSSProperties = {
-    width: 'auto', marginRight: '10px', flexShrink: 0, cursor: 'pointer',
+    width: 'auto',
+    marginRight: '10px',
+    flexShrink: 0,
+    cursor: 'pointer',
 };
 
 const sectionBoxStyle: React.CSSProperties = {
@@ -38,7 +58,7 @@ const statusDotStyle = (connected: boolean): React.CSSProperties => ({
     backgroundColor: connected ? '#2ecc71' : '#e74c3c',
     display: 'inline-block',
     marginRight: '8px',
-    boxShadow: connected ? '0 0 5px #2ecc71' : 'none'
+    boxShadow: connected ? '0 0 5px #2ecc71' : 'none',
 });
 
 const hotkeyRowStyle: React.CSSProperties = {
@@ -100,10 +120,7 @@ const AnimeHotkeyRow = ({
             <Typography variant="body2" sx={{ minWidth: 200, flexGrow: 1 }}>
                 {ANIME_HOTKEY_LABELS[hotkey]}
             </Typography>
-            <Hotkey
-                keys={keys}
-                removeKey={(keyToRemove) => onChange(keys.filter((key) => key !== keyToRemove))}
-            />
+            <Hotkey keys={keys} removeKey={(keyToRemove) => onChange(keys.filter((key) => key !== keyToRemove))} />
             <IconButton {...bindTrigger(popupState)} size="small" color="inherit" aria-label="Add hotkey">
                 <AddIcon fontSize="small" />
             </IconButton>
@@ -145,11 +162,11 @@ const SINGLE_GLOSSARY_PREFIX = 'Single Glossary ';
 const getSingleGlossaryName = (value: string): string | null => {
     if (value.startsWith(SINGLE_GLOSSARY_PREFIX)) {
         const name = value.slice(SINGLE_GLOSSARY_PREFIX.length).trim();
-        return name ? name : null;
+        return name || null;
     }
     if (value.startsWith('Single Glossary:')) {
         const name = value.replace('Single Glossary:', '').trim();
-        return name ? name : null;
+        return name || null;
     }
     return null;
 };
@@ -170,7 +187,8 @@ const DOWNSCALE_OPTIONS = [
     { value: '3840', label: '3840' },
 ];
 export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-    const { settings, setSettings, showConfirm, showAlert, showProgress, closeDialog, showDialog, openSetup } = useOCR();
+    const { settings, setSettings, showConfirm, showAlert, showProgress, closeDialog, showDialog, openSetup } =
+        useOCR();
     const [localSettings, setLocalSettings] = useState(settings);
     const [showAdvancedAnki, setShowAdvancedAnki] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -180,18 +198,14 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
     const popupHeightUnit = localSettings.animePopupHeightUnit ?? 'percent';
     const popupTopUnit = localSettings.animePopupTopOffsetUnit ?? 'percent';
     const popupLeftUnit = localSettings.animePopupLeftOffsetUnit ?? 'percent';
-    const popupWidthValue = popupWidthUnit === 'px'
-        ? localSettings.animePopupWidthPx
-        : localSettings.animePopupWidthPercent;
-    const popupHeightValue = popupHeightUnit === 'px'
-        ? localSettings.animePopupHeightPx
-        : localSettings.animePopupHeightPercent;
-    const popupTopValue = popupTopUnit === 'px'
-        ? localSettings.animePopupTopOffsetPx
-        : localSettings.animePopupTopOffsetPercent;
-    const popupLeftValue = popupLeftUnit === 'px'
-        ? localSettings.animePopupLeftOffsetPx
-        : localSettings.animePopupLeftOffsetPercent;
+    const popupWidthValue =
+        popupWidthUnit === 'px' ? localSettings.animePopupWidthPx : localSettings.animePopupWidthPercent;
+    const popupHeightValue =
+        popupHeightUnit === 'px' ? localSettings.animePopupHeightPx : localSettings.animePopupHeightPercent;
+    const popupTopValue =
+        popupTopUnit === 'px' ? localSettings.animePopupTopOffsetPx : localSettings.animePopupTopOffsetPercent;
+    const popupLeftValue =
+        popupLeftUnit === 'px' ? localSettings.animePopupLeftOffsetPx : localSettings.animePopupLeftOffsetPercent;
     const yomitanPopupWidthValue = Number.isFinite(localSettings.yomitanPopupWidthPx)
         ? localSettings.yomitanPopupWidthPx
         : DEFAULT_SETTINGS.yomitanPopupWidthPx;
@@ -203,9 +217,12 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
         : DEFAULT_SETTINGS.yomitanPopupScalePercent;
     const yomitanPopupThemeValue = localSettings.yomitanPopupTheme || 'dark';
     const animePopupThemeValue = localSettings.animePopupTheme || 'dark';
-    const persistSettings = useCallback((nextSettings: typeof settings) => {
-        setSettings(nextSettings);
-    }, [setSettings]);
+    const persistSettings = useCallback(
+        (nextSettings: typeof settings) => {
+            setSettings(nextSettings);
+        },
+        [setSettings],
+    );
     const animeHotkeys = useMemo(
         () => ({
             ...DEFAULT_ANIME_HOTKEYS,
@@ -268,20 +285,23 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
     }, [dictionaryNames, localSettings.ankiFieldMap]);
     const [availableFreqDicts, setAvailableFreqDicts] = useState<string[]>([]);
 
-    const updateAnimeHotkey = useCallback((hotkey: AnimeHotkey, keys: string[]) => {
-        setLocalSettings((prev) => {
-            const next = {
-                ...prev,
-                animeHotkeys: {
-                    ...DEFAULT_ANIME_HOTKEYS,
-                    ...(prev.animeHotkeys ?? {}),
-                    [hotkey]: keys,
-                },
-            };
-            persistSettings(next);
-            return next;
-        });
-    }, [persistSettings]);
+    const updateAnimeHotkey = useCallback(
+        (hotkey: AnimeHotkey, keys: string[]) => {
+            setLocalSettings((prev) => {
+                const next = {
+                    ...prev,
+                    animeHotkeys: {
+                        ...DEFAULT_ANIME_HOTKEYS,
+                        ...(prev.animeHotkeys ?? {}),
+                        [hotkey]: keys,
+                    },
+                };
+                persistSettings(next);
+                return next;
+            });
+        },
+        [persistSettings],
+    );
 
     // --- ANKI STATE ---
     const [ankiStatus, setAnkiStatus] = useState<'idle' | 'loading' | 'connected' | 'error'>('idle');
@@ -304,22 +324,19 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
     // --- ANKI EFFECT ---
     const fetchAnkiData = async () => {
         if (!localSettings.ankiConnectEnabled) return;
-        
+
         const url = localSettings.ankiConnectUrl || 'http://127.0.0.1:8765';
         setAnkiStatus('loading');
-        
+
         const status = await getAnkiVersion(url);
         if (status.ok) {
             setAnkiStatus('connected');
             try {
-                const [d, m] = await Promise.all([
-                    getDeckNames(url),
-                    getModelNames(url)
-                ]);
+                const [d, m] = await Promise.all([getDeckNames(url), getModelNames(url)]);
                 setAnkiDecks(d);
                 setAnkiModels(m);
             } catch (e) {
-                logAnkiError("Failed to fetch anki metadata", e);
+                logAnkiError('Failed to fetch anki metadata', e);
             }
         } else {
             setAnkiStatus('error');
@@ -330,24 +347,23 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
         if (localSettings.ankiConnectEnabled) {
             fetchAnkiData();
         }
-    }, [localSettings.ankiConnectEnabled]); 
+    }, [localSettings.ankiConnectEnabled]);
 
     // Fetch fields when model changes or when connection is established with a pre-selected model
     useEffect(() => {
         const fetchFields = async () => {
-             const url = localSettings.ankiConnectUrl || 'http://127.0.0.1:8765';
-             if (ankiStatus === 'connected' && localSettings.ankiModel) {
-                 try {
-                     const f = await getModelFields(url, localSettings.ankiModel);
-                     setCurrentModelFields(f);
-                 } catch (e) {
-                     logAnkiError("Failed to fetch anki model fields", e);
-                 }
-             }
+            const url = localSettings.ankiConnectUrl || 'http://127.0.0.1:8765';
+            if (ankiStatus === 'connected' && localSettings.ankiModel) {
+                try {
+                    const f = await getModelFields(url, localSettings.ankiModel);
+                    setCurrentModelFields(f);
+                } catch (e) {
+                    logAnkiError('Failed to fetch anki model fields', e);
+                }
+            }
         };
         fetchFields();
     }, [localSettings.ankiModel, ankiStatus]);
-
 
     // --- POLL STATUS ---
     useEffect(() => {
@@ -364,8 +380,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
                 if (info.update_status && info.update_status !== 'idle') {
                     setUpdateStatus(info.update_status);
-                } 
-                else if (info.variant !== 'unknown' && info.variant !== 'desktop' && info.variant !== 'ios') {
+                } else if (info.variant !== 'unknown' && info.variant !== 'desktop' && info.variant !== 'ios') {
                     if (!updateAvailable) {
                         const update = await checkForUpdates(info.version, info.variant);
                         if (isMounted && update.hasUpdate) setUpdateAvailable(update);
@@ -374,13 +389,18 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                         setUpdateStatus('idle');
                     }
                 }
-            } catch (e) { console.error(e); }
+            } catch (e) {
+                console.error(e);
+            }
         };
 
         checkStatus();
-        const interval = setInterval(checkStatus, 2000); 
-        return () => { isMounted = false; clearInterval(interval); };
-    }, [updateStatus, updateAvailable]); 
+        const interval = setInterval(checkStatus, 2000);
+        return () => {
+            isMounted = false;
+            clearInterval(interval);
+        };
+    }, [updateStatus, updateAvailable]);
 
     // --- ACTIONS ---
 
@@ -389,14 +409,14 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
         showDialog({
             type: 'confirm',
             title: 'Download Update',
-            message: 'Version ' + updateAvailable.version + ' will download in the background.',
+            message: `Version ${updateAvailable.version} will download in the background.`,
             // @ts-ignore
             confirmText: 'Start',
             cancelText: 'Cancel',
             onConfirm: async () => {
                 await triggerAppUpdate(updateAvailable.url, updateAvailable.name);
-                setUpdateStatus('downloading'); 
-            }
+                setUpdateStatus('downloading');
+            },
         });
     };
 
@@ -467,7 +487,7 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
         // Ensure "Target Word" is unique
         if (mapValue === 'Target Word') {
-            Object.keys(newMap).forEach(key => {
+            Object.keys(newMap).forEach((key) => {
                 if (key !== ankiField && newMap[key] === 'Target Word') {
                     newMap[key] = 'None';
                 }
@@ -496,9 +516,9 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
         const newMap = { ...localSettings.ankiFieldMap };
 
         // 1. Remove this content type from any other fields to prevent duplicates
-        Object.keys(newMap).forEach(key => {
+        Object.keys(newMap).forEach((key) => {
             if (newMap[key] === contentType) {
-                delete newMap[key]; 
+                delete newMap[key];
             }
         });
 
@@ -511,9 +531,10 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
     };
 
     // Helper to find the field currently mapped to a specific content type
-    const getFieldForContent = (contentType: string) => {
-        return Object.keys(localSettings.ankiFieldMap || {}).find(key => localSettings.ankiFieldMap?.[key] === contentType) || '';
-    };
+    const getFieldForContent = (contentType: string) =>
+        Object.keys(localSettings.ankiFieldMap || {}).find(
+            (key) => localSettings.ankiFieldMap?.[key] === contentType,
+        ) || '';
 
     const resetToDefaults = () => {
         showConfirm('Reset?', 'Revert to defaults?', () => {
@@ -530,9 +551,12 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
             try {
                 showProgress('Purging...');
                 await apiRequest(`/api/ocr/purge-cache`, { method: 'POST' });
-                closeDialog(); 
+                closeDialog();
                 showAlert('Success', 'Cache deleted.');
-            } catch (e) { closeDialog(); showAlert('Error', 'Failed.'); }
+            } catch (e) {
+                closeDialog();
+                showAlert('Error', 'Failed.');
+            }
         });
     };
 
@@ -540,16 +564,19 @@ export const SettingsModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
         showConfirm('Reset DB?', 'Delete all dictionaries?', async () => {
             try {
                 showProgress('Resetting...');
-                const res = await apiRequest<{status: string}>(`/api/yomitan/reset`, {
+                const res = await apiRequest<{ status: string }>(`/api/yomitan/reset`, {
                     method: 'POST',
                     body: { language: localSettings.yomitanLanguage || 'japanese' },
                 });
                 if (res.status === 'ok') {
-                    closeDialog(); 
+                    closeDialog();
                     showAlert('Success', 'Reset complete.');
-                    setDictManagerKey(p => p + 1);
+                    setDictManagerKey((p) => p + 1);
                 } else throw new Error();
-            } catch (e) { closeDialog(); showAlert('Error', 'Failed.'); }
+            } catch (e) {
+                closeDialog();
+                showAlert('Error', 'Failed.');
+            }
         });
     };
 
@@ -611,8 +638,9 @@ ${detail}`,
         }
     };
 
-    const isNativeApp = typeof navigator !== 'undefined'
-        && (navigator.userAgent.includes('MangatanNative') || navigator.userAgent.includes('ManatanNative'));
+    const isNativeApp =
+        typeof navigator !== 'undefined' &&
+        (navigator.userAgent.includes('MangatanNative') || navigator.userAgent.includes('ManatanNative'));
     const isiOS = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
     const showDicts = isNativeApp || localSettings.enableYomitan;
@@ -629,37 +657,112 @@ ${detail}`,
             <div className="ocr-modal settings-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="ocr-modal-content">
                     <h2>Settings</h2>
-                    <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept=".zip" multiple onChange={handleFileChange} />
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        style={{ display: 'none' }}
+                        accept=".zip"
+                        multiple
+                        onChange={handleFileChange}
+                    />
 
                     {/* --- UPDATE BANNER --- */}
                     {updateStatus === 'downloading' && (
-                        <div style={{ backgroundColor: '#f39c12', color: 'white', padding: '15px', borderRadius: '5px', marginBottom: '15px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px' }}>
-                            <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
-                                <div style={{
-                                    width: '18px', height: '18px', 
-                                    border: '3px solid rgba(255,255,255,0.3)', 
-                                    borderTop: '3px solid white', 
-                                    borderRadius: '50%',
-                                    animation: 'spin 1s linear infinite'
-                                }} />
+                        <div
+                            style={{
+                                backgroundColor: '#f39c12',
+                                color: 'white',
+                                padding: '15px',
+                                borderRadius: '5px',
+                                marginBottom: '15px',
+                                textAlign: 'center',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                gap: '5px',
+                            }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div
+                                    style={{
+                                        width: '18px',
+                                        height: '18px',
+                                        border: '3px solid rgba(255,255,255,0.3)',
+                                        borderTop: '3px solid white',
+                                        borderRadius: '50%',
+                                        animation: 'spin 1s linear infinite',
+                                    }}
+                                />
                                 <b>Downloading Update...</b>
                             </div>
-                            <small style={{opacity: 0.9}}>Please check your notification tray.</small>
+                            <small style={{ opacity: 0.9 }}>Please check your notification tray.</small>
                             <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
                         </div>
                     )}
                     {updateStatus === 'ready' && (
-                        <div style={{ backgroundColor: '#27ae60', color: 'white', padding: '10px', borderRadius: '5px', marginBottom: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span><b>Download Complete</b></span>
-                            <button type="button" onClick={handleInstall} style={{ backgroundColor: 'white', color: '#27ae60', border: 'none', fontWeight: 'bold', padding: '8px 15px', borderRadius: '4px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+                        <div
+                            style={{
+                                backgroundColor: '#27ae60',
+                                color: 'white',
+                                padding: '10px',
+                                borderRadius: '5px',
+                                marginBottom: '15px',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                            }}
+                        >
+                            <span>
+                                <b>Download Complete</b>
+                            </span>
+                            <button
+                                type="button"
+                                onClick={handleInstall}
+                                style={{
+                                    backgroundColor: 'white',
+                                    color: '#27ae60',
+                                    border: 'none',
+                                    fontWeight: 'bold',
+                                    padding: '8px 15px',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                                }}
+                            >
                                 Install Now
                             </button>
                         </div>
                     )}
                     {updateStatus === 'idle' && updateAvailable && (
-                        <div style={{ backgroundColor: '#3498db', color: 'white', padding: '10px', borderRadius: '5px', marginBottom: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span><b>New Version:</b> {updateAvailable.version}</span>
-                            <button type="button" onClick={handleDownload} style={{ backgroundColor: 'white', color: '#2980b9', border: 'none', fontWeight: 'bold', padding: '8px 15px', borderRadius: '4px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+                        <div
+                            style={{
+                                backgroundColor: '#3498db',
+                                color: 'white',
+                                padding: '10px',
+                                borderRadius: '5px',
+                                marginBottom: '15px',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                            }}
+                        >
+                            <span>
+                                <b>New Version:</b> {updateAvailable.version}
+                            </span>
+                            <button
+                                type="button"
+                                onClick={handleDownload}
+                                style={{
+                                    backgroundColor: 'white',
+                                    color: '#2980b9',
+                                    border: 'none',
+                                    fontWeight: 'bold',
+                                    padding: '8px 15px',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                                }}
+                            >
                                 Download
                             </button>
                         </div>
@@ -672,11 +775,11 @@ ${detail}`,
                     <h3>Popup Dictionary</h3>
                     <div style={sectionBoxStyle}>
                         <label style={checkboxLabelStyle}>
-                            <input 
-                                type="checkbox" 
-                                checked={localSettings.enableYomitan} 
-                                onChange={e => handleChange('enableYomitan', e.target.checked)} 
-                                style={checkboxInputStyle} 
+                            <input
+                                type="checkbox"
+                                checked={localSettings.enableYomitan}
+                                onChange={(e) => handleChange('enableYomitan', e.target.checked)}
+                                style={checkboxInputStyle}
                             />
                             <div>
                                 Enable Popup Dictionary
@@ -687,12 +790,20 @@ ${detail}`,
                         </label>
 
                         <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                            <label htmlFor="yomitanLanguage" style={{fontSize: '0.9em', color: '#ccc'}}>Dictionary Language</label>
+                            <label htmlFor="yomitanLanguage" style={{ fontSize: '0.9em', color: '#ccc' }}>
+                                Dictionary Language
+                            </label>
                             <select
                                 id="yomitanLanguage"
                                 value={localSettings.yomitanLanguage || 'japanese'}
                                 onChange={(e) => handleChange('yomitanLanguage', e.target.value)}
-                                style={{ padding: '6px', borderRadius: '4px', border: '1px solid #444', background: '#222', color: 'white' }}
+                                style={{
+                                    padding: '6px',
+                                    borderRadius: '4px',
+                                    border: '1px solid #444',
+                                    background: '#222',
+                                    color: 'white',
+                                }}
                             >
                                 <option value="japanese">Japanese</option>
                                 <option value="english">English</option>
@@ -741,11 +852,14 @@ ${detail}`,
                                 Used when installing or resetting default dictionaries.
                             </div>
                             <div style={{ fontSize: '0.85em', color: '#aaa' }}>
-                                Dictionary import only runs after pressing <b>Finish</b> in Setup Wizard, or from explicit reset/import actions.
+                                Dictionary import only runs after pressing <b>Finish</b> in Setup Wizard, or from
+                                explicit reset/import actions.
                             </div>
                         </div>
 
-                        <div style={{ marginTop: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <div
+                            style={{ marginTop: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}
+                        >
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                 <label htmlFor="yomitanPopupWidthValue">Popup Width (px)</label>
                                 <div style={inlineInputWrapperStyle}>
@@ -756,10 +870,9 @@ ${detail}`,
                                         min="280"
                                         max="1920"
                                         value={yomitanPopupWidthValue}
-                                        onChange={(e) => handleChange(
-                                            'yomitanPopupWidthPx',
-                                            parseInt(e.target.value, 10),
-                                        )}
+                                        onChange={(e) =>
+                                            handleChange('yomitanPopupWidthPx', parseInt(e.target.value, 10))
+                                        }
                                         style={inlineInputCompactStyle}
                                     />
                                     <div style={inlineInputActionsStyle}>
@@ -784,10 +897,9 @@ ${detail}`,
                                         min="200"
                                         max="1080"
                                         value={yomitanPopupHeightValue}
-                                        onChange={(e) => handleChange(
-                                            'yomitanPopupHeightPx',
-                                            parseInt(e.target.value, 10),
-                                        )}
+                                        onChange={(e) =>
+                                            handleChange('yomitanPopupHeightPx', parseInt(e.target.value, 10))
+                                        }
                                         style={inlineInputCompactStyle}
                                     />
                                     <div style={inlineInputActionsStyle}>
@@ -813,10 +925,9 @@ ${detail}`,
                                     min="50"
                                     max="200"
                                     value={yomitanPopupScaleValue}
-                                    onChange={(e) => handleChange(
-                                        'yomitanPopupScalePercent',
-                                        parseInt(e.target.value, 10),
-                                    )}
+                                    onChange={(e) =>
+                                        handleChange('yomitanPopupScalePercent', parseInt(e.target.value, 10))
+                                    }
                                     style={inlineInputCompactStyle}
                                 />
                                 <div style={inlineInputActionsStyle}>
@@ -855,7 +966,9 @@ ${detail}`,
                                     rows={5}
                                     value={localSettings.yomitanPopupCustomCss ?? ''}
                                     onChange={(e) => handleChange('yomitanPopupCustomCss', e.target.value)}
-                                    placeholder={"color: #f5f5f5;\nbackground: rgba(10,10,10,0.96);\n\n/* or full CSS: */\n.yomitan-popup .entry { font-size: 15px; }"}
+                                    placeholder={
+                                        'color: #f5f5f5;\nbackground: rgba(10,10,10,0.96);\n\n/* or full CSS: */\n.yomitan-popup .entry { font-size: 15px; }'
+                                    }
                                     style={{
                                         ...inlineInputStyle,
                                         width: '100%',
@@ -894,7 +1007,9 @@ ${detail}`,
                                         onChange={(e) => handleChange('yomitanShowPitchText', e.target.checked)}
                                         style={{ width: '16px', height: '16px' }}
                                     />
-                                    <span style={{ fontSize: '0.85em', color: '#aaa' }}>Show pitch text (character high/low)</span>
+                                    <span style={{ fontSize: '0.85em', color: '#aaa' }}>
+                                        Show pitch text (character high/low)
+                                    </span>
                                 </label>
                                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                                     <input
@@ -903,7 +1018,9 @@ ${detail}`,
                                         onChange={(e) => handleChange('yomitanShowPitchNotation', e.target.checked)}
                                         style={{ width: '16px', height: '16px' }}
                                     />
-                                    <span style={{ fontSize: '0.85em', color: '#aaa' }}>Show pitch notation ([0], [1], etc.)</span>
+                                    <span style={{ fontSize: '0.85em', color: '#aaa' }}>
+                                        Show pitch notation ([0], [1], etc.)
+                                    </span>
                                 </label>
                                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                                     <input
@@ -912,107 +1029,161 @@ ${detail}`,
                                         onChange={(e) => handleChange('yomitanShowPitchGraph', e.target.checked)}
                                         style={{ width: '16px', height: '16px' }}
                                     />
-                                    <span style={{ fontSize: '0.85em', color: '#aaa' }}>Show pitch graph (SVG diagram)</span>
+                                    <span style={{ fontSize: '0.85em', color: '#aaa' }}>
+                                        Show pitch graph (SVG diagram)
+                                    </span>
                                 </label>
                             </div>
                         </div>
-                        
-                        <div style={{
-                            maxHeight: showDicts ? '800px' : '0px',
-                            opacity: showDicts ? 1 : 0,
-                            overflow: 'hidden',
-                            transition: 'max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease-in-out',
-                        }}>
-                             <div style={{ paddingTop: '15px' }}>
-                                 {/* Result Grouping Dropdown */}
-                                 <div style={{ marginBottom: '15px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                     <label htmlFor="groupingMode" style={{fontSize: '0.9em', color: '#ccc'}}>Result Grouping</label>
-                                      <select
-                                          id="groupingMode"
-                                          value={localSettings.resultGroupingMode || 'grouped'}
-                                          onChange={(e) => handleChange('resultGroupingMode', e.target.value)}
-                                          style={{ padding: '6px', borderRadius: '4px', border: '1px solid #444', background: '#222', color: 'white' }}
-                                      >
-                                          <option value="grouped">Group by Term</option>
-                                          <option value="flat">No Grouping</option>
-                                      </select>
-                                       <div style={{ fontSize: '0.85em', color: '#aaa' }}>
-                                           Group results by term or list every entry.
-                                       </div>
-                                    </div>
-                                    {/* Lookup Navigation Mode */}
-                                    <div style={{ marginBottom: '15px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                        <label htmlFor="lookupNavMode" style={{fontSize: '0.9em', color: '#ccc'}}>Lookup Navigation</label>
-                                        <select
-                                            id="lookupNavMode"
-                                            value={localSettings.yomitanLookupNavigationMode || 'stacked'}
-                                            onChange={(e) => handleChange('yomitanLookupNavigationMode', e.target.value)}
-                                            style={{ padding: '6px', borderRadius: '4px', border: '1px solid #444', background: '#222', color: 'white' }}
-                                        >
-                                            <option value="stacked">Stacked (Back button)</option>
-                                            <option value="tabs">Tabs (Browser-like)</option>
-                                        </select>
-                                        <div style={{ fontSize: '0.85em', color: '#aaa' }}>
-                                            How to navigate between lookups in the popup.
-                                        </div>
-                                    </div>
-                                    {/* Max History */}
-                                    <div style={{ marginBottom: '15px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                                        <label htmlFor="maxHistory" style={{fontSize: '0.9em', color: '#ccc'}}>Max Lookup History</label>
-                                        <input
-                                            id="maxHistory"
-                                            type="number"
-                                            min="1"
-                                            max="50"
-                                            value={localSettings.yomitanLookupMaxHistory ?? 10}
-                                            onChange={(e) => handleChange('yomitanLookupMaxHistory', parseInt(e.target.value) || 10)}
-                                            style={{ padding: '6px', borderRadius: '4px', border: '1px solid #444', background: '#222', color: 'white' }}
-                                        />
-                                        <div style={{ fontSize: '0.85em', color: '#aaa' }}>
-                                            Maximum number of lookups to keep in history.
-                                        </div>
-                                    </div>
-                                    <label style={checkboxLabelStyle}>
-                                        <input
-                                            type="checkbox"
-                                            checked={localSettings.yomitanShowKanjiInNormalLookup}
-                                            onChange={(e) => handleChange('yomitanShowKanjiInNormalLookup', e.target.checked)}
-                                            style={checkboxInputStyle}
-                                        />
-                                        <div>
-                                            Show Kanji in Normal Lookup
-                                            <div style={{ opacity: 0.6, fontSize: '0.85em' }}>
-                                                Always shows kanji results at the bottom of the popup.
-                                            </div>
-                                        </div>
-                                    </label>
 
-                                    <label style={checkboxLabelStyle}>
-                                        <input
-                                            type="checkbox"
-                                            checked={localSettings.autoPlayWordAudio}
-                                            onChange={(e) => handleChange('autoPlayWordAudio', e.target.checked)}
-                                            style={checkboxInputStyle}
-                                        />
-                                        <div>
-                                            Auto-play Word Audio
-                                            <div style={{ opacity: 0.6, fontSize: '0.85em' }}>
-                                                Plays word audio automatically when search results appear.
-                                            </div>
-                                        </div>
+                        <div
+                            style={{
+                                maxHeight: showDicts ? '800px' : '0px',
+                                opacity: showDicts ? 1 : 0,
+                                overflow: 'hidden',
+                                transition: 'max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease-in-out',
+                            }}
+                        >
+                            <div style={{ paddingTop: '15px' }}>
+                                {/* Result Grouping Dropdown */}
+                                <div
+                                    style={{
+                                        marginBottom: '15px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '5px',
+                                    }}
+                                >
+                                    <label htmlFor="groupingMode" style={{ fontSize: '0.9em', color: '#ccc' }}>
+                                        Result Grouping
                                     </label>
+                                    <select
+                                        id="groupingMode"
+                                        value={localSettings.resultGroupingMode || 'grouped'}
+                                        onChange={(e) => handleChange('resultGroupingMode', e.target.value)}
+                                        style={{
+                                            padding: '6px',
+                                            borderRadius: '4px',
+                                            border: '1px solid #444',
+                                            background: '#222',
+                                            color: 'white',
+                                        }}
+                                    >
+                                        <option value="grouped">Group by Term</option>
+                                        <option value="flat">No Grouping</option>
+                                    </select>
+                                    <div style={{ fontSize: '0.85em', color: '#aaa' }}>
+                                        Group results by term or list every entry.
+                                    </div>
+                                </div>
+                                {/* Lookup Navigation Mode */}
+                                <div
+                                    style={{
+                                        marginBottom: '15px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '5px',
+                                    }}
+                                >
+                                    <label htmlFor="lookupNavMode" style={{ fontSize: '0.9em', color: '#ccc' }}>
+                                        Lookup Navigation
+                                    </label>
+                                    <select
+                                        id="lookupNavMode"
+                                        value={localSettings.yomitanLookupNavigationMode || 'stacked'}
+                                        onChange={(e) => handleChange('yomitanLookupNavigationMode', e.target.value)}
+                                        style={{
+                                            padding: '6px',
+                                            borderRadius: '4px',
+                                            border: '1px solid #444',
+                                            background: '#222',
+                                            color: 'white',
+                                        }}
+                                    >
+                                        <option value="stacked">Stacked (Back button)</option>
+                                        <option value="tabs">Tabs (Browser-like)</option>
+                                    </select>
+                                    <div style={{ fontSize: '0.85em', color: '#aaa' }}>
+                                        How to navigate between lookups in the popup.
+                                    </div>
+                                </div>
+                                {/* Max History */}
+                                <div
+                                    style={{
+                                        marginBottom: '15px',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '5px',
+                                    }}
+                                >
+                                    <label htmlFor="maxHistory" style={{ fontSize: '0.9em', color: '#ccc' }}>
+                                        Max Lookup History
+                                    </label>
+                                    <input
+                                        id="maxHistory"
+                                        type="number"
+                                        min="1"
+                                        max="50"
+                                        value={localSettings.yomitanLookupMaxHistory ?? 10}
+                                        onChange={(e) =>
+                                            handleChange('yomitanLookupMaxHistory', parseInt(e.target.value) || 10)
+                                        }
+                                        style={{
+                                            padding: '6px',
+                                            borderRadius: '4px',
+                                            border: '1px solid #444',
+                                            background: '#222',
+                                            color: 'white',
+                                        }}
+                                    />
+                                    <div style={{ fontSize: '0.85em', color: '#aaa' }}>
+                                        Maximum number of lookups to keep in history.
+                                    </div>
+                                </div>
+                                <label style={checkboxLabelStyle}>
+                                    <input
+                                        type="checkbox"
+                                        checked={localSettings.yomitanShowKanjiInNormalLookup}
+                                        onChange={(e) =>
+                                            handleChange('yomitanShowKanjiInNormalLookup', e.target.checked)
+                                        }
+                                        style={checkboxInputStyle}
+                                    />
+                                    <div>
+                                        Show Kanji in Normal Lookup
+                                        <div style={{ opacity: 0.6, fontSize: '0.85em' }}>
+                                            Always shows kanji results at the bottom of the popup.
+                                        </div>
+                                    </div>
+                                </label>
+
+                                <label style={checkboxLabelStyle}>
+                                    <input
+                                        type="checkbox"
+                                        checked={localSettings.autoPlayWordAudio}
+                                        onChange={(e) => handleChange('autoPlayWordAudio', e.target.checked)}
+                                        style={checkboxInputStyle}
+                                    />
+                                    <div>
+                                        Auto-play Word Audio
+                                        <div style={{ opacity: 0.6, fontSize: '0.85em' }}>
+                                            Plays word audio automatically when search results appear.
+                                        </div>
+                                    </div>
+                                </label>
 
                                 <label style={checkboxLabelStyle}>
                                     <input
                                         type="checkbox"
                                         checked={localSettings.showHarmonicMeanFreq}
-                                        onChange={e => handleChange('showHarmonicMeanFreq', e.target.checked)}
+                                        onChange={(e) => handleChange('showHarmonicMeanFreq', e.target.checked)}
                                         style={checkboxInputStyle}
                                     />
                                     <div>
                                         Show Harmonic Mean Frequency
                                         <div style={{ opacity: 0.6, fontSize: '0.85em' }}>
-                                            Displays a single harmonic mean value instead of individual frequency dictionaries.
+                                            Displays a single harmonic mean value instead of individual frequency
+                                            dictionaries.
                                         </div>
                                     </div>
                                 </label>
@@ -1025,396 +1196,752 @@ ${detail}`,
                     {/* --- ANKI CONNECT SECTION --- */}
                     {!isiOS && (
                         <>
-                        <h3>AnkiConnect Integration</h3>
-                        <div style={sectionBoxStyle}>
-                            <label style={checkboxLabelStyle}>
-                                <input 
-                                    type="checkbox" 
-                                    checked={localSettings.ankiConnectEnabled ?? false} 
-                                    onChange={(e) => handleChange('ankiConnectEnabled', e.target.checked)} 
-                                    style={checkboxInputStyle} 
-                                />
-                                <div>
-                                    Enable AnkiConnect
-                                    <div style={{ opacity: 0.5, fontSize: '0.9em' }}>
-                                        {localSettings.enableYomitan 
-                                            ? "Automatically add cards via the Popup Dictionary" 
-                                            : "Right-click (desktop) or hold (mobile) to update the last card (useful for third-party dictionaries)"
-                                        }
-                                    </div>
-                                </div>
-                            </label>
-
-                            {/* Collapsible Anki Settings */}
-                            <div style={{
-                                maxHeight: localSettings.ankiConnectEnabled ? 'none' : '0px',
-                                opacity: localSettings.ankiConnectEnabled ? 1 : 0,
-                                overflow: 'hidden',
-                                transition: 'max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease-in-out',
-                            }}>
-                                <div style={{ marginTop: '10px', paddingLeft: '5px' }}>
-                                    {/* Connection Status & URL */}
-                                    <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-                                        <div style={{display:'flex', alignItems:'center'}}>
-                                            <span style={statusDotStyle(ankiStatus === 'connected')}></span>
-                                            <span style={{color: ankiStatus === 'connected' ? '#2ecc71' : '#e74c3c', fontWeight: 'bold'}}>
-                                                {ankiStatus === 'connected' ? 'Connected' : ankiStatus === 'loading' ? 'Connecting...' : 'Not Connected'}
-                                            </span>
+                            <h3>AnkiConnect Integration</h3>
+                            <div style={sectionBoxStyle}>
+                                <label style={checkboxLabelStyle}>
+                                    <input
+                                        type="checkbox"
+                                        checked={localSettings.ankiConnectEnabled ?? false}
+                                        onChange={(e) => handleChange('ankiConnectEnabled', e.target.checked)}
+                                        style={checkboxInputStyle}
+                                    />
+                                    <div>
+                                        Enable AnkiConnect
+                                        <div style={{ opacity: 0.5, fontSize: '0.9em' }}>
+                                            {localSettings.enableYomitan
+                                                ? 'Automatically add cards via the Popup Dictionary'
+                                                : 'Right-click (desktop) or hold (mobile) to update the last card (useful for third-party dictionaries)'}
                                         </div>
-                                        <button 
-                                            onClick={fetchAnkiData}
-                                            disabled={ankiStatus === 'loading'}
+                                    </div>
+                                </label>
+
+                                {/* Collapsible Anki Settings */}
+                                <div
+                                    style={{
+                                        maxHeight: localSettings.ankiConnectEnabled ? 'none' : '0px',
+                                        opacity: localSettings.ankiConnectEnabled ? 1 : 0,
+                                        overflow: 'hidden',
+                                        transition:
+                                            'max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease-in-out',
+                                    }}
+                                >
+                                    <div style={{ marginTop: '10px', paddingLeft: '5px' }}>
+                                        {/* Connection Status & URL */}
+                                        <div
                                             style={{
-                                                padding: '5px 10px', fontSize: '0.85em', cursor: 'pointer',
-                                                backgroundColor: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', borderRadius: '4px'
+                                                marginBottom: '15px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                flexWrap: 'wrap',
+                                                gap: '10px',
                                             }}
                                         >
-                                            Retry Connection
-                                        </button>
-                                    </div>
-
-                                    <div className="grid">
-                                        <label htmlFor="ankiUrl">AnkiConnect URL</label>
-                                        <input 
-                                            id="ankiUrl" 
-                                            value={localSettings.ankiConnectUrl ?? 'http://127.0.0.1:8765'} 
-                                            onChange={(e) => handleChange('ankiConnectUrl', e.target.value)} 
-                                            placeholder="http://127.0.0.1:8765"
-                                        />
-                                        <div style={{ gridColumn: '1 / -1', fontSize: '0.85em', color: '#aaa' }}>
-                                            Address where AnkiConnect is listening.
+                                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                                                <span style={statusDotStyle(ankiStatus === 'connected')} />
+                                                <span
+                                                    style={{
+                                                        color: ankiStatus === 'connected' ? '#2ecc71' : '#e74c3c',
+                                                        fontWeight: 'bold',
+                                                    }}
+                                                >
+                                                    {ankiStatus === 'connected'
+                                                        ? 'Connected'
+                                                        : ankiStatus === 'loading'
+                                                          ? 'Connecting...'
+                                                          : 'Not Connected'}
+                                                </span>
+                                            </div>
+                                            <button
+                                                onClick={fetchAnkiData}
+                                                disabled={ankiStatus === 'loading'}
+                                                style={{
+                                                    padding: '5px 10px',
+                                                    fontSize: '0.85em',
+                                                    cursor: 'pointer',
+                                                    backgroundColor: 'rgba(255,255,255,0.1)',
+                                                    border: '1px solid rgba(255,255,255,0.2)',
+                                                    color: 'white',
+                                                    borderRadius: '4px',
+                                                }}
+                                            >
+                                                Retry Connection
+                                            </button>
                                         </div>
-                                        
-                                        <label htmlFor="ankiQuality">Image Quality</label>
-                                        <input 
-                                            id="ankiQuality" 
-                                            type="number"
-                                            step="0.01"
-                                            min="0"
-                                            max="1"
-                                            value={localSettings.ankiImageQuality ?? 0.92} 
-                                            onChange={(e) => handleChange('ankiImageQuality', parseFloat(e.target.value))} 
-                                            placeholder="0.92"
-                                        />
-                                        <div style={{ gridColumn: '1 / -1', fontSize: '0.85em', color: '#aaa' }}>
-                                            Image compression quality for screenshots sent to Anki (0-1).
-                                        </div>
 
-                                        {/* Downscale settings */}
-                                        <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                <label htmlFor="ankiDownscaleMaxWidth">Max Image Width (px)</label>
-                                                    <select 
+                                        <div className="grid">
+                                            <label htmlFor="ankiUrl">AnkiConnect URL</label>
+                                            <input
+                                                id="ankiUrl"
+                                                value={localSettings.ankiConnectUrl ?? 'http://127.0.0.1:8765'}
+                                                onChange={(e) => handleChange('ankiConnectUrl', e.target.value)}
+                                                placeholder="http://127.0.0.1:8765"
+                                            />
+                                            <div style={{ gridColumn: '1 / -1', fontSize: '0.85em', color: '#aaa' }}>
+                                                Address where AnkiConnect is listening.
+                                            </div>
+
+                                            <label htmlFor="ankiQuality">Image Quality</label>
+                                            <input
+                                                id="ankiQuality"
+                                                type="number"
+                                                step="0.01"
+                                                min="0"
+                                                max="1"
+                                                value={localSettings.ankiImageQuality ?? 0.92}
+                                                onChange={(e) =>
+                                                    handleChange('ankiImageQuality', parseFloat(e.target.value))
+                                                }
+                                                placeholder="0.92"
+                                            />
+                                            <div style={{ gridColumn: '1 / -1', fontSize: '0.85em', color: '#aaa' }}>
+                                                Image compression quality for screenshots sent to Anki (0-1).
+                                            </div>
+
+                                            {/* Downscale settings */}
+                                            <div
+                                                style={{
+                                                    gridColumn: '1 / -1',
+                                                    display: 'grid',
+                                                    gridTemplateColumns: '1fr 1fr',
+                                                    gap: '12px',
+                                                }}
+                                            >
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                    <label htmlFor="ankiDownscaleMaxWidth">Max Image Width (px)</label>
+                                                    <select
                                                         id="ankiDownscaleMaxWidth"
                                                         value={localSettings.ankiDownscaleMaxWidth ?? ''}
-                                                        onChange={(e) => handleChange('ankiDownscaleMaxWidth', e.target.value ? parseInt(e.target.value, 10) : undefined)}
+                                                        onChange={(e) =>
+                                                            handleChange(
+                                                                'ankiDownscaleMaxWidth',
+                                                                e.target.value
+                                                                    ? parseInt(e.target.value, 10)
+                                                                    : undefined,
+                                                            )
+                                                        }
                                                     >
-                                                        {DOWNSCALE_OPTIONS.map(opt => (
+                                                        {DOWNSCALE_OPTIONS.map((opt) => (
                                                             <option key={`width-${opt.value}`} value={opt.value}>
                                                                 {opt.label}
                                                             </option>
                                                         ))}
                                                     </select>
-                                            </div>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                                <label htmlFor="ankiDownscaleMaxHeight">Max Image Height (px)</label>
-                                                    <select 
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                    <label htmlFor="ankiDownscaleMaxHeight">
+                                                        Max Image Height (px)
+                                                    </label>
+                                                    <select
                                                         id="ankiDownscaleMaxHeight"
                                                         value={localSettings.ankiDownscaleMaxHeight ?? ''}
-                                                        onChange={(e) => handleChange('ankiDownscaleMaxHeight', e.target.value ? parseInt(e.target.value, 10) : undefined)}
+                                                        onChange={(e) =>
+                                                            handleChange(
+                                                                'ankiDownscaleMaxHeight',
+                                                                e.target.value
+                                                                    ? parseInt(e.target.value, 10)
+                                                                    : undefined,
+                                                            )
+                                                        }
                                                     >
-                                                        {DOWNSCALE_OPTIONS.map(opt => (
+                                                        {DOWNSCALE_OPTIONS.map((opt) => (
                                                             <option key={`height-${opt.value}`} value={opt.value}>
                                                                 {opt.label}
                                                             </option>
                                                         ))}
                                                     </select>
-                                            </div>
-                                            <div style={{ gridColumn: '1 / -1', fontSize: '0.85em', color: '#aaa' }}>
-                                                If the screenshot exceeds the max width or height, it will be downscaled.
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div style={{ marginBottom: '15px', marginTop: '10px', padding: '10px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                        <label style={{ ...checkboxLabelStyle, marginBottom: '0' }}>
-                                            <input 
-                                                type="checkbox" 
-                                                checked={localSettings.ankiEnableCropper ?? false} 
-                                                onChange={(e) => handleChange('ankiEnableCropper', e.target.checked)} 
-                                                style={checkboxInputStyle} 
-                                            />
-                                            <div>
-                                                Enable Image Cropper
-                                                <div style={{ opacity: 0.5, fontSize: '0.9em' }}>
-                                                    Allows you to crop the image before sending to Anki
+                                                </div>
+                                                <div
+                                                    style={{ gridColumn: '1 / -1', fontSize: '0.85em', color: '#aaa' }}
+                                                >
+                                                    If the screenshot exceeds the max width or height, it will be
+                                                    downscaled.
                                                 </div>
                                             </div>
-                                        </label>
-                                    </div>
+                                        </div>
 
-                                    {!localSettings.enableYomitan && (
-                                        <div style={{ marginBottom: '15px', padding: '10px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                        <div
+                                            style={{
+                                                marginBottom: '15px',
+                                                marginTop: '10px',
+                                                padding: '10px',
+                                                backgroundColor: 'rgba(255,255,255,0.05)',
+                                                borderRadius: '6px',
+                                                border: '1px solid rgba(255,255,255,0.1)',
+                                            }}
+                                        >
                                             <label style={{ ...checkboxLabelStyle, marginBottom: '0' }}>
                                                 <input
                                                     type="checkbox"
-                                                    checked={localSettings.skipAnkiUpdateConfirm ?? false}
-                                                    onChange={(e) => handleChange('skipAnkiUpdateConfirm', e.target.checked)}
+                                                    checked={localSettings.ankiEnableCropper ?? false}
+                                                    onChange={(e) =>
+                                                        handleChange('ankiEnableCropper', e.target.checked)
+                                                    }
                                                     style={checkboxInputStyle}
                                                 />
                                                 <div>
-                                                    Skip Update Anki Card confirmation
+                                                    Enable Image Cropper
                                                     <div style={{ opacity: 0.5, fontSize: '0.9em' }}>
-                                                        Updates the last card immediately when you use the right-click action.
+                                                        Allows you to crop the image before sending to Anki
                                                     </div>
                                                 </div>
                                             </label>
                                         </div>
-                                    )}
 
-                                    {localSettings.enableYomitan && (
-                                        <div style={{ marginBottom: '15px', padding: '10px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                                            <label style={{ ...checkboxLabelStyle }}>
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={localSettings.ankiCheckDuplicates ?? true} 
-                                                    onChange={(e) => handleChange('ankiCheckDuplicates', e.target.checked)} 
-                                                    style={checkboxInputStyle} 
-                                                />
-                                                <div>
-                                                    Check for Duplicates
-                                                    <div style={{ opacity: 0.5, fontSize: '0.9em' }}>
-                                                        Checks if the word already exists in Anki
-                                                    </div>
-                                                </div>
-                                            </label>
-
-                                            {localSettings.ankiCheckDuplicates && (
-                                                <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                        <span style={{ fontSize: '0.9em', color: '#ccc' }}>Duplicate Action</span>
-                                                        <select
-                                                            value={localSettings.ankiDuplicateAction || 'prevent'}
-                                                            onChange={e => handleChange('ankiDuplicateAction', e.target.value)}
-                                                            style={{ padding: '4px', borderRadius: '4px', border: '1px solid #444', background: '#222', color: 'white', minWidth: '120px' }}
-                                                        >
-                                                            <option value="prevent">Prevent</option>
-                                                            <option value="overwrite">Overwrite</option>
-                                                            <option value="add">Add Anyway</option>
-                                                        </select>
-                                                    </div>
-
-                                                    <button
-                                                        onClick={() => setShowAdvancedAnki(!showAdvancedAnki)}
-                                                        style={{ background: 'none', border: 'none', color: '#7cc8ff', cursor: 'pointer', fontSize: '0.8em', padding: 0, textAlign: 'left', width: 'fit-content' }}
-                                                    >
-                                                        {showAdvancedAnki ? 'Less...' : 'More...'}
-                                                    </button>
-
-                                                    {showAdvancedAnki && (
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '10px', borderLeft: '1px solid rgba(255,255,255,0.1)' }}>
-                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                                <span style={{ fontSize: '0.85em', color: '#aaa' }}>Check Scope</span>
-                                                                <select
-                                                                    value={localSettings.ankiDuplicateScope || 'deck'}
-                                                                    onChange={e => handleChange('ankiDuplicateScope', e.target.value)}
-                                                                    style={{ padding: '4px', borderRadius: '4px', border: '1px solid #444', background: '#222', color: 'white', minWidth: '120px' }}
-                                                                >
-                                                                    <option value="deck">Current Deck</option>
-                                                                    <option value="deck-root">Deck Root</option>
-                                                                    <option value="collection">Collection</option>
-                                                                </select>
-                                                            </div>
-                                                            <label style={{ ...checkboxLabelStyle, marginBottom: 0 }}>
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={localSettings.ankiCheckDuplicatesAllModels ?? false}
-                                                                    onChange={e => handleChange('ankiCheckDuplicatesAllModels', e.target.checked)}
-                                                                    style={checkboxInputStyle}
-                                                                />
-                                                                <div style={{ fontSize: '0.85em', color: '#aaa' }}>
-                                                                    Check across all models
-                                                                </div>
-                                                            </label>
+                                        {!localSettings.enableYomitan && (
+                                            <div
+                                                style={{
+                                                    marginBottom: '15px',
+                                                    padding: '10px',
+                                                    backgroundColor: 'rgba(255,255,255,0.05)',
+                                                    borderRadius: '6px',
+                                                    border: '1px solid rgba(255,255,255,0.1)',
+                                                }}
+                                            >
+                                                <label style={{ ...checkboxLabelStyle, marginBottom: '0' }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={localSettings.skipAnkiUpdateConfirm ?? false}
+                                                        onChange={(e) =>
+                                                            handleChange('skipAnkiUpdateConfirm', e.target.checked)
+                                                        }
+                                                        style={checkboxInputStyle}
+                                                    />
+                                                    <div>
+                                                        Skip Update Anki Card confirmation
+                                                        <div style={{ opacity: 0.5, fontSize: '0.9em' }}>
+                                                            Updates the last card immediately when you use the
+                                                            right-click action.
                                                         </div>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
+                                                    </div>
+                                                </label>
+                                            </div>
+                                        )}
 
-                                    {/* Deck & Model Selection */}
-                                    {ankiStatus === 'connected' && (
-                                        <>
-                                            <div className="grid" style={{marginTop: '20px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '15px'}}>
-                                                <label htmlFor="ankiDeck">Target Deck</label>
-                                                <select 
-                                                    id="ankiDeck"
-                                                    value={localSettings.ankiDeck || ''}
-                                                    onChange={e => handleChange('ankiDeck', e.target.value)}
-                                                >
-                                                    <option value="">Select a Deck...</option>
-                                                    {ankiDecks.map(d => <option key={d} value={d}>{d}</option>)}
-                                                </select>
-                                                <div style={{ gridColumn: '1 / -1', fontSize: '0.85em', color: '#aaa' }}>
-                                                    Deck where new cards will be added.
-                                                </div>
+                                        {localSettings.enableYomitan && (
+                                            <div
+                                                style={{
+                                                    marginBottom: '15px',
+                                                    padding: '10px',
+                                                    backgroundColor: 'rgba(255,255,255,0.05)',
+                                                    borderRadius: '6px',
+                                                    border: '1px solid rgba(255,255,255,0.1)',
+                                                }}
+                                            >
+                                                <label style={{ ...checkboxLabelStyle }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={localSettings.ankiCheckDuplicates ?? true}
+                                                        onChange={(e) =>
+                                                            handleChange('ankiCheckDuplicates', e.target.checked)
+                                                        }
+                                                        style={checkboxInputStyle}
+                                                    />
+                                                    <div>
+                                                        Check for Duplicates
+                                                        <div style={{ opacity: 0.5, fontSize: '0.9em' }}>
+                                                            Checks if the word already exists in Anki
+                                                        </div>
+                                                    </div>
+                                                </label>
 
-                                                <label htmlFor="ankiModel">Card Type</label>
-                                                <select 
-                                                    id="ankiModel"
-                                                    value={localSettings.ankiModel || ''}
-                                                    onChange={e => {
-                                                        const newVal = e.target.value;
-                                                        setLocalSettings(prev => {
-                                                            const next = {
-                                                                ...prev,
-                                                                ankiModel: newVal,
-                                                                ankiFieldMap: {},
-                                                            };
-                                                            persistSettings(next);
-                                                            return next;
-                                                        });
+                                                {localSettings.ankiCheckDuplicates && (
+                                                    <div
+                                                        style={{
+                                                            marginTop: '10px',
+                                                            display: 'flex',
+                                                            flexDirection: 'column',
+                                                            gap: '8px',
+                                                        }}
+                                                    >
+                                                        <div
+                                                            style={{
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'space-between',
+                                                            }}
+                                                        >
+                                                            <span style={{ fontSize: '0.9em', color: '#ccc' }}>
+                                                                Duplicate Action
+                                                            </span>
+                                                            <select
+                                                                value={localSettings.ankiDuplicateAction || 'prevent'}
+                                                                onChange={(e) =>
+                                                                    handleChange('ankiDuplicateAction', e.target.value)
+                                                                }
+                                                                style={{
+                                                                    padding: '4px',
+                                                                    borderRadius: '4px',
+                                                                    border: '1px solid #444',
+                                                                    background: '#222',
+                                                                    color: 'white',
+                                                                    minWidth: '120px',
+                                                                }}
+                                                            >
+                                                                <option value="prevent">Prevent</option>
+                                                                <option value="overwrite">Overwrite</option>
+                                                                <option value="add">Add Anyway</option>
+                                                            </select>
+                                                        </div>
+
+                                                        <button
+                                                            onClick={() => setShowAdvancedAnki(!showAdvancedAnki)}
+                                                            style={{
+                                                                background: 'none',
+                                                                border: 'none',
+                                                                color: '#7cc8ff',
+                                                                cursor: 'pointer',
+                                                                fontSize: '0.8em',
+                                                                padding: 0,
+                                                                textAlign: 'left',
+                                                                width: 'fit-content',
+                                                            }}
+                                                        >
+                                                            {showAdvancedAnki ? 'Less...' : 'More...'}
+                                                        </button>
+
+                                                        {showAdvancedAnki && (
+                                                            <div
+                                                                style={{
+                                                                    display: 'flex',
+                                                                    flexDirection: 'column',
+                                                                    gap: '8px',
+                                                                    paddingLeft: '10px',
+                                                                    borderLeft: '1px solid rgba(255,255,255,0.1)',
+                                                                }}
+                                                            >
+                                                                <div
+                                                                    style={{
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'space-between',
+                                                                    }}
+                                                                >
+                                                                    <span style={{ fontSize: '0.85em', color: '#aaa' }}>
+                                                                        Check Scope
+                                                                    </span>
+                                                                    <select
+                                                                        value={
+                                                                            localSettings.ankiDuplicateScope || 'deck'
+                                                                        }
+                                                                        onChange={(e) =>
+                                                                            handleChange(
+                                                                                'ankiDuplicateScope',
+                                                                                e.target.value,
+                                                                            )
+                                                                        }
+                                                                        style={{
+                                                                            padding: '4px',
+                                                                            borderRadius: '4px',
+                                                                            border: '1px solid #444',
+                                                                            background: '#222',
+                                                                            color: 'white',
+                                                                            minWidth: '120px',
+                                                                        }}
+                                                                    >
+                                                                        <option value="deck">Current Deck</option>
+                                                                        <option value="deck-root">Deck Root</option>
+                                                                        <option value="collection">Collection</option>
+                                                                    </select>
+                                                                </div>
+                                                                <label
+                                                                    style={{ ...checkboxLabelStyle, marginBottom: 0 }}
+                                                                >
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={
+                                                                            localSettings.ankiCheckDuplicatesAllModels ??
+                                                                            false
+                                                                        }
+                                                                        onChange={(e) =>
+                                                                            handleChange(
+                                                                                'ankiCheckDuplicatesAllModels',
+                                                                                e.target.checked,
+                                                                            )
+                                                                        }
+                                                                        style={checkboxInputStyle}
+                                                                    />
+                                                                    <div style={{ fontSize: '0.85em', color: '#aaa' }}>
+                                                                        Check across all models
+                                                                    </div>
+                                                                </label>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {/* Deck & Model Selection */}
+                                        {ankiStatus === 'connected' && (
+                                            <>
+                                                <div
+                                                    className="grid"
+                                                    style={{
+                                                        marginTop: '20px',
+                                                        borderTop: '1px solid rgba(255,255,255,0.1)',
+                                                        paddingTop: '15px',
                                                     }}
                                                 >
-                                                    <option value="">Select Card Type...</option>
-                                                    {ankiModels.map(m => <option key={m} value={m}>{m}</option>)}
-                                                </select>
-                                                <div style={{ gridColumn: '1 / -1', fontSize: '0.85em', color: '#aaa' }}>
-                                                    Note type used when creating cards.
-                                                </div>
-                                            </div>
-
-                                            {/* Field Mapping Section */}
-                                            {localSettings.ankiModel && currentModelFields.length > 0 && (
-                                                <div style={{ marginTop: '20px' }}>
-                                                    <h4 style={{marginBottom: '10px', color: '#ddd'}}>Field Mapping</h4>
-                                                    <div style={{ fontSize: '0.85em', color: '#aaa', marginBottom: '10px' }}>
-                                                        Map OCR and dictionary content to your Anki fields.
+                                                    <label htmlFor="ankiDeck">Target Deck</label>
+                                                    <select
+                                                        id="ankiDeck"
+                                                        value={localSettings.ankiDeck || ''}
+                                                        onChange={(e) => handleChange('ankiDeck', e.target.value)}
+                                                    >
+                                                        <option value="">Select a Deck...</option>
+                                                        {ankiDecks.map((d) => (
+                                                            <option key={d} value={d}>
+                                                                {d}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    <div
+                                                        style={{
+                                                            gridColumn: '1 / -1',
+                                                            fontSize: '0.85em',
+                                                            color: '#aaa',
+                                                        }}
+                                                    >
+                                                        Deck where new cards will be added.
                                                     </div>
-                                                    
-                                                    {/* If built-in dictionary is enabled, show full table mapping */}
-                                                    {localSettings.enableYomitan ? (
-                                                        <div style={{overflowX: 'auto'}}>
-                                                            <table style={{width: '100%', borderCollapse: 'collapse', fontSize: '0.9em'}}>
-                                                                <thead>
-                                                                    <tr style={{borderBottom: '1px solid rgba(255,255,255,0.2)'}}>
-                                                                        <th style={{textAlign: 'left', padding: '8px', color: '#aaa'}}>Anki Field</th>
-                                                                        <th style={{textAlign: 'left', padding: '8px', color: '#aaa'}}>Content</th>
-                                                                        {localSettings.ankiDuplicateAction === 'overwrite' && (
-                                                                            <th style={{textAlign: 'left', padding: '8px', color: '#aaa'}}>Update Mode</th>
-                                                                        )}
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody>
-                                                                    {currentModelFields.map(field => (
-                                                                        <tr key={field} style={{borderBottom: '1px solid rgba(255,255,255,0.1)'}}>
-                                                                            <td style={{padding: '8px'}}>{field}</td>
-                                                                            <td style={{padding: '8px'}}>
-                                                                                <select
-                                                                                    style={{width: '100%', padding: '4px', borderRadius: '4px', border: '1px solid #444', background: '#222', color: 'white'}}
-                                                                                    value={(localSettings.ankiFieldMap as any)?.[field] || 'None'}
-                                                                                    onChange={e => handleFieldMapChange(field, e.target.value)}
+
+                                                    <label htmlFor="ankiModel">Card Type</label>
+                                                    <select
+                                                        id="ankiModel"
+                                                        value={localSettings.ankiModel || ''}
+                                                        onChange={(e) => {
+                                                            const newVal = e.target.value;
+                                                            setLocalSettings((prev) => {
+                                                                const next = {
+                                                                    ...prev,
+                                                                    ankiModel: newVal,
+                                                                    ankiFieldMap: {},
+                                                                };
+                                                                persistSettings(next);
+                                                                return next;
+                                                            });
+                                                        }}
+                                                    >
+                                                        <option value="">Select Card Type...</option>
+                                                        {ankiModels.map((m) => (
+                                                            <option key={m} value={m}>
+                                                                {m}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                    <div
+                                                        style={{
+                                                            gridColumn: '1 / -1',
+                                                            fontSize: '0.85em',
+                                                            color: '#aaa',
+                                                        }}
+                                                    >
+                                                        Note type used when creating cards.
+                                                    </div>
+                                                </div>
+
+                                                {/* Field Mapping Section */}
+                                                {localSettings.ankiModel && currentModelFields.length > 0 && (
+                                                    <div style={{ marginTop: '20px' }}>
+                                                        <h4 style={{ marginBottom: '10px', color: '#ddd' }}>
+                                                            Field Mapping
+                                                        </h4>
+                                                        <div
+                                                            style={{
+                                                                fontSize: '0.85em',
+                                                                color: '#aaa',
+                                                                marginBottom: '10px',
+                                                            }}
+                                                        >
+                                                            Map OCR and dictionary content to your Anki fields.
+                                                        </div>
+
+                                                        {/* If built-in dictionary is enabled, show full table mapping */}
+                                                        {localSettings.enableYomitan ? (
+                                                            <div style={{ overflowX: 'auto' }}>
+                                                                <table
+                                                                    style={{
+                                                                        width: '100%',
+                                                                        borderCollapse: 'collapse',
+                                                                        fontSize: '0.9em',
+                                                                    }}
+                                                                >
+                                                                    <thead>
+                                                                        <tr
+                                                                            style={{
+                                                                                borderBottom:
+                                                                                    '1px solid rgba(255,255,255,0.2)',
+                                                                            }}
+                                                                        >
+                                                                            <th
+                                                                                style={{
+                                                                                    textAlign: 'left',
+                                                                                    padding: '8px',
+                                                                                    color: '#aaa',
+                                                                                }}
+                                                                            >
+                                                                                Anki Field
+                                                                            </th>
+                                                                            <th
+                                                                                style={{
+                                                                                    textAlign: 'left',
+                                                                                    padding: '8px',
+                                                                                    color: '#aaa',
+                                                                                }}
+                                                                            >
+                                                                                Content
+                                                                            </th>
+                                                                            {localSettings.ankiDuplicateAction ===
+                                                                                'overwrite' && (
+                                                                                <th
+                                                                                    style={{
+                                                                                        textAlign: 'left',
+                                                                                        padding: '8px',
+                                                                                        color: '#aaa',
+                                                                                    }}
                                                                                 >
-                                                                                    {mappingOptions.map((opt) => (
-                                                                                        <option key={opt.value} value={opt.value}>
-                                                                                            {opt.label}
-                                                                                        </option>
-                                                                                    ))}
-                                                                                </select>
-                                                                            </td>
-                                                                            {localSettings.ankiDuplicateAction === 'overwrite' && (
-                                                                                <td style={{padding: '8px'}}>
+                                                                                    Update Mode
+                                                                                </th>
+                                                                            )}
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {currentModelFields.map((field) => (
+                                                                            <tr
+                                                                                key={field}
+                                                                                style={{
+                                                                                    borderBottom:
+                                                                                        '1px solid rgba(255,255,255,0.1)',
+                                                                                }}
+                                                                            >
+                                                                                <td style={{ padding: '8px' }}>
+                                                                                    {field}
+                                                                                </td>
+                                                                                <td style={{ padding: '8px' }}>
                                                                                     <select
-                                                                                        style={{width: '100%', padding: '4px', borderRadius: '4px', border: '1px solid #444', background: '#222', color: 'white'}}
-                                                                                        value={localSettings.ankiFieldUpdateModes?.[field] || 'overwrite'}
-                                                                                        onChange={e => handleUpdateModeChange(field, e.target.value)}
+                                                                                        style={{
+                                                                                            width: '100%',
+                                                                                            padding: '4px',
+                                                                                            borderRadius: '4px',
+                                                                                            border: '1px solid #444',
+                                                                                            background: '#222',
+                                                                                            color: 'white',
+                                                                                        }}
+                                                                                        value={
+                                                                                            (
+                                                                                                localSettings.ankiFieldMap as any
+                                                                                            )?.[field] || 'None'
+                                                                                        }
+                                                                                        onChange={(e) =>
+                                                                                            handleFieldMapChange(
+                                                                                                field,
+                                                                                                e.target.value,
+                                                                                            )
+                                                                                        }
                                                                                     >
-                                                                                        {updateModes.map(m => (
-                                                                                            <option key={m.value} value={m.value}>{m.label}</option>
+                                                                                        {mappingOptions.map((opt) => (
+                                                                                            <option
+                                                                                                key={opt.value}
+                                                                                                value={opt.value}
+                                                                                            >
+                                                                                                {opt.label}
+                                                                                            </option>
                                                                                         ))}
                                                                                     </select>
                                                                                 </td>
-                                                                            )}
-                                                                        </tr>
+                                                                                {localSettings.ankiDuplicateAction ===
+                                                                                    'overwrite' && (
+                                                                                    <td style={{ padding: '8px' }}>
+                                                                                        <select
+                                                                                            style={{
+                                                                                                width: '100%',
+                                                                                                padding: '4px',
+                                                                                                borderRadius: '4px',
+                                                                                                border: '1px solid #444',
+                                                                                                background: '#222',
+                                                                                                color: 'white',
+                                                                                            }}
+                                                                                            value={
+                                                                                                localSettings
+                                                                                                    .ankiFieldUpdateModes?.[
+                                                                                                    field
+                                                                                                ] || 'overwrite'
+                                                                                            }
+                                                                                            onChange={(e) =>
+                                                                                                handleUpdateModeChange(
+                                                                                                    field,
+                                                                                                    e.target.value,
+                                                                                                )
+                                                                                            }
+                                                                                        >
+                                                                                            {updateModes.map((m) => (
+                                                                                                <option
+                                                                                                    key={m.value}
+                                                                                                    value={m.value}
+                                                                                                >
+                                                                                                    {m.label}
+                                                                                                </option>
+                                                                                            ))}
+                                                                                        </select>
+                                                                                    </td>
+                                                                                )}
+                                                                            </tr>
+                                                                        ))}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        ) : (
+                                                            // If built-in dictionary is disabled, show simple dropdowns for Sentence/Image
+                                                            <div className="grid">
+                                                                <label>Sentence Field</label>
+                                                                <select
+                                                                    value={getFieldForContent('Sentence')}
+                                                                    onChange={(e) =>
+                                                                        handleContentToFieldChange(
+                                                                            'Sentence',
+                                                                            e.target.value,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    <option value="">(None)</option>
+                                                                    {currentModelFields.map((f) => (
+                                                                        <option key={f} value={f}>
+                                                                            {f}
+                                                                        </option>
                                                                     ))}
-                                                                </tbody>
-                                                            </table>
-                                                        </div>
-                                                    ) : (
-                                                        // If built-in dictionary is disabled, show simple dropdowns for Sentence/Image
-                                                        <div className="grid">
-                                                            <label>Sentence Field</label>
-                                                            <select
-                                                                value={getFieldForContent('Sentence')}
-                                                                onChange={(e) => handleContentToFieldChange('Sentence', e.target.value)}
-                                                            >
-                                                                <option value="">(None)</option>
-                                                                {currentModelFields.map(f => <option key={f} value={f}>{f}</option>)}
-                                                            </select>
-                                                            <div style={{ gridColumn: '1 / -1', fontSize: '0.85em', color: '#aaa' }}>
-                                                                Field where the selected sentence will be stored.
-                                                            </div>
+                                                                </select>
+                                                                <div
+                                                                    style={{
+                                                                        gridColumn: '1 / -1',
+                                                                        fontSize: '0.85em',
+                                                                        color: '#aaa',
+                                                                    }}
+                                                                >
+                                                                    Field where the selected sentence will be stored.
+                                                                </div>
 
-                                                            <label>Image Field</label>
-                                                            <select
-                                                                value={getFieldForContent('Image')}
-                                                                onChange={(e) => handleContentToFieldChange('Image', e.target.value)}
-                                                            >
-                                                                <option value="">(None)</option>
-                                                                {currentModelFields.map(f => <option key={f} value={f}>{f}</option>)}
-                                                            </select>
-                                                            <div style={{ gridColumn: '1 / -1', fontSize: '0.85em', color: '#aaa' }}>
-                                                                Field where the screenshot image will be stored.
-                                                            </div>
+                                                                <label>Image Field</label>
+                                                                <select
+                                                                    value={getFieldForContent('Image')}
+                                                                    onChange={(e) =>
+                                                                        handleContentToFieldChange(
+                                                                            'Image',
+                                                                            e.target.value,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    <option value="">(None)</option>
+                                                                    {currentModelFields.map((f) => (
+                                                                        <option key={f} value={f}>
+                                                                            {f}
+                                                                        </option>
+                                                                    ))}
+                                                                </select>
+                                                                <div
+                                                                    style={{
+                                                                        gridColumn: '1 / -1',
+                                                                        fontSize: '0.85em',
+                                                                        color: '#aaa',
+                                                                    }}
+                                                                >
+                                                                    Field where the screenshot image will be stored.
+                                                                </div>
 
-                                                            <label>Sentence Audio Field</label>
-                                                            <select
-                                                                value={getFieldForContent('Sentence Audio')}
-                                                                onChange={(e) => handleContentToFieldChange('Sentence Audio', e.target.value)}
-                                                            >
-                                                                <option value="">(None)</option>
-                                                                {currentModelFields.map(f => <option key={f} value={f}>{f}</option>)}
-                                                            </select>
-                                                            <div style={{ gridColumn: '1 / -1', fontSize: '0.85em', color: '#aaa' }}>
-                                                                Field where the sentence audio will be stored.
+                                                                <label>Sentence Audio Field</label>
+                                                                <select
+                                                                    value={getFieldForContent('Sentence Audio')}
+                                                                    onChange={(e) =>
+                                                                        handleContentToFieldChange(
+                                                                            'Sentence Audio',
+                                                                            e.target.value,
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    <option value="">(None)</option>
+                                                                    {currentModelFields.map((f) => (
+                                                                        <option key={f} value={f}>
+                                                                            {f}
+                                                                        </option>
+                                                                    ))}
+                                                                </select>
+                                                                <div
+                                                                    style={{
+                                                                        gridColumn: '1 / -1',
+                                                                        fontSize: '0.85em',
+                                                                        color: '#aaa',
+                                                                    }}
+                                                                >
+                                                                    Field where the sentence audio will be stored.
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    )}
+                                                        )}
 
                                                         {/* FREQUENCY MODE DROPDOWN - ADD THIS */}
                                                         {localSettings.enableYomitan &&
-                                                            Object.values(localSettings.ankiFieldMap || {}).includes('Frequency') && (
-                                                                <div style={{
-                                                                    marginTop: '20px',
-                                                                    paddingTop: '15px',
-                                                                    borderTop: '1px solid rgba(255,255,255,0.1)'
-                                                                }}>
-                                                                    <h4 style={{ marginTop: 0, marginBottom: '10px', color: '#ddd' }}>
+                                                            Object.values(localSettings.ankiFieldMap || {}).includes(
+                                                                'Frequency',
+                                                            ) && (
+                                                                <div
+                                                                    style={{
+                                                                        marginTop: '20px',
+                                                                        paddingTop: '15px',
+                                                                        borderTop: '1px solid rgba(255,255,255,0.1)',
+                                                                    }}
+                                                                >
+                                                                    <h4
+                                                                        style={{
+                                                                            marginTop: 0,
+                                                                            marginBottom: '10px',
+                                                                            color: '#ddd',
+                                                                        }}
+                                                                    >
                                                                         Frequency Export Mode
                                                                     </h4>
                                                                     <div className="grid">
-                                                                        <label htmlFor="ankiFreqMode">Frequency Value</label>
+                                                                        <label htmlFor="ankiFreqMode">
+                                                                            Frequency Value
+                                                                        </label>
                                                                         <select
                                                                             id="ankiFreqMode"
-                                                                            value={localSettings.ankiFreqMode || 'lowest'}
-                                                                            onChange={(e) => handleChange('ankiFreqMode', e.target.value)}
+                                                                            value={
+                                                                                localSettings.ankiFreqMode || 'lowest'
+                                                                            }
+                                                                            onChange={(e) =>
+                                                                                handleChange(
+                                                                                    'ankiFreqMode',
+                                                                                    e.target.value,
+                                                                                )
+                                                                            }
                                                                             style={{
                                                                                 padding: '6px',
                                                                                 borderRadius: '4px',
                                                                                 border: '1px solid #444',
                                                                                 background: '#222',
-                                                                                color: 'white'
+                                                                                color: 'white',
                                                                             }}
                                                                         >
-                                                                            <option value="lowest">Lowest Frequency</option>
-                                                                            <option value="harmonic">Harmonic Mean</option>
-                                                                            {availableFreqDicts.map(dict => (
-                                                                                <option key={dict} value={dict}>{dict}</option>
+                                                                            <option value="lowest">
+                                                                                Lowest Frequency
+                                                                            </option>
+                                                                            <option value="harmonic">
+                                                                                Harmonic Mean
+                                                                            </option>
+                                                                            {availableFreqDicts.map((dict) => (
+                                                                                <option key={dict} value={dict}>
+                                                                                    {dict}
+                                                                                </option>
                                                                             ))}
                                                                         </select>
-                                                                        <div style={{ gridColumn: '1 / -1', fontSize: '0.85em', color: '#aaa' }}>
-                                                                            Choose which frequency value to export to Anki.
+                                                                        <div
+                                                                            style={{
+                                                                                gridColumn: '1 / -1',
+                                                                                fontSize: '0.85em',
+                                                                                color: '#aaa',
+                                                                            }}
+                                                                        >
+                                                                            Choose which frequency value to export to
+                                                                            Anki.
                                                                         </div>
                                                                     </div>
                                                                 </div>
@@ -1433,7 +1960,12 @@ ${detail}`,
                     <div style={sectionBoxStyle}>
                         <div className="checkboxes">
                             <label style={checkboxLabelStyle}>
-                                <input type="checkbox" checked={localSettings.mobileMode} onChange={(e) => handleChange('mobileMode', e.target.checked)} style={checkboxInputStyle} />
+                                <input
+                                    type="checkbox"
+                                    checked={localSettings.mobileMode}
+                                    onChange={(e) => handleChange('mobileMode', e.target.checked)}
+                                    style={checkboxInputStyle}
+                                />
                                 <div>
                                     Mobile Mode
                                     <div style={{ opacity: 0.6, fontSize: '0.85em' }}>
@@ -1442,7 +1974,12 @@ ${detail}`,
                                 </div>
                             </label>
                             <label style={checkboxLabelStyle}>
-                                <input type="checkbox" checked={localSettings.debugMode} onChange={(e) => handleChange('debugMode', e.target.checked)} style={checkboxInputStyle} />
+                                <input
+                                    type="checkbox"
+                                    checked={localSettings.debugMode}
+                                    onChange={(e) => handleChange('debugMode', e.target.checked)}
+                                    style={checkboxInputStyle}
+                                />
                                 <div>
                                     Debug Mode
                                     <div style={{ opacity: 0.6, fontSize: '0.85em' }}>
@@ -1451,7 +1988,12 @@ ${detail}`,
                                 </div>
                             </label>
                             <label style={checkboxLabelStyle}>
-                                <input type="checkbox" checked={localSettings.disableStatusIcon} onChange={(e) => handleChange('disableStatusIcon', e.target.checked)} style={checkboxInputStyle} />
+                                <input
+                                    type="checkbox"
+                                    checked={localSettings.disableStatusIcon}
+                                    onChange={(e) => handleChange('disableStatusIcon', e.target.checked)}
+                                    style={checkboxInputStyle}
+                                />
                                 <div>
                                     Disable Status Icon
                                     <div style={{ opacity: 0.6, fontSize: '0.85em' }}>
@@ -1509,7 +2051,14 @@ ${detail}`,
                             <div style={{ gridColumn: '1 / -1', fontSize: '0.85em', color: '#aaa' }}>
                                 Higher values make subtitles bolder and easier to read.
                             </div>
-                            <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            <div
+                                style={{
+                                    gridColumn: '1 / -1',
+                                    display: 'grid',
+                                    gridTemplateColumns: '1fr 1fr',
+                                    gap: '12px',
+                                }}
+                            >
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                     <label htmlFor="animePopupWidthValue">Width</label>
                                     <div style={inlineInputWrapperStyle}>
@@ -1520,10 +2069,14 @@ ${detail}`,
                                             min={popupWidthUnit === 'px' ? '280' : '30'}
                                             max={popupWidthUnit === 'px' ? '1920' : '100'}
                                             value={popupWidthValue}
-                                            onChange={(e) => handleChange(
-                                                popupWidthUnit === 'px' ? 'animePopupWidthPx' : 'animePopupWidthPercent',
-                                                parseInt(e.target.value, 10),
-                                            )}
+                                            onChange={(e) =>
+                                                handleChange(
+                                                    popupWidthUnit === 'px'
+                                                        ? 'animePopupWidthPx'
+                                                        : 'animePopupWidthPercent',
+                                                    parseInt(e.target.value, 10),
+                                                )
+                                            }
                                             style={inlineInputStyle}
                                         />
                                         <div style={inlineInputActionsStyle}>
@@ -1562,10 +2115,14 @@ ${detail}`,
                                             min={popupHeightUnit === 'px' ? '200' : '20'}
                                             max={popupHeightUnit === 'px' ? '1080' : '90'}
                                             value={popupHeightValue}
-                                            onChange={(e) => handleChange(
-                                                popupHeightUnit === 'px' ? 'animePopupHeightPx' : 'animePopupHeightPercent',
-                                                parseInt(e.target.value, 10),
-                                            )}
+                                            onChange={(e) =>
+                                                handleChange(
+                                                    popupHeightUnit === 'px'
+                                                        ? 'animePopupHeightPx'
+                                                        : 'animePopupHeightPercent',
+                                                    parseInt(e.target.value, 10),
+                                                )
+                                            }
                                             style={inlineInputStyle}
                                         />
                                         <div style={inlineInputActionsStyle}>
@@ -1604,10 +2161,14 @@ ${detail}`,
                                             min={popupTopUnit === 'px' ? '0' : '0'}
                                             max={popupTopUnit === 'px' ? '1600' : '80'}
                                             value={popupTopValue}
-                                            onChange={(e) => handleChange(
-                                                popupTopUnit === 'px' ? 'animePopupTopOffsetPx' : 'animePopupTopOffsetPercent',
-                                                parseInt(e.target.value, 10),
-                                            )}
+                                            onChange={(e) =>
+                                                handleChange(
+                                                    popupTopUnit === 'px'
+                                                        ? 'animePopupTopOffsetPx'
+                                                        : 'animePopupTopOffsetPercent',
+                                                    parseInt(e.target.value, 10),
+                                                )
+                                            }
                                             style={inlineInputStyle}
                                         />
                                         <div style={inlineInputActionsStyle}>
@@ -1646,10 +2207,14 @@ ${detail}`,
                                             min={popupLeftUnit === 'px' ? '-1600' : '-50'}
                                             max={popupLeftUnit === 'px' ? '1600' : '50'}
                                             value={popupLeftValue}
-                                            onChange={(e) => handleChange(
-                                                popupLeftUnit === 'px' ? 'animePopupLeftOffsetPx' : 'animePopupLeftOffsetPercent',
-                                                parseInt(e.target.value, 10),
-                                            )}
+                                            onChange={(e) =>
+                                                handleChange(
+                                                    popupLeftUnit === 'px'
+                                                        ? 'animePopupLeftOffsetPx'
+                                                        : 'animePopupLeftOffsetPercent',
+                                                    parseInt(e.target.value, 10),
+                                                )
+                                            }
                                             style={inlineInputStyle}
                                         />
                                         <div style={inlineInputActionsStyle}>
@@ -1680,7 +2245,8 @@ ${detail}`,
                                 </div>
                             </div>
                             <div style={{ gridColumn: '1 / -1', fontSize: '0.85em', color: '#aaa' }}>
-                                Adjust the anime popup dictionary size and position. Each field has its own unit toggle and reset.
+                                Adjust the anime popup dictionary size and position. Each field has its own unit toggle
+                                and reset.
                             </div>
                             <label htmlFor="animePopupCustomCss">Custom CSS</label>
                             <div style={{ gridColumn: '1 / -1' }}>
@@ -1690,7 +2256,9 @@ ${detail}`,
                                         rows={5}
                                         value={localSettings.animePopupCustomCss ?? ''}
                                         onChange={(e) => handleChange('animePopupCustomCss', e.target.value)}
-                                        placeholder={"background: rgba(12, 14, 18, 0.98);\nborder: 1px solid #4a5568;\n\n/* or full CSS: */\n.anime-dictionary-popup h5 { font-size: 1.5rem; }"}
+                                        placeholder={
+                                            'background: rgba(12, 14, 18, 0.98);\nborder: 1px solid #4a5568;\n\n/* or full CSS: */\n.anime-dictionary-popup h5 { font-size: 1.5rem; }'
+                                        }
                                         style={{
                                             ...inlineInputStyle,
                                             width: '100%',
@@ -1712,7 +2280,8 @@ ${detail}`,
                                     </div>
                                 </div>
                                 <div style={{ fontSize: '0.85em', color: '#aaa', marginTop: '6px' }}>
-                                    Applies to <code>.anime-dictionary-popup</code>. Enter CSS declarations or full CSS rules.
+                                    Applies to <code>.anime-dictionary-popup</code>. Enter CSS declarations or full CSS
+                                    rules.
                                 </div>
                             </div>
                             <label htmlFor="animePopupTheme">Anime Popup Theme</label>
@@ -1759,7 +2328,9 @@ ${detail}`,
                                             <input
                                                 type="checkbox"
                                                 checked={localSettings.animeSubtitleHoverAutoResume}
-                                                onChange={(e) => handleChange('animeSubtitleHoverAutoResume', e.target.checked)}
+                                                onChange={(e) =>
+                                                    handleChange('animeSubtitleHoverAutoResume', e.target.checked)
+                                                }
                                                 style={checkboxInputStyle}
                                             />
                                             <div>
@@ -1783,10 +2354,16 @@ ${detail}`,
                             <div style={{ gridColumn: '1 / -1', fontSize: '0.85em', color: '#aaa' }}>
                                 Used to fetch Jimaku subtitles for the current episode.
                                 <div>
-                                    Get an API key from <a href="https://jimaku.cc" target="_blank" rel="noreferrer">jimaku.cc</a>
+                                    Get an API key from{' '}
+                                    <a href="https://jimaku.cc" target="_blank" rel="noreferrer">
+                                        jimaku.cc
+                                    </a>
                                 </div>
                                 <div>
-                                    1. You can get a free key by signing up on the site: <a href="https://jimaku.cc/account" target="_blank" rel="noreferrer">https://jimaku.cc/account</a>
+                                    1. You can get a free key by signing up on the site:{' '}
+                                    <a href="https://jimaku.cc/account" target="_blank" rel="noreferrer">
+                                        https://jimaku.cc/account
+                                    </a>
                                 </div>
                                 <div>2. Generate an API key under the "API" heading and copy it</div>
                             </div>
@@ -1807,7 +2384,10 @@ ${detail}`,
                                     />
                                 ))}
                                 <Stack sx={{ alignItems: 'flex-end' }}>
-                                    <ResetButton onClick={() => handleChange('animeHotkeys', DEFAULT_ANIME_HOTKEYS)} variant="outlined" />
+                                    <ResetButton
+                                        onClick={() => handleChange('animeHotkeys', DEFAULT_ANIME_HOTKEYS)}
+                                        variant="outlined"
+                                    />
                                 </Stack>
                             </div>
                         </div>
@@ -1818,7 +2398,12 @@ ${detail}`,
                         <h4 style={{ marginTop: 0 }}>General</h4>
                         <div className="checkboxes">
                             <label style={checkboxLabelStyle}>
-                                <input type="checkbox" checked={localSettings.enableOverlay} onChange={(e) => handleChange('enableOverlay', e.target.checked)} style={checkboxInputStyle} />
+                                <input
+                                    type="checkbox"
+                                    checked={localSettings.enableOverlay}
+                                    onChange={(e) => handleChange('enableOverlay', e.target.checked)}
+                                    style={checkboxInputStyle}
+                                />
                                 <div>
                                     Enable Text Overlay
                                     <div style={{ opacity: 0.6, fontSize: '0.85em' }}>
@@ -1827,7 +2412,12 @@ ${detail}`,
                                 </div>
                             </label>
                             <label style={checkboxLabelStyle}>
-                                <input type="checkbox" checked={localSettings.soloHoverMode} onChange={(e) => handleChange('soloHoverMode', e.target.checked)} style={checkboxInputStyle} />
+                                <input
+                                    type="checkbox"
+                                    checked={localSettings.soloHoverMode}
+                                    onChange={(e) => handleChange('soloHoverMode', e.target.checked)}
+                                    style={checkboxInputStyle}
+                                />
                                 <div>
                                     Solo Hover
                                     <div style={{ opacity: 0.6, fontSize: '0.85em' }}>
@@ -1836,7 +2426,12 @@ ${detail}`,
                                 </div>
                             </label>
                             <label style={checkboxLabelStyle}>
-                                <input type="checkbox" checked={localSettings.enableDoubleClickEdit} onChange={(e) => handleChange('enableDoubleClickEdit', e.target.checked)} style={checkboxInputStyle} />
+                                <input
+                                    type="checkbox"
+                                    checked={localSettings.enableDoubleClickEdit}
+                                    onChange={(e) => handleChange('enableDoubleClickEdit', e.target.checked)}
+                                    style={checkboxInputStyle}
+                                />
                                 <div>
                                     Enable Double-Click Edit
                                     <div style={{ opacity: 0.6, fontSize: '0.85em' }}>
@@ -1845,7 +2440,12 @@ ${detail}`,
                                 </div>
                             </label>
                             <label style={checkboxLabelStyle}>
-                                <input type="checkbox" checked={localSettings.enableDoubleTapZoom} onChange={(e) => handleChange('enableDoubleTapZoom', e.target.checked)} style={checkboxInputStyle} />
+                                <input
+                                    type="checkbox"
+                                    checked={localSettings.enableDoubleTapZoom}
+                                    onChange={(e) => handleChange('enableDoubleTapZoom', e.target.checked)}
+                                    style={checkboxInputStyle}
+                                />
                                 <div>
                                     Enable Double-Tap Zoom
                                     <div style={{ opacity: 0.6, fontSize: '0.85em' }}>
@@ -1858,8 +2458,16 @@ ${detail}`,
                         <h4>Visuals</h4>
                         <div className="grid">
                             <label htmlFor="colorTheme">Theme</label>
-                            <select id="colorTheme" value={localSettings.colorTheme} onChange={(e) => handleChange('colorTheme', e.target.value)}>
-                                {Object.keys(COLOR_THEMES).map((k) => <option key={k} value={k}>{k}</option>)}
+                            <select
+                                id="colorTheme"
+                                value={localSettings.colorTheme}
+                                onChange={(e) => handleChange('colorTheme', e.target.value)}
+                            >
+                                {Object.keys(COLOR_THEMES).map((k) => (
+                                    <option key={k} value={k}>
+                                        {k}
+                                    </option>
+                                ))}
                             </select>
                             <div style={{ gridColumn: '1 / -1', fontSize: '0.85em', color: '#aaa' }}>
                                 Controls overlay colors and highlight styling.
@@ -1869,27 +2477,59 @@ ${detail}`,
                         <h4>Fine Tuning</h4>
                         <div className="grid">
                             <label htmlFor="dimmedOpacity">Opacity</label>
-                            <input id="dimmedOpacity" type="number" step="0.1" max="1" min="0" value={localSettings.dimmedOpacity} onChange={(e) => handleChange('dimmedOpacity', parseFloat(e.target.value))} />
+                            <input
+                                id="dimmedOpacity"
+                                type="number"
+                                step="0.1"
+                                max="1"
+                                min="0"
+                                value={localSettings.dimmedOpacity}
+                                onChange={(e) => handleChange('dimmedOpacity', parseFloat(e.target.value))}
+                            />
                             <div style={{ gridColumn: '1 / -1', fontSize: '0.85em', color: '#aaa' }}>
                                 Background dim amount for non-focused text.
                             </div>
                             <label htmlFor="focusScale">Scale</label>
-                            <input id="focusScale" type="number" step="0.1" value={localSettings.focusScaleMultiplier} onChange={(e) => handleChange('focusScaleMultiplier', parseFloat(e.target.value))} />
+                            <input
+                                id="focusScale"
+                                type="number"
+                                step="0.1"
+                                value={localSettings.focusScaleMultiplier}
+                                onChange={(e) => handleChange('focusScaleMultiplier', parseFloat(e.target.value))}
+                            />
                             <div style={{ gridColumn: '1 / -1', fontSize: '0.85em', color: '#aaa' }}>
                                 Zoom multiplier for focused text.
                             </div>
                             <label htmlFor="fontMultH">H. Font Mult</label>
-                            <input id="fontMultH" type="number" step="0.1" value={localSettings.fontMultiplierHorizontal} onChange={(e) => handleChange('fontMultiplierHorizontal', parseFloat(e.target.value))} />
+                            <input
+                                id="fontMultH"
+                                type="number"
+                                step="0.1"
+                                value={localSettings.fontMultiplierHorizontal}
+                                onChange={(e) => handleChange('fontMultiplierHorizontal', parseFloat(e.target.value))}
+                            />
                             <div style={{ gridColumn: '1 / -1', fontSize: '0.85em', color: '#aaa' }}>
                                 Font size multiplier for horizontal text.
                             </div>
                             <label htmlFor="fontMultV">V. Font Mult</label>
-                            <input id="fontMultV" type="number" step="0.1" value={localSettings.fontMultiplierVertical} onChange={(e) => handleChange('fontMultiplierVertical', parseFloat(e.target.value))} />
+                            <input
+                                id="fontMultV"
+                                type="number"
+                                step="0.1"
+                                value={localSettings.fontMultiplierVertical}
+                                onChange={(e) => handleChange('fontMultiplierVertical', parseFloat(e.target.value))}
+                            />
                             <div style={{ gridColumn: '1 / -1', fontSize: '0.85em', color: '#aaa' }}>
                                 Font size multiplier for vertical text.
                             </div>
                             <label htmlFor="boxAdjust">Box Adjust (px)</label>
-                            <input id="boxAdjust" type="number" step="1" value={localSettings.boundingBoxAdjustment} onChange={(e) => handleChange('boundingBoxAdjustment', parseInt(e.target.value, 10))} />
+                            <input
+                                id="boxAdjust"
+                                type="number"
+                                step="1"
+                                value={localSettings.boundingBoxAdjustment}
+                                onChange={(e) => handleChange('boundingBoxAdjustment', parseInt(e.target.value, 10))}
+                            />
                             <div style={{ gridColumn: '1 / -1', fontSize: '0.85em', color: '#aaa' }}>
                                 Expands or shrinks OCR bounding boxes.
                             </div>
@@ -1898,19 +2538,34 @@ ${detail}`,
                         <h4>Interaction</h4>
                         <div className="grid">
                             <label htmlFor="interactMode">Mode</label>
-                            <select id="interactMode" value={localSettings.interactionMode} onChange={(e) => handleChange('interactionMode', e.target.value)}>
-                                <option value="hover">Hover</option><option value="click">Click</option>
+                            <select
+                                id="interactMode"
+                                value={localSettings.interactionMode}
+                                onChange={(e) => handleChange('interactionMode', e.target.value)}
+                            >
+                                <option value="hover">Hover</option>
+                                <option value="click">Click</option>
                             </select>
                             <div style={{ gridColumn: '1 / -1', fontSize: '0.85em', color: '#aaa' }}>
                                 Choose how text boxes activate in the reader.
                             </div>
                             <label htmlFor="delKey">Delete Key</label>
-                            <input id="delKey" value={localSettings.deleteModifierKey} onChange={(e) => handleChange('deleteModifierKey', e.target.value)} placeholder="Alt, Control, Shift..." />
+                            <input
+                                id="delKey"
+                                value={localSettings.deleteModifierKey}
+                                onChange={(e) => handleChange('deleteModifierKey', e.target.value)}
+                                placeholder="Alt, Control, Shift..."
+                            />
                             <div style={{ gridColumn: '1 / -1', fontSize: '0.85em', color: '#aaa' }}>
                                 Modifier key used to delete OCR boxes.
                             </div>
                             <label htmlFor="mergeKey">Merge Key</label>
-                            <input id="mergeKey" value={localSettings.mergeModifierKey} onChange={(e) => handleChange('mergeModifierKey', e.target.value)} placeholder="Alt, Control, Shift..." />
+                            <input
+                                id="mergeKey"
+                                value={localSettings.mergeModifierKey}
+                                onChange={(e) => handleChange('mergeModifierKey', e.target.value)}
+                                placeholder="Alt, Control, Shift..."
+                            />
                             <div style={{ gridColumn: '1 / -1', fontSize: '0.85em', color: '#aaa' }}>
                                 Modifier key used to merge OCR boxes.
                             </div>
@@ -1968,8 +2623,17 @@ ${detail}`,
                     </div>
                 </div>
                 <div className="ocr-modal-footer">
-                    <button type="button" className="warning" onClick={resetToDefaults} style={{ marginRight: 'auto', background: '#e67e22', borderColor: '#d35400' }}>Defaults</button>
-                    <button type="button" className="primary" onClick={onClose}>Close</button>
+                    <button
+                        type="button"
+                        className="warning"
+                        onClick={resetToDefaults}
+                        style={{ marginRight: 'auto', background: '#e67e22', borderColor: '#d35400' }}
+                    >
+                        Defaults
+                    </button>
+                    <button type="button" className="primary" onClick={onClose}>
+                        Close
+                    </button>
                 </div>
             </div>
         </div>

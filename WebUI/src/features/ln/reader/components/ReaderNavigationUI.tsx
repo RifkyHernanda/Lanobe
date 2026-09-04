@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
-import './ReaderNavigationUI.css';
+import '@/features/ln/reader/components/ReaderNavigationUI.css';
 import { BookStats } from '@/lib/storage/AppStorage';
-import { SaveablePosition } from '../utils/readerSave';
+import { SaveablePosition } from '@/features/ln/reader/utils/readerSave';
 
 interface ReaderNavigationUIProps {
     visible: boolean;
@@ -65,7 +65,7 @@ export const ReaderNavigationUI: React.FC<ReaderNavigationUIProps> = ({
 
     const handleSaveNow = useCallback(async () => {
         if (isSaving) return;
-        
+
         setIsSaving(true);
         try {
             await onSaveNow();
@@ -85,17 +85,23 @@ export const ReaderNavigationUI: React.FC<ReaderNavigationUIProps> = ({
     const currentChapterLength = bookStats?.chapterLengths?.[currentChapter] || 0;
     const chapterProgress = currentPosition?.chapterProgress || 0;
 
-    const showPageSlider = showSlider && mode === 'paged' && totalPages && totalPages > 1 && onPageChange && currentPage !== undefined;
+    const showPageSlider =
+        showSlider && mode === 'paged' && totalPages && totalPages > 1 && onPageChange && currentPage !== undefined;
     const showCharProgress = settings?.lnShowCharProgress ?? false;
     const showNavButtons = (useGlobalVisibility || visible) && !(settings?.lnHideNavButtons ?? false);
 
     return (
-        <div className={`reader-navigation-ui ${isVisible ? 'visible' : 'hidden'} ${useGlobalVisibility ? 'global-visibility' : ''}`}>
+        <div
+            className={`reader-navigation-ui ${isVisible ? 'visible' : 'hidden'} ${useGlobalVisibility ? 'global-visibility' : ''}`}
+        >
             {showNavButtons && (
                 <>
                     <button
                         className={`nav-btn prev ${isVertical ? 'vertical' : 'horizontal'}`}
-                        onClick={(e) => { e.stopPropagation(); onPrev(); }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onPrev();
+                        }}
                         disabled={!canGoPrev}
                     >
                         {isVertical ? '›' : '‹'}
@@ -103,7 +109,10 @@ export const ReaderNavigationUI: React.FC<ReaderNavigationUIProps> = ({
 
                     <button
                         className={`nav-btn next ${isVertical ? 'vertical' : 'horizontal'}`}
-                        onClick={(e) => { e.stopPropagation(); onNext(); }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onNext();
+                        }}
                         disabled={!canGoNext}
                     >
                         {isVertical ? '‹' : '›'}
@@ -115,7 +124,7 @@ export const ReaderNavigationUI: React.FC<ReaderNavigationUIProps> = ({
                 className={`reader-progress-bar ${showPageSlider ? 'with-slider' : ''} ${isLocked ? 'locked' : ''}`}
                 style={{
                     backgroundColor: `${theme.bg}ee`,
-                    borderTopColor: `${theme.fg}20`
+                    borderTopColor: `${theme.fg}20`,
                 }}
                 onClick={(e) => e.stopPropagation()}
             >
@@ -123,14 +132,11 @@ export const ReaderNavigationUI: React.FC<ReaderNavigationUIProps> = ({
                     className="progress-bar-fill"
                     style={{
                         width: `${displayProgress}%`,
-                        backgroundColor: theme.fg
+                        backgroundColor: theme.fg,
                     }}
                 />
 
-                <div
-                    className="progress-info"
-                    style={{ color: theme.fg }}
-                >
+                <div className="progress-info" style={{ color: theme.fg }}>
                     <div className="progress-left">
                         {totalChars > 0 && (
                             <>
@@ -143,18 +149,17 @@ export const ReaderNavigationUI: React.FC<ReaderNavigationUIProps> = ({
 
                         {showCharProgress ? (
                             <span className="progress-page-info">
-                                {chapterCharsRead.toLocaleString()} / {currentChapterLength.toLocaleString()} ({chapterProgress.toFixed(1)}%)
+                                {chapterCharsRead.toLocaleString()} / {currentChapterLength.toLocaleString()} (
+                                {chapterProgress.toFixed(1)}%)
+                            </span>
+                        ) : mode === 'paged' && currentPage !== undefined && totalPages !== undefined ? (
+                            <span className="progress-page-info">
+                                Page {currentPage + 1} / {totalPages}
                             </span>
                         ) : (
-                            mode === 'paged' && currentPage !== undefined && totalPages !== undefined ? (
-                                <span className="progress-page-info">
-                                    Page {currentPage + 1} / {totalPages}
-                                </span>
-                            ) : (
-                                <span className="progress-page-info">
-                                    Ch {currentChapter + 1} / {totalChapters}
-                                </span>
-                            )
+                            <span className="progress-page-info">
+                                Ch {currentChapter + 1} / {totalChapters}
+                            </span>
                         )}
                     </div>
 
@@ -181,8 +186,8 @@ export const ReaderNavigationUI: React.FC<ReaderNavigationUIProps> = ({
                                 handleSaveNow();
                             }}
                             disabled={isSaving}
-                            aria-label={isSaved ? "Position saved" : "Save position now"}
-                            title={isSaved ? "Position saved" : "Click to save position"}
+                            aria-label={isSaved ? 'Position saved' : 'Save position now'}
+                            title={isSaved ? 'Position saved' : 'Click to save position'}
                             style={{ color: isSaved ? '#4CAF50' : theme.fg }}
                         >
                             <svg
@@ -207,7 +212,7 @@ export const ReaderNavigationUI: React.FC<ReaderNavigationUIProps> = ({
                                 e.stopPropagation();
                                 toggleLock();
                             }}
-                            aria-label={isLocked ? "Unlock progress bar" : "Lock progress bar"}
+                            aria-label={isLocked ? 'Unlock progress bar' : 'Lock progress bar'}
                             style={{ color: theme.fg }}
                         >
                             <svg
@@ -234,9 +239,7 @@ export const ReaderNavigationUI: React.FC<ReaderNavigationUIProps> = ({
                             </svg>
                         </button>
 
-                        <span className="progress-percent">
-                            {displayProgress.toFixed(1)}%
-                        </span>
+                        <span className="progress-percent">{displayProgress.toFixed(1)}%</span>
                     </div>
                 </div>
             </div>

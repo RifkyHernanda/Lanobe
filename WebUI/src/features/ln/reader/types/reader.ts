@@ -33,7 +33,10 @@ export interface BaseReaderProps {
         bottom: number;
         left: number;
     };
-    navigationRef?: React.MutableRefObject<{ scrollToBlock?: (blockId: string, offset?: number) => void; scrollToChapter?: (chapterIndex: number) => void }>;
+    navigationRef?: React.MutableRefObject<{
+        scrollToBlock?: (blockId: string, offset?: number) => void;
+        scrollToChapter?: (chapterIndex: number) => void;
+    }>;
     onPositionUpdate?: (position: {
         chapterIndex: number;
         pageIndex?: number;
@@ -49,7 +52,13 @@ export interface BaseReaderProps {
     onUpdateSettings?: (key: string, value: any) => void;
     chapterFilenames: string[];
     highlights?: LNHighlight[];
-    onAddHighlight?: (chapterIndex: number, blockId: string, text: string, startOffset: number, endOffset: number) => void;
+    onAddHighlight?: (
+        chapterIndex: number,
+        blockId: string,
+        text: string,
+        startOffset: number,
+        endOffset: number,
+    ) => void;
     onRemoveHighlight?: (highlightId: string) => void;
 }
 
@@ -57,4 +66,4 @@ export interface PagedReaderProps extends BaseReaderProps {
     initialPage?: number;
 }
 
-export interface ContinuousReaderProps extends BaseReaderProps { }
+export interface ContinuousReaderProps extends BaseReaderProps {}

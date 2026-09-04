@@ -24,7 +24,10 @@ ENV PORT=3000 \
 RUN npx vite build
 
 # ---- 2. Server ----------------------------------------------------------------
-FROM rust:1-bookworm AS server
+# Pinned: CI, Docker and local builds must agree on the toolchain. A floating
+# tag means clippy gains lints between builds and `-D warnings` fails on code
+# that was clean when written.
+FROM rust:1.95-bookworm AS server
 
 # libsqlite3-sys, zstd-sys and ring all compile C, so a toolchain is required
 # even though the binary itself links no system OpenSSL (reqwest uses rustls).

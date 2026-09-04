@@ -149,9 +149,7 @@ export const MutableListSetting = ({
     };
 
     const resetToDefault = () => {
-        const defaults = (resetToDefaultValues ?? [])
-            .map((value) => value.trim())
-            .filter((value) => value.length > 0);
+        const defaults = (resetToDefaultValues ?? []).map((value) => value.trim()).filter((value) => value.length > 0);
         setDialogValues(defaults);
     };
 

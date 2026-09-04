@@ -7,8 +7,12 @@ import {
     normalizeLnSettingsLanguage,
     readLegacyLnSettingsFromLocalStorage,
     saveLegacyLnSettingsToLocalStorage,
-} from '../utils/lnSettings';
-import { MANATAN_LN_SETTINGS_META_KEY, getServerMetaJson, setServerMetaJson } from '@/Manatan/services/ServerMetaStorage.ts';
+} from '@/features/ln/reader/utils/lnSettings';
+import {
+    MANATAN_LN_SETTINGS_META_KEY,
+    getServerMetaJson,
+    setServerMetaJson,
+} from '@/Manatan/services/ServerMetaStorage.ts';
 
 export function useLnSettings(language: string | undefined) {
     const effectiveLanguage = normalizeLnSettingsLanguage(language);
@@ -96,37 +100,43 @@ export function useLnSettings(language: string | undefined) {
         saveLegacyLnSettingsToLocalStorage(settingsByLanguage);
     }, []);
 
-    const saveLanguageSettings = useCallback((nextSettings: LNReaderSettings) => {
-        const nextByLanguage = {
-            ...settingsByLanguageRef.current,
-            [effectiveLanguage]: nextSettings,
-        };
-        settingsByLanguageRef.current = nextByLanguage;
+    const saveLanguageSettings = useCallback(
+        (nextSettings: LNReaderSettings) => {
+            const nextByLanguage = {
+                ...settingsByLanguageRef.current,
+                [effectiveLanguage]: nextSettings,
+            };
+            settingsByLanguageRef.current = nextByLanguage;
 
-        if (hasLoadedInitialSettingsRef.current) {
-            schedulePersist(nextByLanguage);
-        }
-    }, [effectiveLanguage, schedulePersist]);
+            if (hasLoadedInitialSettingsRef.current) {
+                schedulePersist(nextByLanguage);
+            }
+        },
+        [effectiveLanguage, schedulePersist],
+    );
 
-    const setSettings = useCallback((updates: Partial<LNReaderSettings>) => {
-        setSettingsState(prev => {
-            const updated = { ...prev, ...updates };
-            saveLanguageSettings(updated);
-            return updated;
-        });
-    }, [saveLanguageSettings]);
+    const setSettings = useCallback(
+        (updates: Partial<LNReaderSettings>) => {
+            setSettingsState((prev) => {
+                const updated = { ...prev, ...updates };
+                saveLanguageSettings(updated);
+                return updated;
+            });
+        },
+        [saveLanguageSettings],
+    );
 
     // Update a single setting
-    const updateSetting = useCallback(<K extends keyof LNReaderSettings>(
-        key: K,
-        value: LNReaderSettings[K]
-    ) => {
-        setSettingsState(prev => {
-            const updated = { ...prev, [key]: value };
-            saveLanguageSettings(updated);
-            return updated;
-        });
-    }, [saveLanguageSettings]);
+    const updateSetting = useCallback(
+        <K extends keyof LNReaderSettings>(key: K, value: LNReaderSettings[K]) => {
+            setSettingsState((prev) => {
+                const updated = { ...prev, [key]: value };
+                saveLanguageSettings(updated);
+                return updated;
+            });
+        },
+        [saveLanguageSettings],
+    );
 
     return {
         settings,

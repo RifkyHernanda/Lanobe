@@ -3,12 +3,17 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  # Kept in sync with rust-toolchain.toml. See that file for why this is pinned.
+  RUST_VERSION: 1.95.0
 
 jobs:
   rust:
@@ -18,6 +23,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
         with:
+          toolchain: ${{ env.RUST_VERSION }}
           components: clippy, rustfmt
 
       - uses: Swatinem/rust-cache@v2
@@ -51,6 +57,9 @@ jobs:
 
       - run: yarn install --frozen-lockfile
 
+      # Fails on errors. The inherited Suwayomi/Manatan code carries ~1200 style
+      # and accessibility warnings that are visible but not blocking - see the
+      # override block in .eslintrc.cjs.
       - run: yarn lint
 
       - name: Build
@@ -58,3 +67,70 @@ jobs:
           PORT: 3000
           ALLOWED_HOSTS: ''
         run: npx vite build
+
+  # Publishing is gated on the checks above. Previously this lived in its own
+  # workflow, so a commit that failed CI still published an image - which is how
+  # 4054cd9 shipped despite a red build.
+  publish:
+    needs: [rust, webui]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Lets the built-in GITHUB_TOKEN push to GHCR - no PAT needed.
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # GHCR requires a lowercase path, and the owner login is not.
+      - name: Resolve image name
+        id: image
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/lanobe" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.image.outputs.name }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          # linux/amd64 only: the deployment target is a t2.micro, and adding arm64
+          # would roughly double a build that already compiles the whole Rust tree.
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Without this every run recompiles every crate from scratch.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summary
+        run: |
+          {
+            echo "### Image published"
+            echo
+            echo '```'
+            echo "docker pull ${{ steps.image.outputs.name }}:latest"
+            echo '```'
+            echo
+            echo "Tags:"
+            echo '${{ steps.meta.outputs.tags }}' | sed 's/^/- /'
+          } >> "$GITHUB_STEP_SUMMARY"
