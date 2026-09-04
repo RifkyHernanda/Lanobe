@@ -175,7 +175,7 @@ export const SetupWizard = () => {
         <div className="ocr-modal-overlay">
             <div className="ocr-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="ocr-modal-header">
-                    <h2>Welcome to Manatan</h2>
+                    <h2>Welcome to Lanobe</h2>
                 </div>
                 <div className="ocr-modal-content">
                     {step === 'dictionary' && (
@@ -202,7 +202,7 @@ export const SetupWizard = () => {
                                     }}
                                 >
                                     <div style={{ fontWeight: 600, fontSize: '1rem' }}>
-                                        Use built-in Manatan Popup Dictionary
+                                        Use built-in popup dictionary
                                     </div>
                                     <div style={{ fontSize: '0.85em', color: '#aaa', marginTop: '6px' }}>
                                         Installs a dictionary automatically and enables popups.

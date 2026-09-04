@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, useMemo } from 'react';
 import { Box, TextField, IconButton, Typography, Paper, Fade, CircularProgress, Stack } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import SearchIcon from '@mui/icons-material/Search';
+import SettingsIcon from '@mui/icons-material/Settings';
 import ClearIcon from '@mui/icons-material/Clear';
 import TranslateIcon from '@mui/icons-material/Translate';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -72,7 +73,7 @@ export const Dictionary = () => {
     const [kanjiResults, setKanjiResults] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [hasSearched, setHasSearched] = useState(false);
-    const { settings } = useOCR();
+    const { settings, openSettings } = useOCR();
     const muiTheme = useTheme();
 
     // History state
@@ -535,6 +536,21 @@ export const Dictionary = () => {
                                                 <ClearIcon fontSize="small" />
                                             </IconButton>
                                         )}
+                                        {/* The only reachable way into dictionary management: the
+                                            gear that used to open it was portalled into the manga
+                                            reader's toolbar, which this fork removed. */}
+                                        <IconButton
+                                            size="small"
+                                            onClick={openSettings}
+                                            title="Manage dictionaries"
+                                            sx={{
+                                                color: 'text.secondary',
+                                                opacity: 0.7,
+                                                '&:hover': { opacity: 1 },
+                                            }}
+                                        >
+                                            <SettingsIcon fontSize="small" />
+                                        </IconButton>
                                     </Box>
                                 ),
                             }}

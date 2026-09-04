@@ -27,6 +27,7 @@ import { AuthManager } from '@/features/authentication/AuthManager.ts';
 
 // Dictionary lookup context (popup state, Yomitan settings, Anki targets).
 import { OCRProvider } from '@/Manatan/context/OCRContext';
+import { ManatanHost } from '@/Manatan/ManatanHost';
 
 const { Settings } = loadable(() => import('@/features/settings/screens/Settings.tsx'), lazyLoadFallback);
 const { About } = loadable(() => import('@/features/settings/screens/About.tsx'), lazyLoadFallback);
@@ -154,6 +155,7 @@ export const App: React.FC = () => (
 
             <CssBaseline enableColorScheme />
             <OCRProvider>
+                <ManatanHost />
                 <Routes>
                     {/* The reader takes the whole viewport - no nav bar. */}
                     <Route
