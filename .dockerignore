@@ -1,0 +1,13 @@
+# Build outputs and dependencies - all regenerated inside the image.
+target/
+WebUI/node_modules/
+WebUI/build/
+bin/lanobe/resources/webui/
+
+# Local state
+data/
+.env
+*.bundle
+
+.git/
+.github/

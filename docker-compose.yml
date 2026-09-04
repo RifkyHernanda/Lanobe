@@ -1,0 +1,24 @@
+# Local development / self-hosting.
+#
+#   docker compose up --build
+#
+# then open http://localhost:4567/. Put .epub files in ./data/library.
+#
+# For the public EC2 deployment see docker-compose.prod.yml, which puts Caddy in
+# front of this for TLS.
+
+services:
+  lanobe:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: lanobe:local
+    restart: unless-stopped
+    ports:
+      - "4567:4567"
+    volumes:
+      - ./data:/data
+    environment:
+      - TZ=Asia/Jakarta
+      # Uncomment to see request-level logging.
+      # - RUST_LOG=info,tower_http=debug
