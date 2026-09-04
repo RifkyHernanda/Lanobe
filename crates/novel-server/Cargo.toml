@@ -1,5 +1,5 @@
 [package]
-name = "manatan-novel-server"
+name = "lanobe-novel-server"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -21,7 +21,7 @@ uuid = { version = "1.0", features = ["v4"] }
 chrono = "0.4"
 futures.workspace = true
 tower-http.workspace = true
-manatan-sync-server.workspace = true
+lanobe-sync-server.workspace = true
 mime_guess.workspace = true
 walkdir = "2.3"
 base64 = "0.22"

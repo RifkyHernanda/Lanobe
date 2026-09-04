@@ -1,5 +1,5 @@
 [package]
-name = "manatan-sync-server"
+name = "lanobe-sync-server"
 authors.workspace = true
 edition.workspace = true
 keywords.workspace = true

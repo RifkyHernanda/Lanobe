@@ -1,4 +1,4 @@
-pub use manatan_sync_server::types::{
+pub use lanobe_sync_server::types::{
     BlockIndexMap, BookStats, LNHighlight, LNMetadata, LNParsedBook, LNProgress, LnCategory,
     LnCategoryMetadata, TocItem,
 };

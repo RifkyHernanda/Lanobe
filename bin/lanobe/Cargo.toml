@@ -1,5 +1,5 @@
 [package]
-name = "lanobe-audio-server"
+name = "lanobe"
 authors.workspace = true
 edition.workspace = true
 keywords.workspace = true
@@ -9,17 +9,27 @@ repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
 
+[[bin]]
+name = "lanobe"
+path = "src/main.rs"
+
 [dependencies]
 anyhow.workspace = true
 axum.workspace = true
-bytes.workspace = true
-hls_m3u8 = "0.5.1"
-reqwest.workspace = true
+clap.workspace = true
+directories.workspace = true
+mime_guess.workspace = true
+rust-embed.workspace = true
 serde.workspace = true
-symphonia = { version = "0.5.4", default-features = false, features = ["aac", "isomp4"] }
 tokio.workspace = true
+tower-http.workspace = true
 tracing.workspace = true
-url = "2.5.4"
+tracing-subscriber.workspace = true
+
+# Internal crates
+lanobe-audio-server.workspace = true
+lanobe-novel-server.workspace = true
+lanobe-yomitan-server.workspace = true
 
 [lints]
 workspace = true
