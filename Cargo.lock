@@ -1499,6 +1499,7 @@ dependencies = [
  "mime_guess",
  "rust-embed",
  "serde",
+ "serde_json",
  "tokio",
  "tower-http 0.6.8",
  "tracing",

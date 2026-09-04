@@ -137,6 +137,10 @@ async fn run_server(
         .nest("/api/novel", novel_router)
         .nest("/api/system", system_router)
         .nest("/api/yomitan", yomitan_router)
+        // Unknown /api routes must 404 as JSON. Without this they fall through to
+        // the SPA fallback below and return 200 with an HTML body, which turns a
+        // missing endpoint into a confusing JSON parse error on the client.
+        .route("/api/{*rest}", any(unknown_api_route))
         .fallback(serve_frontend)
         .layer(cors);
 
@@ -186,6 +190,16 @@ async fn serve_frontend(uri: Uri) -> impl IntoResponse {
         "WebUI assets are missing from this build.",
     )
         .into_response()
+}
+
+async fn unknown_api_route(uri: Uri) -> impl IntoResponse {
+    (
+        StatusCode::NOT_FOUND,
+        axum::Json(serde_json::json!({
+            "error": "not_found",
+            "path": uri.path(),
+        })),
+    )
 }
 
 async fn current_version_handler() -> impl IntoResponse {
