@@ -13,11 +13,11 @@ use std::{
 use anyhow::anyhow;
 use axum::{
     Router,
-    http::{StatusCode, Uri},
+    http::{Method, StatusCode, Uri, header},
     response::IntoResponse,
     routing::any,
 };
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use directories::ProjectDirs;
 use rust_embed::RustEmbed;
 use serde::Serialize;
@@ -58,6 +58,33 @@ struct Cli {
     /// Light novel library directory (absolute, or relative to the data dir)
     #[arg(long, env = "LANOBE_LIBRARY_PATH")]
     library_path: Option<PathBuf>,
+
+    #[command(subcommand)]
+    command: Option<Command>,
+}
+
+#[derive(Subcommand, Debug, Clone)]
+enum Command {
+    /// Hash a password for LANOBE_PASSWORD_HASH.
+    ///
+    /// Reads from stdin so the password does not end up in your shell history:
+    ///     echo -n 'my password' | lanobe hash-password
+    HashPassword,
+}
+
+fn run_hash_password() -> anyhow::Result<()> {
+    use std::io::Read;
+
+    let mut password = String::new();
+    std::io::stdin().read_to_string(&mut password)?;
+
+    let password = password.trim_end_matches(['\n', '\r']);
+    if password.is_empty() {
+        return Err(anyhow!("no password on stdin"));
+    }
+
+    println!("{}", lanobe_app_server::hash_password(password)?);
+    Ok(())
 }
 
 fn resolve_data_dir(override_path: Option<&PathBuf>) -> PathBuf {
@@ -89,6 +116,10 @@ fn main() -> anyhow::Result<()> {
     };
     tracing_subscriber::fmt().with_env_filter(env_filter).init();
 
+    if let Some(Command::HashPassword) = args.command {
+        return run_hash_password();
+    }
+
     let data_dir = resolve_data_dir(args.data_dir.as_ref());
     let library_path = resolve_relative(args.library_path.as_ref(), &data_dir, "library");
 
@@ -119,24 +150,49 @@ async fn run_server(
             .map_err(|err| anyhow!("Failed to create {}: {err}", dir.display()))?;
     }
 
+    let app_state = lanobe_app_server::build_state(data_dir)
+        .map_err(|err| anyhow!("Failed to initialise app state: {err}"))?;
+
     let yomitan_router = lanobe_yomitan_server::create_router(data_dir.to_path_buf());
     let audio_router = lanobe_audio_server::create_router(data_dir.to_path_buf());
     let novel_router =
         lanobe_novel_server::create_router(data_dir.to_path_buf(), library_path.to_path_buf());
+    let app_router = lanobe_app_server::create_router(app_state.clone());
     let system_router = Router::new().route("/version", any(current_version_handler));
 
-    // Same-origin in production (Caddy fronts everything); mirroring the request origin
-    // keeps `yarn dev` against a remote server working.
-    let cors = CorsLayer::new()
-        .allow_origin(AllowOrigin::mirror_request())
-        .allow_methods(tower_http::cors::Any)
-        .allow_headers(tower_http::cors::Any);
-
-    let app = Router::new()
+    // Everything that exposes library content sits behind the session check. The
+    // version probe and the login endpoints stay open so the client can discover
+    // that a password is needed and then supply one.
+    let protected = Router::new()
         .nest("/api/audio", audio_router)
         .nest("/api/novel", novel_router)
-        .nest("/api/system", system_router)
         .nest("/api/yomitan", yomitan_router)
+        .layer(axum::middleware::from_fn_with_state(
+            app_state,
+            lanobe_app_server::require_auth,
+        ));
+
+    // Same-origin in production (Caddy fronts everything); mirroring the request
+    // origin keeps `yarn dev` against a remote server working. Credentials are
+    // required so the session cookie survives that cross-origin dev setup, and a
+    // credentialed response may not use wildcards - hence the explicit lists.
+    let cors = CorsLayer::new()
+        .allow_origin(AllowOrigin::mirror_request())
+        .allow_credentials(true)
+        .allow_methods([
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::PATCH,
+            Method::DELETE,
+            Method::OPTIONS,
+        ])
+        .allow_headers([header::AUTHORIZATION, header::CONTENT_TYPE, header::ACCEPT]);
+
+    let app = Router::new()
+        .merge(protected)
+        .nest("/api/app", app_router)
+        .nest("/api/system", system_router)
         // Unknown /api routes must 404 as JSON. Without this they fall through to
         // the SPA fallback below and return 200 with an HTML body, which turns a
         // missing endpoint into a confusing JSON parse error on the client.
@@ -178,11 +234,7 @@ async fn serve_frontend(uri: Uri) -> impl IntoResponse {
         && let Ok(html) = std::str::from_utf8(index.data.as_ref())
     {
         let with_base = html.replace("<head>", "<head><base href=\"/\" />");
-        return (
-            [(axum::http::header::CONTENT_TYPE, "text/html")],
-            with_base,
-        )
-            .into_response();
+        return ([(axum::http::header::CONTENT_TYPE, "text/html")], with_base).into_response();
     }
 
     (

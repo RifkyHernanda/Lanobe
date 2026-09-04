@@ -35,12 +35,11 @@ export const LoginPage = () => {
     const [redirect] = useQueryParam(SearchParam.REDIRECT, StringParam);
     const [loginUser, { loading: isLoading }] = requestManager.useLoginUser();
 
-    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
 
     const doLogin = async () => {
         try {
-            const { data } = await loginUser({ variables: { username, password } });
+            const { data } = await loginUser({ variables: { password } });
 
             if (data) {
                 AuthManager.setTokens(data.login.accessToken, data.login.refreshToken);
@@ -108,25 +107,15 @@ export const LoginPage = () => {
             >
                 <Stack sx={{ maxWidth: 300, gap: 2 }}>
                     <Stack>
-                        <TextField
-                            autoFocus
-                            margin="dense"
-                            id="username"
-                            name="username"
-                            label={t('global.label.username')}
-                            type="text"
-                            fullWidth
-                            variant="standard"
-                            onChange={(e) => setUsername(e.target.value)}
-                        />
                         <PasswordTextField
+                            autoFocus
                             margin="dense"
                             fullWidth
                             variant="standard"
                             onChange={(e) => setPassword(e.target.value)}
                         />
                     </Stack>
-                    <Button disabled={isLoading || (!username && !password)} variant="contained" onClick={doLogin}>
+                    <Button disabled={isLoading || !password} variant="contained" onClick={doLogin}>
                         {t('global.button.log_in')}
                     </Button>
                     <Stack sx={{ position: 'absolute', left: 0, bottom: 0 }}>

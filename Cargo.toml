@@ -2,6 +2,7 @@
 default-members = ["bin/lanobe"]
 members = [
     "bin/lanobe",
+    "crates/app-server",
     "crates/audio-server",
     "crates/novel-server",
     "crates/sync-server",
@@ -47,7 +48,15 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 zip = "6.0"
 
+argon2 = "0.5"
+hmac = "0.12"
+rand = "0.8"
+rusqlite = { version = "0.31", features = ["bundled"] }
+sha2 = "0.10"
+thiserror = "2.0"
+
 # Internal crates
+lanobe-app-server = { path = "crates/app-server" }
 lanobe-audio-server = { path = "crates/audio-server" }
 lanobe-novel-server = { path = "crates/novel-server" }
 lanobe-sync-server = { path = "crates/sync-server" }

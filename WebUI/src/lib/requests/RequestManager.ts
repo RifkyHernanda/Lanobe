@@ -54,17 +54,19 @@ export class RequestManager {
     }
 
     /**
-     * Reachability probe. Upstream hit Suwayomi's `/api/v1/about`; the equivalent
-     * here is the version endpoint, which is unauthenticated by design so the splash
-     * screen can tell "server down" apart from "not logged in".
+     * Reachability and session probe in one call.
+     *
+     * `/api/app/session` is unauthenticated by design: it is how the client learns
+     * whether a password is configured at all, which is what lets the splash screen
+     * tell "server unreachable" apart from "needs a login".
      */
-    public useGetAbout({
+    public useGetSession({
         skip = false,
         onCompleted,
         onError,
     }: {
         skip?: boolean;
-        onCompleted?: (data: { version: string; variant: string }) => void;
+        onCompleted?: (data: { auth_required: boolean; authenticated: boolean }) => void;
         onError?: (error: Error) => void;
     } = {}): void {
         const onCompletedRef = useRef(onCompleted);
@@ -106,7 +108,7 @@ export class RequestManager {
      * AuthManager bookkeeping keeps working.
      */
     public useLoginUser(): [
-        (options: { variables: { username: string; password: string } }) => Promise<{
+        (options: { variables: { password: string } }) => Promise<{
             data?: { login: { accessToken: string; refreshToken: string } };
         }>,
         { loading: boolean },
@@ -114,7 +116,7 @@ export class RequestManager {
         const [loading, setLoading] = useState(false);
 
         const login = useCallback(
-            async ({ variables }: { variables: { username: string; password: string } }) => {
+            async ({ variables }: { variables: { password: string } }) => {
                 setLoading(true);
                 try {
                     const response = await this.restClient.fetcher('/api/app/login', {
