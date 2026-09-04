@@ -17,12 +17,13 @@ Under active development. Working today:
 
 - [x] Light-novel-only server (`novel-server`, `yomitan-server`, `audio-server`)
 - [x] EPUB library, reader (tategaki, furigana, paged/scroll/virtual), dictionary popup
-- [ ] Session auth and server-backed settings (`app-server`)
+- [x] Session auth and server-backed settings (`app-server`)
 - [ ] Batched, prefetched, cached dictionary lookups
 - [ ] Saved kanji/vocabulary with global auto-highlighting
 - [ ] `.apkg` export at the end of a book
 - [ ] Offline reading with a write queue
-- [ ] Docker image, CI, and the Caddy deployment
+- [x] Docker image and CI publishing to GHCR
+- [ ] Caddy + TLS on EC2
 
 ## Building
 
