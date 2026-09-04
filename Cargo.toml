@@ -1,0 +1,86 @@
+[workspace]
+default-members = ["bin/manatan"]
+members = [
+    "bin/manatan",
+    "bin/manatan_android",
+    "crates/audio-server",
+    "crates/novel-server",
+    "crates/ocr-server",
+    "crates/sync-server",
+    "crates/yomitan-server",
+]
+exclude = ["bin/manatan"]
+resolver = "2"
+
+[workspace.package]
+authors = ["https://github.com/KolbyML/Manatan/graphs/contributors"]
+edition = "2024"
+keywords = [
+    "manga",
+    "suwayomi",
+    "manatan",
+    "ocr",
+    "language learning",
+    "japanese",
+]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/KolbyML/Manatan"
+rust-version = "1.88.0"
+version = "0.1.0"
+
+[workspace.lints.clippy]
+let_and_return = "warn"
+uninlined_format_args = "warn"
+unnecessary_debug_formatting = "warn"
+unwrap_used = "warn"
+useless_let_if_seq = "warn"
+wildcard_imports = "warn"
+
+[workspace.dependencies]
+anyhow = "1.0"
+avif-decode = "1.0"
+axum = { version = "0.8.7", features = ["macros", "multipart", "ws"] }
+base64 = "0.22"
+bytes = "1.11"
+chrome_lens_ocr = "0.3.0"
+clap = { version = "4.0", features = ["env", "derive"] }
+directories = "6.0"
+eframe = "0.33"
+futures = "0.3.23"
+futures-util = "0.3.23"
+image = { version = "0.25.9" }
+jni = "0.21"
+lazy_static = "1.4"
+libc = "0.2"
+libloading = "0.9"
+mime_guess = "2.0"
+open = "5.1"
+openssl = { version = "0.10", features = ["vendored"] }
+openssl-sys = { version = "0.9.111", features = ["vendored"] }
+reqwest = { version = "0.12.24", default-features = false, features = ["json", "stream", "multipart", "rustls-tls"] }
+rust-embed = "8.2"
+self_update = { version = "0.42", features = ["archive-zip", "compression-zip-deflate", "archive-tar", "compression-flate2"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_derive = { version = "=1.0.219" }
+serde_json = "1"
+tao = "0.34"     
+tar = "0.4"
+tokio = { version = "1.0", features = ["full"] }
+tokio-tungstenite = { version = "0.28", features = ["rustls-tls-native-roots"] }
+tower-http = { version = "0.6.7", features = ["fs", "cors", "trace", "set-header"] }
+tracing = "0.1"
+tracing-log = "0.2"
+tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
+zip = "6.0"
+
+# Internal Dependencies
+manatan-audio-server = { path = "crates/audio-server" }
+manatan-ocr-server = { path = "crates/ocr-server" }
+manatan-server-public = { git = "https://github.com/KolbyML/Manatan-Server-Public", rev = "c0f1c9696bf8bdacfa3663a5b1d863d0a77fc428" }
+manatan-sync-server = { path = "crates/sync-server" }
+manatan-novel-server = { path = "crates/novel-server" }
+manatan-yomitan-server = { path = "crates/yomitan-server" }
+
+[profile.test]
+inherits = "release"

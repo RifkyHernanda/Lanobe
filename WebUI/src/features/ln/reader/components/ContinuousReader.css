@@ -1,0 +1,553 @@
+.continuous-reader-wrapper {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+}
+
+.continuous-margin-container {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+}
+
+.continuous-reader-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: auto !important;
+}
+
+.continuous-reader-container.horizontal {
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+.continuous-reader-container.vertical {
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+.continuous-reader-container::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.continuous-reader-container::-webkit-scrollbar-thumb {
+    background: rgba(128, 128, 128, 0.4);
+    border-radius: 4px;
+}
+
+.continuous-reader-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.continuous-content {
+    min-height: 100%;
+    box-sizing: border-box;
+}
+
+.continuous-content.horizontal {
+    width: 100%;
+    height: auto;
+}
+
+.continuous-content.vertical {
+    display: inline-block;
+    height: 100%;
+    width: auto;
+}
+
+/* =====================================================
+   CHAPTER BLOCKS
+   ===================================================== */
+
+.chapter-block {
+    box-sizing: border-box;
+}
+
+.chapter-block.horizontal {
+    width: 100%;
+    margin: 0 auto;
+    padding-bottom: 3em;
+    border-bottom: 1px solid rgba(128, 128, 128, 0.1);
+}
+
+.chapter-block.horizontal:last-child {
+    border-bottom: none;
+    padding-bottom: 5em;
+}
+
+.chapter-block.vertical {
+    display: inline-block;
+    height: 100%;
+    min-height: 100%;
+    border-left: 1px solid rgba(128, 128, 128, 0.1);
+    margin-left: 1.5em;
+    vertical-align: top;
+}
+
+.chapter-block.vertical .chapter-content {
+    height: 100%;
+}
+
+.chapter-block.vertical:first-child {
+    border-left: none;
+    margin-left: 0;
+}
+
+/* =====================================================
+   LOADING STATE
+   ===================================================== */
+
+.chapter-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    opacity: 0.5;
+    font-size: 14px;
+}
+
+.chapter-loading.horizontal {
+    min-height: 400px;
+    width: 100%;
+}
+
+.chapter-loading.vertical {
+    min-width: 300px;
+    height: 100%;
+    min-height: calc(100vh - 40px);
+}
+
+.loading-spinner {
+    width: 28px;
+    height: 28px;
+    border: 3px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* =====================================================
+   TYPOGRAPHY
+   ===================================================== */
+
+.chapter-block p {
+    margin: 0 0 1em 0;
+}
+
+.chapter-block h1,
+.chapter-block h2,
+.chapter-block h3,
+.chapter-block h4 {
+    font-weight: bold;
+    margin: 1.5em 0 0.5em 0;
+}
+
+.chapter-block h1 {
+    font-size: 1.5em;
+}
+
+.chapter-block h2 {
+    font-size: 1.3em;
+}
+
+.chapter-block h3 {
+    font-size: 1.15em;
+}
+
+/* =====================================================
+   IMAGES
+   ===================================================== */
+
+.chapter-block.horizontal img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 1.5em auto;
+    break-inside: avoid !important;
+    -webkit-column-break-inside: avoid !important;
+}
+
+.chapter-block.vertical img,
+.chapter-block.vertical svg,
+.chapter-block.vertical figure {
+    max-height: 90vh;
+    height: auto;
+    width: auto;
+    max-width: 90vw;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto;
+    break-inside: avoid !important;
+    -webkit-column-break-inside: avoid !important;
+}
+
+/* Ensure SVG images inside SVGs scale correctly */
+.chapter-block.vertical svg image {
+    width: 100%;
+    height: 100%;
+}
+
+/* Image-only chapters */
+.chapter-block .image-only-chapter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    width: 100%;
+}
+
+.chapter-block .image-only-chapter img,
+.chapter-block .image-only-chapter svg,
+.chapter-block .image-only-chapter figure {
+    height: 95vh;
+    width: auto;
+    max-width: 95vw;
+    max-height: 95vh;
+    object-fit: contain;
+}
+
+/* =====================================================
+   LINKS & RUBY
+   ===================================================== */
+
+.chapter-block ruby {
+    ruby-align: center;
+}
+
+.chapter-block rt {
+    font-size: 0.5em;
+}
+
+/* Vertical text combination for numbers/latin in vertical writing */
+.chapter-block.vertical ruby,
+.chapter-block.vertical span,
+.chapter-block.vertical em {
+    text-combine-upright: all;
+    -webkit-text-combine: horizontal;
+}
+
+/* Ensure vertical writing mode is respected */
+.chapter-block.vertical {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+}
+
+.chapter-block a {
+    color: inherit;
+    text-decoration: underline;
+    text-decoration-color: rgba(128, 128, 128, 0.5);
+}
+
+/* =====================================================
+   MOBILE
+   ===================================================== */
+
+@media (max-width: 768px) {
+    .chapter-block.horizontal {
+        padding-bottom: 2em;
+    }
+
+    .chapter-block.vertical {
+        margin-left: 1em;
+    }
+}
+
+/* =====================================================
+   TOUCH DEVICES
+   ===================================================== */
+
+@media (hover: none) {
+    .continuous-reader-container {
+        overscroll-behavior: contain;
+    }
+}
+
+/* =====================================================
+   REDUCED MOTION
+   ===================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+    .continuous-reader-container {
+        scroll-behavior: auto;
+    }
+
+    .loading-spinner {
+        animation: none;
+    }
+}
+
+/* =====================================================
+   FURIGANA VISIBILITY
+   ===================================================== */
+
+.continuous-content.furigana-hidden ruby rt,
+.continuous-content.furigana-hidden rt {
+    visibility: hidden;
+    font-size: 0;
+}
+
+/* Drop caps / Decorative initial letters */
+.paged-content .drop-cap,
+.paged-content img.initial {
+    display: inline-block;
+    float: left;
+    margin: 0 0.1em 0 0;
+    max-height: 3em;
+    width: auto;
+    line-height: 1;
+}
+
+/* Emoji and small inline icons */
+.paged-content .emoji,
+.paged-content img[class*="icon"],
+.paged-content img[class*="emoji"] {
+    display: inline;
+    height: 1em;
+    width: auto;
+    margin: 0;
+    vertical-align: -0.1em;
+    break-inside: auto;
+}
+
+/* Ruby annotations with images (rare but exists) */
+.paged-content ruby img {
+    display: inline;
+    height: 0.5em;
+    width: auto;
+    margin: 0;
+    vertical-align: baseline;
+}
+
+/* =====================================================
+   HYPERLINKS
+   ===================================================== */
+
+.paged-content a,
+.continuous-content a,
+.chapter-block a {
+    color: #4890ff;
+    text-decoration: underline;
+    text-decoration-color: rgba(72, 144, 255, 0.5);
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+
+.paged-content a:hover,
+.continuous-content a:hover,
+.chapter-block a:hover {
+    opacity: 0.7;
+    text-decoration-color: rgba(72, 144, 255, 0.8);
+}
+
+.paged-content a:active,
+.continuous-content a:active,
+.chapter-block a:active {
+    opacity: 0.5;
+}
+
+/* =====================================================
+   INLINE IMAGES - Override 
+   ===================================================== */
+
+/* Gaiji and inline character images */
+.chapter-block img.gaiji,
+.chapter-block img.gaiji-line,
+.chapter-block img.gaiji1,
+.chapter-block img.inline-img,
+.chapter-block.horizontal img.gaiji,
+.chapter-block.horizontal img.gaiji-line,
+.chapter-block.horizontal img.gaiji1,
+.chapter-block.horizontal img.inline-img,
+.chapter-block.vertical img.gaiji,
+.chapter-block.vertical img.gaiji-line,
+.chapter-block.vertical img.gaiji1,
+.chapter-block.vertical img.inline-img {
+    display: inline-block !important;
+    vertical-align: baseline !important;
+    max-width: 1.5em !important;
+    max-height: 1.5em !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 0.1em !important;
+    padding: 0 !important;
+}
+
+/* Any small image (likely inline) */
+.chapter-block img[width="1"],
+.chapter-block img[width="2"],
+.chapter-block img[height="1"],
+.chapter-block img[height="2"] {
+    display: inline-block !important;
+    max-width: 1.5em !important;
+    max-height: 1.5em !important;
+    vertical-align: baseline !important;
+    margin: 0 0.1em !important;
+}
+
+/* Images with inline style */
+.chapter-block img[style*="display: inline"],
+.chapter-block img[style*="display:inline"] {
+    display: inline-block !important;
+    vertical-align: baseline !important;
+    max-width: 1.5em !important;
+    max-height: 1.5em !important;
+    margin: 0 0.1em !important;
+}
+
+/* Invert inline glyph images in dark mode */
+[data-dark-mode="true"] .paged-content img.gaiji,
+[data-dark-mode="true"] .paged-content img.gaiji-line,
+[data-dark-mode="true"] .paged-content img.gaiji1,
+[data-dark-mode="true"] .paged-content img.inline-img,
+[data-dark-mode="true"] .paged-content img[width="1"],
+[data-dark-mode="true"] .paged-content img[width="2"],
+[data-dark-mode="true"] .paged-content img[height="1"],
+[data-dark-mode="true"] .paged-content img[height="2"],
+[data-dark-mode="true"] .paged-content img[style*="display: inline"],
+[data-dark-mode="true"] .paged-content img[style*="display:inline"],
+[data-dark-mode="true"] .chapter-block img.gaiji,
+[data-dark-mode="true"] .chapter-block img.gaiji-line,
+[data-dark-mode="true"] .chapter-block img.gaiji1,
+[data-dark-mode="true"] .chapter-block img.inline-img,
+[data-dark-mode="true"] .chapter-block img[width="1"],
+[data-dark-mode="true"] .chapter-block img[width="2"],
+[data-dark-mode="true"] .chapter-block img[height="1"],
+[data-dark-mode="true"] .chapter-block img[height="2"],
+[data-dark-mode="true"] .chapter-block img[style*="display: inline"],
+[data-dark-mode="true"] .chapter-block img[style*="display:inline"] {
+    filter: invert(1);
+}
+
+/* =====================================================
+   UNIVERSAL EPUB CSS HANDLER
+   ===================================================== */
+
+/* Gothic/Sans-serif fonts */
+.chapter-block .gfont,
+.chapter-block .gothic,
+.chapter-block div.gfont,
+.chapter-block span.gfont,
+.chapter-block p.gfont {
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "MS Gothic", "Noto Sans JP", sans-serif !important;
+}
+
+/* Mincho/Serif fonts */
+.chapter-block .mfont,
+.chapter-block .mincho {
+    font-family: "Hiragino Mincho ProN", "Yu Mincho", "MS Mincho", "Noto Serif JP", serif !important;
+}
+
+/* Base elements inherit font-weight from parent */
+.chapter-block {
+    font-weight: inherit;
+}
+
+.chapter-block h1,
+.chapter-block h2,
+.chapter-block h3,
+.chapter-block h4,
+.chapter-block h5,
+.chapter-block h6,
+.chapter-block th,
+.chapter-block strong {
+    font-weight: inherit;
+}
+
+/* Bold */
+.chapter-block .bold,
+.chapter-block .b,
+.chapter-block .strong,
+.chapter-block .font-weight-bold {
+    font-weight: bold !important;
+}
+
+/* Normal weight */
+.chapter-block .font-weight-normal {
+    font-weight: normal !important;
+}
+
+/* Light weight */
+.chapter-block .font-weight-light {
+    font-weight: 300 !important;
+}
+
+/* Thin weight */
+.chapter-block .font-weight-thin {
+    font-weight: 100 !important;
+}
+
+/* Italic */
+.chapter-block .italic,
+.chapter-block .i,
+.chapter-block .em {
+    font-style: italic !important;
+}
+
+/* Normal style */
+.chapter-block .font-style-normal {
+    font-style: normal !important;
+}
+
+/* Gothic + Bold combined */
+.chapter-block .gfont.bold,
+.chapter-block div.gfont.bold,
+.chapter-block div.gfont.bold p,
+.chapter-block p.gfont.bold,
+.chapter-block span.gfont.bold {
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "MS Gothic", "Noto Sans JP", sans-serif !important;
+    font-weight: bold !important;
+}
+
+/* Children of gfont.bold div */
+.chapter-block div.gfont.bold *,
+.chapter-block div[class*="gfont"][class*="bold"] *,
+.chapter-block div[class*="gfont"][class*="bold"] p {
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "MS Gothic", "Noto Sans JP", sans-serif !important;
+    font-weight: bold !important;
+}
+
+/* Text Colors */
+.chapter-block .color-black       { color: #000000 !important; }
+.chapter-block .color-dimgray     { color: #696969 !important; }
+.chapter-block .color-gray        { color: #808080 !important; }
+.chapter-block .color-darkgray    { color: #a9a9a9 !important; }
+.chapter-block .color-silver      { color: #c0c0c0 !important; }
+.chapter-block .color-gainsboro   { color: #dcdcdc !important; }
+.chapter-block .color-white       { color: #ffffff !important; }
+.chapter-block .color-transparent { color: transparent !important; }
+.chapter-block .color-red         { color: #ff0000 !important; }
+.chapter-block .color-blue        { color: #0000ff !important; }
+.chapter-block .color-cyan        { color: #00ffff !important; }
+.chapter-block .color-magenta     { color: #ff00ff !important; }
+.chapter-block .color-orangered   { color: #ff4500 !important; }
+
+/* Font Sizes */
+.chapter-block .font-1em30 { font-size: 1.3em !important; }
+.chapter-block .font-1em50 { font-size: 1.5em !important; }
+.chapter-block .font-2em   { font-size: 2em !important; }
+.chapter-block .font-small { font-size: 0.8em !important; }
+.chapter-block .font-large { font-size: 1.2em !important; }
+
+/* =====================================================
+   HIGHLIGHTS
+   ===================================================== */
+
+.chapter-block mark.highlight {
+    background-color: var(--ln-highlight-bg, rgba(255, 235, 59, 0.45));
+    border-radius: 2px;
+    padding: 0 1px;
+    color: inherit;
+}

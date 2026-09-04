@@ -1,0 +1,563 @@
+name: CI Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      increment:
+        description: 'Version Increment'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      stage:
+        description: 'Release Stage'
+        required: true
+        default: 'release'
+        type: choice
+        options:
+          - release
+          - prerelease
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  actions: write
+  contents: write
+
+jobs:
+  # --- JOB 1: Determine Version (Does NOT push tag) ---
+  prepare_version:
+    runs-on: ubuntu-latest
+    outputs:
+      version_tag: ${{ steps.calc.outputs.version_tag }}
+      clean_version: ${{ steps.calc.outputs.clean_version }}
+      is_prerelease: ${{ steps.calc.outputs.is_prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Calculate Version
+        id: calc
+        run: |
+          git fetch --tags
+          LAST_TAG=$(git tag -l "v*" | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n1)
+          if [ -z "$LAST_TAG" ]; then LAST_TAG="v0.0.0"; fi
+          VERSION=${LAST_TAG#v}
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+          
+          INCREMENT="${{ inputs.increment }}"
+          if [ "$INCREMENT" == "major" ]; then
+            MAJOR=$((MAJOR+1)); MINOR=0; PATCH=0
+          elif [ "$INCREMENT" == "minor" ]; then
+            MINOR=$((MINOR+1)); PATCH=0
+          else
+            PATCH=$((PATCH+1))
+          fi
+          
+          NEW_TAG="v$MAJOR.$MINOR.$PATCH"
+          echo "version_tag=$NEW_TAG" >> $GITHUB_OUTPUT
+          echo "clean_version=$MAJOR.$MINOR.$PATCH" >> $GITHUB_OUTPUT
+          
+          if [ "${{ inputs.stage }}" == "prerelease" ]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
+  # --- JOB 2: Build Custom JREs ---
+  jre_bundle:
+    uses: ./.github/workflows/jre.yml
+    with:
+      target: all
+
+  # --- JOB 3: Build WebUI ---
+  build_webui:
+    name: Build WebUI (Desktop)
+    needs: prepare_version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Set up NodeJs
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: 'WebUI/package.json'
+          cache: 'yarn'
+          cache-dependency-path: 'WebUI/yarn.lock'
+      - name: Build WebUI Assets
+        run: |
+          cd WebUI
+          yarn install --frozen-lockfile
+          yarn build
+          tar -czf ../webui-dist.tar.gz build/
+      - name: Upload WebUI Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: webui-assets
+          path: WebUI/build
+          retention-days: 1
+      - name: Upload WebUI Dist (Tarball)
+        uses: actions/upload-artifact@v4
+        with:
+          name: webui-dist
+          path: webui-dist.tar.gz
+          retention-days: 1
+
+  # --- JOB 4: Build Manatan Launcher ---
+  build_manatan:
+    name: Build Manatan Desktop (${{ matrix.name }})
+    needs: [jre_bundle, build_webui, prepare_version]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux-amd64
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            arch_name: linux-amd64
+            jogamp_target: linux-amd64
+          - name: Linux-arm64
+            os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            arch_name: linux-arm64
+            jogamp_target: linux-aarch64
+          - name: Windows-x64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            arch_name: windows-x64
+            jogamp_target: windows-amd64
+          - name: macOS-Intel
+            os: macos-15-intel
+            target: x86_64-apple-darwin
+            arch_name: macOS-x64
+            jogamp_target: macosx-universal
+          - name: macOS-Silicon
+            os: macos-15
+            target: aarch64-apple-darwin
+            arch_name: macOS-arm64
+            jogamp_target: macosx-universal
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 
+
+      - name: Update Cargo Version
+        shell: bash
+        run: |
+          CLEAN_VERSION="${{ needs.prepare_version.outputs.clean_version }}"
+          sed "s/^version = \"0.1.0\"/version = \"$CLEAN_VERSION\"/" Cargo.toml > Cargo.toml.tmp && mv Cargo.toml.tmp Cargo.toml
+
+      - name: Install NASM
+        if: runner.os == 'Windows' || runner.os == 'macOS'
+        uses: ilammy/setup-nasm@v1
+
+      - name: Install Linux Dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libglib2.0-dev libgtk-3-dev libappindicator3-dev librsvg2-dev libxdo-dev fuse p7zip-full nasm
+
+      - name: Install macOS Dependencies
+        if: runner.os == 'macOS'
+        run: brew install p7zip
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Create Resources Directory
+        shell: bash
+        run: mkdir -p bin/manatan/resources
+
+      - name: Prepare JogAmp Natives
+        shell: bash
+        run: |
+          curl -L "https://github.com/KolbyML/jogamp/releases/download/1/jogamp-all-platforms.7z" -o jogamp.7z
+          7z x jogamp.7z "jogamp-all-platforms/lib/${{ matrix.jogamp_target }}"
+          mkdir natives_temp && mv jogamp-all-platforms/lib/${{ matrix.jogamp_target }} natives_temp/
+          cd natives_temp
+          if [ "${{ runner.os }}" == "Windows" ]; then
+            7z a -tzip ../bin/manatan/resources/natives.zip ${{ matrix.jogamp_target }}
+          else
+            zip -r ../bin/manatan/resources/natives.zip ${{ matrix.jogamp_target }}
+          fi
+
+      - name: Download JRE
+        uses: actions/download-artifact@v4
+        with:
+          name: jre-bundles
+          path: temp_jre
+      
+      - name: Zip JRE for Embedding
+        shell: bash
+        run: |
+          JRE_DIR=""
+          for candidate in \
+            "temp_jre/${{ matrix.arch_name }}" \
+            "temp_jre/jre_bundle_out/${{ matrix.arch_name }}"; do
+            if [ -d "$candidate" ]; then
+              JRE_DIR="$candidate"
+              break
+            fi
+          done
+
+          if [ -z "$JRE_DIR" ]; then
+            echo "Could not find extracted JRE directory for ${{ matrix.arch_name }}"
+            echo "Contents of temp_jre:"
+            ls -la temp_jre || true
+            echo "Recursive tree (top levels):"
+            find temp_jre -maxdepth 3 -type d || true
+            exit 1
+          fi
+
+          cd "$JRE_DIR"
+          if [ "${{ runner.os }}" == "Windows" ]; then
+            7z a -tzip "${{ github.workspace }}/bin/manatan/resources/jre_bundle.zip" *
+          else
+            zip -r "${{ github.workspace }}/bin/manatan/resources/jre_bundle.zip" .
+          fi
+
+      - name: Download Suwayomi JAR
+        shell: bash
+        run: make download_jar
+      
+      - name: Download WebUI Assets
+        uses: actions/download-artifact@v4
+        with:
+          name: webui-assets
+          path: bin/manatan/resources/webui
+
+      - name: Build Binary
+        shell: bash
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/target
+          CARGO_PROFILE_RELEASE_STRIP: symbols
+          MANATAN_GOOGLE_OAUTH_BROKER_TOKEN: ${{ secrets.MANATAN_GOOGLE_OAUTH_BROKER_TOKEN }}
+        run: |
+          if [ -z "$MANATAN_GOOGLE_OAUTH_BROKER_TOKEN" ]; then
+            echo "Missing MANATAN_GOOGLE_OAUTH_BROKER_TOKEN secret" >&2
+            exit 1
+          fi
+          cd bin/manatan
+          cargo build --release --target ${{ matrix.target }} --features embed-jre
+
+      - name: Package Windows
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          mkdir output
+          cp "${{ github.workspace }}/target/${{ matrix.target }}/release/manatan.exe" output/
+          cd output && 7z a -tzip ../manatan-windows-x64.zip * && cd ..
+          mkdir final_artifact && mv manatan-windows-x64.zip final_artifact/
+
+      - name: Package Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          BINARY_PATH="${{ github.workspace }}/target/${{ matrix.target }}/release/manatan"
+          ICON_PATH="bin/manatan/resources/faviconlogo.png"
+          CLEAN_VERSION="${{ needs.prepare_version.outputs.clean_version }}"
+          
+          DEB_ARCH="amd64"
+          if [[ "${{ matrix.target }}" == *"aarch64"* ]]; then
+            DEB_ARCH="arm64"
+          fi
+          
+          mkdir -p output deb_pkg/usr/lib/manatan deb_pkg/usr/bin deb_pkg/usr/share/applications deb_pkg/usr/share/icons/hicolor/512x512/apps deb_pkg/DEBIAN
+          
+          cp "$BINARY_PATH" deb_pkg/usr/lib/manatan/manatan-server
+          
+          cat > deb_pkg/usr/bin/manatan <<'EOF'
+          #!/bin/bash
+          set -e
+          SYSTEM_BIN="/usr/lib/manatan/manatan-server"
+          USER_DIR="$HOME/.local/share/manatan/bin"
+          USER_BIN="$USER_DIR/manatan"
+          mkdir -p "$USER_DIR"
+          if [ -f "$SYSTEM_BIN" ]; then cp -u "$SYSTEM_BIN" "$USER_BIN"; fi
+          chmod +x "$USER_BIN"
+          exec "$USER_BIN" "$@"
+          EOF
+          chmod +x deb_pkg/usr/bin/manatan
+          
+          cp "$ICON_PATH" deb_pkg/usr/share/icons/hicolor/512x512/apps/manatan.png
+          
+          cat > deb_pkg/DEBIAN/control <<EOF
+          Package: manatan
+          Version: $CLEAN_VERSION
+          Section: utils
+          Priority: optional
+          Architecture: $DEB_ARCH
+          Maintainer: Manatan Team
+          Description: Manatan Server
+           A robust manga server application.
+          EOF
+          
+          cat > deb_pkg/usr/share/applications/manatan.desktop <<EOF
+          [Desktop Entry]
+          Name=Manatan
+          Exec=/usr/bin/manatan
+          Icon=manatan
+          Type=Application
+          Categories=Utility;
+          Terminal=false
+          EOF
+          
+          dpkg-deb --build deb_pkg output/manatan_${CLEAN_VERSION}_${DEB_ARCH}.deb
+
+          mkdir -p tar_staging
+          cp "$BINARY_PATH" tar_staging/manatan
+          chmod +x tar_staging/manatan
+          cd tar_staging && tar -czvf ../output/manatan-${{ matrix.arch_name }}.tar.gz manatan && cd ..
+
+      - name: Package macOS
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir output
+          cp "${{ github.workspace }}/target/${{ matrix.target }}/release/manatan" output/
+          cd output && zip manatan-macos.zip manatan
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: manatan-${{ matrix.arch_name }}
+          path: |
+            final_artifact/manatan-windows-x64.zip
+            output/manatan_*.deb
+            output/manatan-*.tar.gz
+            output/manatan-macos.zip
+          retention-days: 1
+
+  # --- JOB 5: Build Android APK ---
+  build_android:
+    needs: [prepare_version, build_webui]
+    name: Build Android APKs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Update Cargo Version
+        shell: bash
+        run: |
+          CLEAN_VERSION="${{ needs.prepare_version.outputs.clean_version }}"
+          sed "s/^version = \"0.1.0\"/version = \"$CLEAN_VERSION\"/" Cargo.toml > Cargo.toml.tmp && mv Cargo.toml.tmp Cargo.toml
+          sed "s/^version.workspace = true/version = \"$CLEAN_VERSION\"/" bin/manatan_android/Cargo.toml > bin/manatan_android/Cargo.toml.tmp && mv bin/manatan_android/Cargo.toml.tmp bin/manatan_android/Cargo.toml
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android Platform & NDK
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager "platforms;android-29" "platforms;android-26" "build-tools;30.0.3" "ndk;26.1.10909125"
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android, armv7-linux-androideabi
+
+      - name: Install cargo-apk2
+        run: cargo install --git https://github.com/kolbyml/cargo-apk2
+
+      - name: Download WebUI Assets
+        uses: actions/download-artifact@v4
+        with:
+          name: webui-assets
+          path: WebUI/build
+
+      - name: Prepare Assets
+        run: |
+          mkdir -p bin/manatan_android/assets
+          tar -cf bin/manatan_android/assets/webui.tar -C WebUI/build .
+          make download_android_jar
+          make download_android_jre
+          make android_icon
+
+      - name: Configure Dummy Keystore
+        working-directory: bin/manatan_android
+        run: |
+          keytool -genkey -v -keystore dummy.keystore -alias dummy -keyalg RSA -keysize 2048 -validity 10000 -storepass password -keypass password -dname "CN=Dummy,O=Dummy,C=US"
+          cat >> Cargo.toml <<EOF
+          [package.metadata.android.signing.release]
+          path = "dummy.keystore"
+          keystore_password = "password"
+          key_alias = "dummy"
+          key_password = "password"
+          EOF
+
+      - name: Build APKs
+        working-directory: bin/manatan_android
+        env:
+          CARGO_PROFILE_RELEASE_STRIP: symbols
+          MANATAN_GOOGLE_OAUTH_BROKER_TOKEN: ${{ secrets.MANATAN_GOOGLE_OAUTH_BROKER_TOKEN }}
+        run: |
+          if [ -z "$MANATAN_GOOGLE_OAUTH_BROKER_TOKEN" ]; then
+            echo "Missing MANATAN_GOOGLE_OAUTH_BROKER_TOKEN secret" >&2
+            exit 1
+          fi
+          NDK_ROOT=${ANDROID_NDK_HOME}
+          if [ -z "$NDK_ROOT" ]; then NDK_ROOT=$(ls -d /usr/local/lib/android/sdk/ndk/* | sort -V | tail -n1); fi
+          TOOLCHAIN_BIN="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          
+          export RANLIB="$TOOLCHAIN_BIN/llvm-ranlib"
+          export AR="$TOOLCHAIN_BIN/llvm-ar"
+          export CC_aarch64_linux_android="$TOOLCHAIN_BIN/aarch64-linux-android30-clang"
+          export CXX_aarch64_linux_android="$TOOLCHAIN_BIN/aarch64-linux-android30-clang++"
+          export AR_aarch64_linux_android="$TOOLCHAIN_BIN/llvm-ar"
+          export CC_armv7_linux_androideabi="$TOOLCHAIN_BIN/armv7a-linux-androideabi30-clang"
+          export CXX_armv7_linux_androideabi="$TOOLCHAIN_BIN/armv7a-linux-androideabi30-clang++"
+          export AR_armv7_linux_androideabi="$TOOLCHAIN_BIN/llvm-ar"
+
+          mkdir -p ../../signing_stage
+
+          echo "🏗️ Building Browser Version..."
+          cargo apk2 build --release
+          cp $(find ../../target -name "*.apk" | grep "release/apk" | head -n 1) ../../signing_stage/manatan-browser-unsigned.apk
+          rm $(find ../../target -name "*.apk" | grep "release/apk" | head -n 1)
+
+          echo "🏗️ Building Native Webview Version..."
+          cargo apk2 build --release --features native_webview
+          cp $(find ../../target -name "*.apk" | grep "release/apk" | head -n 1) ../../signing_stage/manatan-native-webview-unsigned.apk
+
+      - name: Sign APKs
+        env:
+          SIGNING_KEY_BASE64: ${{ secrets.ANDROID_SIGNING_KEY }}
+          KEY_STORE_PASSWORD: ${{ secrets.ANDROID_KEY_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ALIAS: mangatan
+        run: |
+          echo "$SIGNING_KEY_BASE64" | base64 -d --ignore-garbage > release.keystore
+          BUILD_TOOLS_PATH="$ANDROID_HOME/build-tools/30.0.3"
+          mkdir -p signed_apks
+          
+          for APK in signing_stage/*.apk; do
+            BASENAME=$(basename "$APK" -unsigned.apk)
+            "$BUILD_TOOLS_PATH/zipalign" -v -p 4 "$APK" "${BASENAME}-aligned.apk"
+            "$BUILD_TOOLS_PATH/apksigner" sign --ks release.keystore --ks-pass pass:"$KEY_STORE_PASSWORD" --ks-key-alias "$ALIAS" --key-pass pass:"$KEY_PASSWORD" --out "signed_apks/${BASENAME}.apk" "${BASENAME}-aligned.apk"
+          done
+
+      - name: Upload Android Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: manatan-android
+          path: signed_apks/*.apk
+          retention-days: 1
+
+  # --- JOB 7: Release ---
+  release:
+    needs: [build_manatan, build_android, prepare_version]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  
+
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release
+
+      - name: Prepare Final Assets
+        run: |
+          mkdir final_release
+          VERSION=${{ needs.prepare_version.outputs.version_tag }}
+          
+          # Flatten the download-artifact structure
+          cp release/manatan-windows-x64/final_artifact/manatan-windows-x64.zip final_release/Manatan-${VERSION}-Windows-x64.zip
+          cp release/manatan-linux-amd64/output/*.deb final_release/Manatan-${VERSION}-Linux-amd64.deb || true
+          cp release/manatan-linux-amd64/output/*.tar.gz final_release/Manatan-${VERSION}-Linux-amd64.tar.gz || true
+          cp release/manatan-linux-arm64/output/*.deb final_release/Manatan-${VERSION}-Linux-arm64.deb || true
+          cp release/manatan-linux-arm64/output/*.tar.gz final_release/Manatan-${VERSION}-Linux-arm64.tar.gz || true
+          cp release/manatan-macOS-x64/output/manatan-macos.zip final_release/Manatan-${VERSION}-macOS-Intel.zip
+          cp release/manatan-macOS-arm64/output/manatan-macos.zip final_release/Manatan-${VERSION}-macOS-Silicon.zip
+          
+          cp release/manatan-android/manatan-browser.apk final_release/Manatan-${VERSION}-Android-Browser-Advanced-Users.apk
+          cp release/manatan-android/manatan-native-webview.apk final_release/Manatan-${VERSION}-Android-NativeWebview-Recommended.apk
+          
+          # WebUI Tarball
+          cp release/webui-dist/webui-dist.tar.gz final_release/webui-dist.tar.gz
+
+      - name: Generate Checksums
+        run: cd final_release && sha256sum * > Checksums.sha256
+
+      - name: Generate Release Notes
+        id: release_notes
+        run: |
+          CURRENT_TAG=${{ needs.prepare_version.outputs.version_tag }}
+          git fetch --tags
+          PREV_TAG=$(git describe --tags --abbrev=0 "${CURRENT_TAG}^" 2>/dev/null || git describe --tags --abbrev=0 2>/dev/null || true)
+          
+          echo "## Release $CURRENT_TAG" > RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          if [ -z "$PREV_TAG" ]; then
+            git log --no-merges --pretty=format:"- %s (%h)" >> RELEASE_NOTES.md
+          else
+            git log "$PREV_TAG..HEAD" --no-merges --pretty=format:"- %s (%h)" >> RELEASE_NOTES.md
+          fi
+          
+          echo "RELEASE_BODY<<EOF" >> $GITHUB_ENV
+          cat RELEASE_NOTES.md >> $GITHUB_ENV
+          echo "" >> $GITHUB_ENV 
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          draft: false
+          tag_name: ${{ needs.prepare_version.outputs.version_tag }}
+          target_commitish: ${{ github.sha }}
+          prerelease: ${{ needs.prepare_version.outputs.is_prerelease }}
+          body_path: RELEASE_NOTES.md
+          files: final_release/*
+
+      - name: Notify Discord
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          VERSION_TAG: ${{ needs.prepare_version.outputs.version_tag }}
+        run: python .github/scripts/discord_announce.py
+
+  cleanup_run_artifacts:
+    name: Cleanup Run Artifacts
+    needs: [prepare_version, jre_bundle, build_webui, build_manatan, build_android, release]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete artifacts from this workflow run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          ids=$(gh api "repos/$REPO/actions/runs/$RUN_ID/artifacts?per_page=100" --jq '.artifacts[].id')
+          if [ -z "$ids" ]; then
+            echo "No artifacts to delete for run $RUN_ID"
+            exit 0
+          fi
+
+          for id in $ids; do
+            echo "Deleting artifact $id"
+            gh api -X DELETE "repos/$REPO/actions/artifacts/$id" >/dev/null
+          done

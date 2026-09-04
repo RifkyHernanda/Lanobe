@@ -1,0 +1,379 @@
+
+
+import React, { ReactNode, useRef, useEffect, useState, useCallback, useMemo } from 'react';
+import { Settings } from '@/Manatan/types';
+import { PagedReader } from './PagedReader';
+import { ContinuousReader } from './ContinuousReader';
+import { useUIVisibility } from '../hooks/useUIVisibility';
+import { injectHighlightsIntoHtml } from '../utils/injectHighlights';
+import { sanitizeEpubCss } from '../utils/cssUtils';
+import { BookStats, AppStorage, LNHighlight } from '@/lib/storage/AppStorage';
+
+interface VirtualReaderProps {
+    bookId: string;
+    items: string[];
+    stats: BookStats | null;
+    settings: Settings;
+    css?: string;
+    initialIndex?: number;
+    initialPage?: number;
+    initialProgress?: {
+        sentenceText?: string;
+        chapterIndex?: number;
+        pageIndex?: number;
+        chapterCharOffset?: number;
+        totalProgress?: number;
+        blockId?: string;
+        blockLocalOffset?: number;
+        contextSnippet?: string;
+    };
+    renderHeader?: (showUI: boolean, toggleUI: () => void) => ReactNode;
+    onOpenToc?: () => void;
+    onUpdateSettings?: (key: string, value: any) => void;
+    chapterFilenames?: string[];
+    onChapterChange?: (chapterIndex: number) => void;
+    onPositionUpdate?: (position: {
+        chapterIndex: number;
+        pageIndex?: number;
+        chapterCharOffset?: number;
+        sentenceText: string;
+        totalProgress: number;
+        blockId?: string;
+        blockLocalOffset?: number;
+        contextSnippet?: string;
+    }) => void;
+    highlights?: LNHighlight[];
+    onAddHighlight?: (chapterIndex: number, blockId: string, text: string, startOffset: number, endOffset: number) => void;
+    safeAreaTopInset?: string;
+    safeAreaTopOffsetPx?: number;
+    safeAreaInsetsPx?: {
+        top: number;
+        right: number;
+        bottom: number;
+        left: number;
+    };
+    navigationRef?: React.MutableRefObject<{ scrollToBlock?: (blockId: string, offset?: number) => void; scrollToChapter?: (chapterIndex: number) => void }>;
+}
+
+interface SharedPosition {
+    chapterIndex: number;
+    pageIndex: number;
+    chapterCharOffset: number;
+    sentenceText: string;
+    totalProgress: number;
+    timestamp: number;
+
+    blockId?: string;
+    blockLocalOffset?: number;
+    contextSnippet?: string;
+}
+
+export const VirtualReader: React.FC<VirtualReaderProps> = ({
+    bookId,
+    items,
+    stats,
+    settings,
+    css,
+    initialIndex = 0,
+    initialPage = 0,
+    initialProgress: externalInitialProgress,
+    renderHeader,
+    onOpenToc,
+    onUpdateSettings,
+    chapterFilenames = [],
+    onChapterChange,
+    onPositionUpdate: externalPositionUpdate,
+    highlights = [],
+    onAddHighlight,
+    safeAreaTopInset,
+    safeAreaTopOffsetPx,
+    safeAreaInsetsPx,
+    navigationRef: externalNavRef,
+
+}) => {
+    const { showUI, toggleUI } = useUIVisibility({
+        autoHideDelay: 5000,
+        initialVisible: false,
+    });
+
+    useEffect(() => {
+        if (typeof document === 'undefined') return;
+
+        const root = document.documentElement;
+        if (showUI) {
+            root.classList.add('ln-reader-ui-visible');
+        } else {
+            root.classList.remove('ln-reader-ui-visible');
+        }
+
+        return () => {
+            root.classList.remove('ln-reader-ui-visible');
+        };
+    }, [showUI]);
+
+    // Navigation ref for direct navigation (bypassing restoration)
+    const internalNavRef = useRef<{ scrollToBlock?: (blockId: string, offset?: number) => void; scrollToChapter?: (chapterIndex: number) => void }>({});
+    const navigationRef = externalNavRef || internalNavRef;
+
+
+    const sharedPositionRef = useRef<SharedPosition>({
+        chapterIndex: externalInitialProgress?.chapterIndex ?? initialIndex,
+        pageIndex: externalInitialProgress?.pageIndex ?? initialPage,
+        chapterCharOffset: externalInitialProgress?.chapterCharOffset ?? 0,
+        sentenceText: externalInitialProgress?.sentenceText ?? '',
+        totalProgress: externalInitialProgress?.totalProgress ?? 0,
+        timestamp: Date.now(),
+
+        blockId: externalInitialProgress?.blockId,
+        blockLocalOffset: externalInitialProgress?.blockLocalOffset,
+        contextSnippet: externalInitialProgress?.contextSnippet,
+    });
+
+
+
+    const forceSaveRef = useRef<(() => Promise<void>) | null>(null);
+    const prevSettingsRef = useRef({
+        direction: settings.lnReadingDirection,
+        mode: settings.lnPaginationMode,
+    });
+
+    const [readerKey, setReaderKey] = useState(0);
+    const [activeProgress, setActiveProgress] = useState(externalInitialProgress);
+    const [currentIndex, setCurrentIndex] = useState(
+        externalInitialProgress?.chapterIndex ?? initialIndex
+    );
+    const [currentPage, setCurrentPage] = useState(
+        externalInitialProgress?.pageIndex ?? initialPage
+    );
+    const [pendingRemount, setPendingRemount] = useState(false);
+
+    useEffect(() => {
+        if (externalInitialProgress) {
+            setActiveProgress(externalInitialProgress);
+            setCurrentIndex(externalInitialProgress.chapterIndex ?? initialIndex);
+            setCurrentPage(externalInitialProgress.pageIndex ?? initialPage);
+        }
+    }, [externalInitialProgress, initialIndex, initialPage]);
+
+    const isPaged = settings.lnPaginationMode === 'paginated';
+    const isVertical = settings.lnReadingDirection?.includes('vertical');
+    const isRTL = settings.lnReadingDirection === 'vertical-rtl';
+
+    const getHighlightsForChapter = useCallback((chapterIndex: number): LNHighlight[] => {
+        return highlights?.filter(h => h.chapterIndex === chapterIndex) ?? [];
+    }, [highlights]);
+
+    const chaptersWithHighlights = useMemo(() => {
+        return items.map((html, index) => {
+            const chapterHighlights = getHighlightsForChapter(index);
+            if (chapterHighlights.length === 0) {
+                return html;
+            }
+            return injectHighlightsIntoHtml(html, chapterHighlights);
+        });
+    }, [items, highlights, getHighlightsForChapter]);
+
+    // Sanitize EPUB CSS - strip fonts so reader settings take precedence
+    const cleanedCss = useMemo(() => sanitizeEpubCss(css ?? ''), [css]);
+
+
+    const handlePositionUpdate = useCallback(
+        (position: {
+            chapterIndex: number;
+            pageIndex?: number;
+            chapterCharOffset?: number;
+            sentenceText: string;
+            totalProgress: number;
+            blockId?: string;
+            blockLocalOffset?: number;
+            contextSnippet?: string;
+        }) => {
+            if (position.chapterCharOffset || position.sentenceText) {
+                const prevChapter = sharedPositionRef.current.chapterIndex;
+
+                sharedPositionRef.current = {
+                    chapterIndex: position.chapterIndex,
+                    pageIndex: position.pageIndex ?? 0,
+                    chapterCharOffset: position.chapterCharOffset ?? 0,
+                    sentenceText: position.sentenceText,
+                    totalProgress: position.totalProgress,
+                    timestamp: Date.now(),
+
+                    blockId: position.blockId,
+                    blockLocalOffset: position.blockLocalOffset,
+                    contextSnippet: position.contextSnippet,
+                };
+
+                if (onChapterChange && position.chapterIndex !== prevChapter) {
+                    onChapterChange(position.chapterIndex);
+                }
+            }
+
+            externalPositionUpdate?.(position);
+        },
+        [externalPositionUpdate, onChapterChange]
+    );
+
+
+
+    const handleRegisterSave = useCallback((saveFn: () => Promise<void>) => {
+        forceSaveRef.current = saveFn;
+    }, []);
+
+    const handleAddHighlight = useCallback(async (...args: Parameters<NonNullable<typeof onAddHighlight>>) => {
+        await onAddHighlight?.(...args);
+    }, [onAddHighlight]);
+
+
+    useEffect(() => {
+        const prevDirection = prevSettingsRef.current.direction;
+        const prevMode = prevSettingsRef.current.mode;
+
+        const directionChanged = prevDirection !== settings.lnReadingDirection;
+        const modeChanged = prevMode !== settings.lnPaginationMode;
+
+        if (directionChanged || modeChanged) {
+            console.log('[VirtualReader] Settings changed, triggering save before switch');
+
+            prevSettingsRef.current = {
+                direction: settings.lnReadingDirection,
+                mode: settings.lnPaginationMode,
+            };
+
+            setPendingRemount(true);
+
+            const doSaveAndSwitch = async () => {
+                if (forceSaveRef.current) {
+                    await forceSaveRef.current();
+                }
+
+                await new Promise(resolve => setTimeout(resolve, 50));
+                const pos = sharedPositionRef.current;
+
+                console.log('[VirtualReader] After save, position:', {
+                    chapter: pos.chapterIndex,
+                    page: pos.pageIndex,
+                    charOffset: pos.chapterCharOffset,
+                    blockId: pos.blockId,
+                });
+
+                if (pos.sentenceText || pos.chapterCharOffset > 0) {
+                    const existing = await AppStorage.getLnProgress(bookId);
+                    await AppStorage.saveLnProgress(bookId, {
+                        chapterIndex: pos.chapterIndex,
+                        pageNumber: pos.pageIndex,
+                        chapterCharOffset: pos.chapterCharOffset,
+                        totalCharsRead: 0,
+                        sentenceText: pos.sentenceText,
+                        chapterProgress: 0,
+                        totalProgress: pos.totalProgress,
+
+                        blockId: pos.blockId,
+                        blockLocalOffset: pos.blockLocalOffset,
+                        contextSnippet: pos.contextSnippet,
+                        highlights: existing?.highlights ?? [],
+                    });
+                }
+
+                setActiveProgress({
+                    chapterIndex: pos.chapterIndex,
+                    pageIndex: pos.pageIndex,
+                    chapterCharOffset: pos.chapterCharOffset,
+                    sentenceText: pos.sentenceText,
+                    totalProgress: pos.totalProgress,
+
+                    blockId: pos.blockId,
+                    blockLocalOffset: pos.blockLocalOffset,
+                    contextSnippet: pos.contextSnippet,
+                });
+                setCurrentIndex(pos.chapterIndex);
+                setCurrentPage(pos.pageIndex);
+
+                setReaderKey((k) => k + 1);
+                setPendingRemount(false);
+            };
+
+            doSaveAndSwitch();
+        }
+    }, [settings.lnReadingDirection, settings.lnPaginationMode, bookId]);
+
+    const readerContent = useMemo(() => {
+        const commonProps = {
+            bookId,
+            chapters: chaptersWithHighlights,
+            stats,
+            settings,
+            css: cleanedCss,
+            isVertical: !!isVertical,
+            isRTL: !!isRTL,
+            onToggleUI: toggleUI,
+            showNavigation: false,
+            initialChapter: currentIndex,
+            initialProgress: activeProgress,
+            onPositionUpdate: handlePositionUpdate,
+            onRegisterSave: handleRegisterSave,
+            onOpenToc: onOpenToc,
+            onUpdateSettings,
+            chapterFilenames,
+            highlights,
+            onAddHighlight: handleAddHighlight,
+            safeAreaTopInset,
+            safeAreaTopOffsetPx,
+            safeAreaInsetsPx,
+            navigationRef,
+        };
+
+        if (isPaged) {
+            return <PagedReader key={`paged-${readerKey}`} {...commonProps} initialPage={currentPage} />;
+        }
+
+        return <ContinuousReader key={`continuous-${readerKey}`} {...commonProps} />;
+    }, [
+        activeProgress,
+        bookId,
+        chapterFilenames,
+        chaptersWithHighlights,
+        cleanedCss,
+        currentIndex,
+        currentPage,
+        handleAddHighlight,
+        handlePositionUpdate,
+        handleRegisterSave,
+        highlights,
+        isPaged,
+        isRTL,
+        isVertical,
+        navigationRef,
+        onOpenToc,
+        onUpdateSettings,
+        readerKey,
+        safeAreaInsetsPx,
+        safeAreaTopInset,
+        safeAreaTopOffsetPx,
+        settings,
+        stats,
+        toggleUI,
+    ]);
+
+    if (pendingRemount) {
+        return (
+            <div style={{
+                backgroundColor: '#2B2B2B',
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+            }}>
+
+            </div>
+        );
+    }
+
+    return (
+        <>
+            {readerContent}
+            {renderHeader?.(showUI, toggleUI)}
+        </>
+    );
+};

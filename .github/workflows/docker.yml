@@ -1,0 +1,219 @@
+name: Docker Publish
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Release tag to build from (e.g., v1.0.5)"
+        required: true
+        type: string
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  SCREENAI_ASSET_REPOSITORY: KolbyML/assets
+  SCREENAI_ASSET_TAG: screenai-v1
+  SCREENAI_LINUX_AMD64_ASSET: manatan-screenai-v1-linux-x64.zip
+
+jobs:
+  push_to_registry:
+    name: Build & Push Docker Image
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.action == 'published' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Resolve Release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG_NAME="${{ inputs.tag_name }}"
+
+          if [[ -z "$TAG_NAME" ]]; then
+            TAG_NAME="${{ github.event.release.tag_name }}"
+          fi
+
+          if [[ -z "$TAG_NAME" || "$TAG_NAME" == "null" ]]; then
+            echo "Could not determine release tag" >&2
+            exit 1
+          fi
+
+          PRERELEASE="${{ github.event.release.prerelease }}"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            PRERELEASE=$(gh api "repos/${{ github.repository }}/releases/tags/$TAG_NAME" --jq '.prerelease')
+          fi
+
+          PUSH_LATEST=true
+          if [[ "$PRERELEASE" == "true" ]]; then
+            PUSH_LATEST=false
+          fi
+
+          echo "Building Docker image for $TAG_NAME"
+          echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "push_latest=$PUSH_LATEST" >> $GITHUB_OUTPUT
+
+      - name: Download Linux Release Assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG_NAME="${{ steps.release.outputs.tag }}"
+          mkdir -p download_amd64 download_arm64
+
+          download_asset() {
+            local pattern="$1"
+            local directory="$2"
+
+            for attempt in {1..10}; do
+              if gh release download "$TAG_NAME" \
+                --repo "${{ github.repository }}" \
+                --pattern "$pattern" \
+                --dir "$directory"; then
+                return 0
+              fi
+
+              echo "Asset $pattern is not available yet (attempt $attempt/10)"
+              sleep 30
+            done
+
+            echo "Failed to download release asset: $pattern" >&2
+            return 1
+          }
+
+          CLEAN_VERSION="${TAG_NAME#v}"
+          download_asset "manatan-server-linux-amd64-${CLEAN_VERSION}.tar.gz" download_amd64
+          download_asset "manatan-server-linux-arm64-${CLEAN_VERSION}.tar.gz" download_arm64
+
+          ls -lh download_amd64
+          ls -lh download_arm64
+
+      - name: Download ScreenAI Runtime
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          gh release download "$SCREENAI_ASSET_TAG" \
+            --repo "$SCREENAI_ASSET_REPOSITORY" \
+            --pattern "$SCREENAI_LINUX_AMD64_ASSET" \
+            --dir .
+
+          test -s "$SCREENAI_LINUX_AMD64_ASSET"
+          unzip -Z1 "$SCREENAI_LINUX_AMD64_ASSET" | grep -qx 'v1/manifest.json'
+          unzip -Z1 "$SCREENAI_LINUX_AMD64_ASSET" | grep -qx 'v1/runtime/runtime-manifest.json'
+          unzip -Z1 "$SCREENAI_LINUX_AMD64_ASSET" | grep -qx 'v1/runtime/libscreenai_runtime.so'
+          unzip -Z1 "$SCREENAI_LINUX_AMD64_ASSET" | grep -qx 'v1/resources/libchromescreenai.so'
+
+      - name: Prepare Context
+        run: |
+          cp download_amd64/*.tar.gz manatan-linux-amd64.tar.gz
+          cp download_arm64/*.tar.gz manatan-linux-arm64.tar.gz
+
+          ls -lh *.tar.gz
+
+      - name: Verify Headless Startup
+        run: |
+          set -euo pipefail
+
+          IMAGE="manatan-headless-smoke:${{ steps.release.outputs.tag }}"
+          docker build \
+            --build-arg TARGETARCH=amd64 \
+            --tag "$IMAGE" \
+            .
+
+          CONTAINER_ID="$(docker run --detach \
+            --env MANATAN_HEADLESS=true \
+            --env MANATAN_HOST=0.0.0.0 \
+            --publish 127.0.0.1::4567 \
+            "$IMAGE")"
+          trap 'docker rm --force "$CONTAINER_ID" >/dev/null 2>&1 || true' EXIT
+
+          wait_until_ready() {
+            local host_port
+            host_port="$(docker port "$CONTAINER_ID" 4567/tcp)"
+            host_port="${host_port##*:}"
+
+            for _ in {1..120}; do
+              if curl --fail --silent --show-error \
+                --max-time 2 \
+                "http://127.0.0.1:${host_port}/" >/dev/null; then
+                return 0
+              fi
+              if [[ "$(docker inspect --format '{{.State.Running}}' "$CONTAINER_ID")" != "true" ]]; then
+                break
+              fi
+              sleep 1
+            done
+
+            docker logs "$CONTAINER_ID"
+            return 1
+          }
+
+          assert_screenai_ready() {
+            local host_port ocr_status
+            host_port="$(docker port "$CONTAINER_ID" 4567/tcp)"
+            host_port="${host_port##*:}"
+            ocr_status="$(curl --fail --silent --show-error \
+              --max-time 30 \
+              "http://127.0.0.1:${host_port}/api/ocr/backends/status")"
+            python3 - "$ocr_status" <<'PY'
+          import json
+          import sys
+
+          status = json.loads(sys.argv[1])["backends"]["goodlocalocr"]
+          assert status["available"] is True, status
+          assert status["platform_supported"] is True, status
+          assert status["install_state"] == "ready", status
+          assert status["runtime_backend"] == "native-good-local-ocr", status
+          assert status["runtime_version"], status
+          assert status["error"] is None, status
+          PY
+          }
+
+          wait_until_ready
+          assert_screenai_ready
+          docker restart "$CONTAINER_ID" >/dev/null
+          wait_until_ready
+          assert_screenai_ready
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ steps.release.outputs.tag }}
+            type=raw,value=latest,enable=${{ steps.release.outputs.push_latest == 'true' }}
+
+      - name: Build and Push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

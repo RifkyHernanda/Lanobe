@@ -1,0 +1,608 @@
+use std::collections::HashMap;
+
+use serde::{Deserialize, Serialize};
+
+// ============================================================================
+// Light Novel Progress
+// ============================================================================
+
+/// Reading progress for a light novel - matches TypeScript LNProgress
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct LNProgress {
+    /// Current chapter index
+    #[serde(alias = "chapterIndex")]
+    pub chapter_index: i32,
+
+    /// Current page number (optional, for paginated view)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(alias = "pageNumber")]
+    pub page_number: Option<i32>,
+
+    /// Character offset within the chapter
+    #[serde(alias = "chapterCharOffset")]
+    pub chapter_char_offset: i32,
+
+    /// Total characters read across all chapters
+    #[serde(alias = "totalCharsRead")]
+    pub total_chars_read: i32,
+
+    /// The sentence currently being read
+    #[serde(alias = "sentenceText")]
+    pub sentence_text: String,
+
+    /// Progress within current chapter (0.0 - 1.0)
+    #[serde(alias = "chapterProgress")]
+    pub chapter_progress: f64,
+
+    /// Overall book progress (0.0 - 1.0)
+    #[serde(alias = "totalProgress")]
+    pub total_progress: f64,
+
+    // Block tracking
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(alias = "blockId")]
+    pub block_id: Option<String>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(alias = "blockLocalOffset")]
+    pub block_local_offset: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(alias = "contextSnippet")]
+    pub context_snippet: Option<String>,
+
+    // Sync metadata
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(alias = "lastRead")]
+    pub last_read: Option<i64>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(alias = "lastModified")]
+    pub last_modified: Option<i64>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(alias = "syncVersion")]
+    pub sync_version: Option<i32>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub device_id: Option<String>,
+
+    // Highlights
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub highlights: Vec<LNHighlight>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LNHighlight {
+    pub id: String,
+    pub chapter_index: i32,
+    pub block_id: String,
+    pub text: String,
+    pub start_offset: i32,
+    pub end_offset: i32,
+    pub created_at: i64,
+}
+
+impl LNProgress {
+    /// Check if this progress is further along than another
+    pub fn is_further_than(&self, other: &LNProgress) -> bool {
+        self.total_progress > other.total_progress
+    }
+
+    /// Check if this progress is newer than another
+    pub fn is_newer_than(&self, other: &LNProgress) -> bool {
+        match (self.last_modified, other.last_modified) {
+            (Some(a), Some(b)) => a > b,
+            (Some(_), None) => true,
+            (None, Some(_)) => false,
+            (None, None) => false,
+        }
+    }
+
+    /// Check if this has a higher sync version
+    pub fn has_higher_version(&self, other: &LNProgress) -> bool {
+        match (self.sync_version, other.sync_version) {
+            (Some(a), Some(b)) => a > b,
+            (Some(_), None) => true,
+            (None, Some(_)) => false,
+            (None, None) => false,
+        }
+    }
+}
+
+// ============================================================================
+// LN Reader Settings (for sync)
+// ============================================================================
+
+/// LN Reader settings - matches TypeScript LNReaderSettings
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct LNReaderSettings {
+    // Basic display
+    #[serde(default)]
+    pub ln_font_size: f64,
+    #[serde(default)]
+    pub ln_line_height: f64,
+    #[serde(default)]
+    pub ln_font_family: String,
+    #[serde(default)]
+    pub ln_theme: String,
+    #[serde(default)]
+    pub ln_reading_direction: String,
+    #[serde(default)]
+    pub ln_pagination_mode: String,
+    #[serde(default)]
+    pub ln_page_width: f64,
+    #[serde(default)]
+    pub ln_page_margin: f64,
+    #[serde(default)]
+    pub ln_enable_furigana: bool,
+    #[serde(default)]
+    pub ln_text_align: String,
+    #[serde(default)]
+    pub ln_letter_spacing: f64,
+    #[serde(default)]
+    pub ln_paragraph_spacing: f64,
+
+    // Additional display settings
+    #[serde(default)]
+    pub ln_text_brightness: f64,
+    #[serde(default)]
+    pub ln_font_weight: f64,
+    #[serde(default)]
+    pub ln_secondary_font_family: String,
+
+    // Bookmark settings
+    #[serde(default)]
+    pub ln_auto_bookmark: bool,
+    #[serde(default)]
+    pub ln_bookmark_delay: f64,
+    #[serde(default)]
+    pub ln_lock_progress_bar: bool,
+
+    // Margin settings
+    #[serde(default)]
+    pub ln_margin_top: f64,
+    #[serde(default)]
+    pub ln_margin_bottom: f64,
+    #[serde(default)]
+    pub ln_margin_left: f64,
+    #[serde(default)]
+    pub ln_margin_right: f64,
+
+    // Navigation settings
+    #[serde(default)]
+    pub ln_hide_nav_buttons: bool,
+    #[serde(default)]
+    pub ln_enable_swipe: bool,
+    #[serde(default)]
+    pub ln_drag_threshold: f64,
+
+    // Click zones (paged mode)
+    #[serde(default)]
+    pub ln_enable_click_zones: bool,
+    #[serde(default)]
+    pub ln_click_zone_size: f64,
+    #[serde(default)]
+    pub ln_click_zone_placement: String,
+    #[serde(default)]
+    pub ln_click_zone_position: String,
+    #[serde(default)]
+    pub ln_click_zone_coverage: f64,
+
+    // Animations & extras
+    #[serde(default)]
+    pub ln_disable_animations: bool,
+    #[serde(default)]
+    pub ln_show_char_progress: bool,
+
+    // Yomitan integration
+    #[serde(default)]
+    pub enable_yomitan: bool,
+    #[serde(default)]
+    pub interaction_mode: String,
+}
+
+impl LNReaderSettings {
+    pub fn default_settings() -> Self {
+        Self {
+            ln_font_size: 18.0,
+            ln_line_height: 1.8,
+            ln_font_family: "\"Noto Serif JP\", serif".to_string(),
+            ln_theme: "dark".to_string(),
+            ln_reading_direction: "vertical-rtl".to_string(),
+            ln_pagination_mode: "paginated".to_string(),
+            ln_page_width: 800.0,
+            ln_page_margin: 20.0,
+            ln_enable_furigana: true,
+            ln_text_align: "justify".to_string(),
+            ln_letter_spacing: 0.0,
+            ln_paragraph_spacing: 0.0,
+            ln_text_brightness: 100.0,
+            ln_font_weight: 400.0,
+            ln_secondary_font_family: String::new(),
+            ln_auto_bookmark: true,
+            ln_bookmark_delay: 5.0,
+            ln_lock_progress_bar: false,
+            ln_margin_top: 20.0,
+            ln_margin_bottom: 20.0,
+            ln_margin_left: 40.0,
+            ln_margin_right: 40.0,
+            ln_hide_nav_buttons: false,
+            ln_enable_swipe: true,
+            ln_drag_threshold: 10.0,
+            ln_enable_click_zones: true,
+            ln_click_zone_size: 10.0,
+            ln_click_zone_placement: "vertical".to_string(),
+            ln_click_zone_position: "full".to_string(),
+            ln_click_zone_coverage: 60.0,
+            ln_disable_animations: false,
+            ln_show_char_progress: false,
+            enable_yomitan: true,
+            interaction_mode: "hover".to_string(),
+        }
+    }
+}
+
+// ============================================================================
+// Light Novel Metadata
+// ============================================================================
+
+/// Block index mapping for navigation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BlockIndexMap {
+    #[serde(alias = "blockId")]
+    pub block_id: String,
+    #[serde(alias = "startOffset")]
+    pub start_offset: i32,
+    #[serde(alias = "endOffset")]
+    pub end_offset: i32,
+}
+
+/// Book statistics
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct BookStats {
+    #[serde(default)]
+    pub chapter_lengths: Vec<i32>,
+    #[serde(default)]
+    pub total_length: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub block_maps: Option<Vec<BlockIndexMap>>,
+}
+
+/// Table of contents item
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct TocItem {
+    #[serde(default)]
+    pub label: String,
+    #[serde(default)]
+    pub href: String,
+    #[serde(default)]
+    #[serde(alias = "chapterIndex")]
+    pub chapter_index: i32,
+}
+
+/// Light novel metadata - matches TypeScript LNMetadata
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LNMetadata {
+    pub id: String,
+    pub title: String,
+    pub author: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cover: Option<String>,
+
+    #[serde(alias = "addedAt")]
+    pub added_at: i64,
+
+    // Processing state
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(alias = "isProcessing")]
+    pub is_processing: Option<bool>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(alias = "isError")]
+    pub is_error: Option<bool>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(alias = "errorMsg")]
+    pub error_msg: Option<String>,
+
+    // Pre-calculated on import
+    pub stats: BookStats,
+    #[serde(alias = "chapterCount")]
+    pub chapter_count: i32,
+    pub toc: Vec<TocItem>,
+
+    // For library display
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(alias = "hasProgress")]
+    pub has_progress: Option<bool>,
+
+    // Sync metadata
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(alias = "lastModified")]
+    pub last_modified: Option<i64>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(alias = "syncVersion")]
+    pub sync_version: Option<i32>,
+
+    // Language and categories
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub category_ids: Vec<String>,
+
+    // Settings per language (synced)
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    #[serde(alias = "languageSettings")]
+    pub language_settings: HashMap<String, LNReaderSettings>,
+}
+
+// ============================================================================
+// LN Categories
+// ============================================================================
+
+/// Category for organizing light novels
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LnCategory {
+    pub id: String,
+    pub name: String,
+    pub order: i32,
+    pub created_at: i64,
+    pub last_modified: i64,
+}
+
+/// Category metadata (sort settings)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LnCategoryMetadata {
+    #[serde(alias = "sortBy")]
+    pub sort_by: String,
+    #[serde(alias = "sortDesc")]
+    pub sort_desc: bool,
+}
+
+// ============================================================================
+// Light Novel Content
+// ============================================================================
+
+/// Parsed book content - matches TypeScript LNParsedBook
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LNParsedBook {
+    /// HTML content of each chapter
+    pub chapters: Vec<String>,
+
+    /// Images extracted from the EPUB (base64 encoded)
+    #[serde(alias = "imageBlobs")]
+    pub image_blobs: HashMap<String, String>,
+
+    /// Original filenames of chapters
+    #[serde(alias = "chapterFilenames")]
+    pub chapter_filenames: Vec<String>,
+
+    /// Combined CSS from all CSS files in the EPUB
+    pub css: Option<String>,
+}
+
+/// Reference to a synced file (for file manifest)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileReference {
+    #[serde(alias = "bookId")]
+    pub book_id: String,
+    #[serde(alias = "fileType")]
+    pub file_type: FileType,
+    #[serde(alias = "fileHash")]
+    pub file_hash: String,
+    #[serde(alias = "fileSize")]
+    pub file_size: u64,
+    #[serde(alias = "lastModified")]
+    pub last_modified: i64,
+    #[serde(alias = "driveFileId")]
+    pub drive_file_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum FileType {
+    Epub,
+    Content,
+}
+
+// ============================================================================
+// Sync Payload
+// ============================================================================
+
+/// The complete sync payload exchanged between frontend, backend, and cloud
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncPayload {
+    /// Schema version for future migrations
+    pub schema_version: u32,
+
+    /// Device ID that created this payload
+    pub device_id: String,
+
+    /// When this payload was created
+    pub last_modified: i64,
+
+    /// Reading progress for each book (bookId → progress)
+    #[serde(default)]
+    pub ln_progress: HashMap<String, LNProgress>,
+
+    /// Metadata for each book (bookId → metadata)
+    #[serde(default)]
+    pub ln_metadata: HashMap<String, LNMetadata>,
+
+    /// Parsed content for each book (bookId → content)
+    /// Only included if sync_config.ln_content is true
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub ln_content: HashMap<String, LNParsedBook>,
+
+    /// EPUB files as base64 (bookId → base64 data)
+    /// Only included if sync_config.ln_files is true
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub ln_files: HashMap<String, String>,
+
+    /// File manifest for resumable sync
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub file_manifest: HashMap<String, FileReference>,
+
+    /// LN Categories
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    #[serde(alias = "lnCategories")]
+    pub ln_categories: HashMap<String, LnCategory>,
+
+    /// LN Category metadata (sort settings)
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    #[serde(alias = "lnCategoryMetadata")]
+    pub ln_category_metadata: HashMap<String, LnCategoryMetadata>,
+}
+
+impl SyncPayload {
+    pub const CURRENT_SCHEMA_VERSION: u32 = 1;
+
+    pub fn new(device_id: String) -> Self {
+        Self {
+            schema_version: Self::CURRENT_SCHEMA_VERSION,
+            device_id,
+            last_modified: chrono::Utc::now().timestamp_millis(),
+            ..Default::default()
+        }
+    }
+}
+
+/// Request body for merge endpoint
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MergeRequest {
+    /// Local payload from frontend
+    pub payload: SyncPayload,
+
+    /// What to sync (optional, uses stored config if not provided)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub config: Option<SyncConfig>,
+}
+
+/// Response from merge endpoint
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MergeResponse {
+    /// The merged payload to apply locally
+    pub payload: SyncPayload,
+
+    /// Timestamp of this sync
+    pub sync_timestamp: i64,
+
+    /// Files that need to be uploaded (for resumable sync)
+    #[serde(default)]
+    pub files_to_upload: Vec<String>,
+
+    /// Files that can be downloaded
+    #[serde(default)]
+    pub files_to_download: Vec<String>,
+
+    /// Any conflicts that occurred (informational)
+    #[serde(default)]
+    pub conflicts: Vec<ConflictInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConflictInfo {
+    pub book_id: String,
+    pub field: String,
+    pub local_value: String,
+    pub remote_value: String,
+    pub resolution: String,
+}
+
+// ============================================================================
+// Sync Configuration
+// ============================================================================
+
+/// What data to sync - user configurable
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncConfig {
+    // What to sync
+    pub ln_progress: bool,
+    pub ln_metadata: bool,
+    pub ln_content: bool,
+    pub ln_files: bool,
+
+    // Sync triggers (matching Tachiyomi)
+    pub sync_on_chapter_read: bool,
+    pub sync_on_chapter_open: bool,
+    pub sync_on_app_start: bool,
+    pub sync_on_app_resume: bool,
+
+    // Backend selection
+    pub backend: SyncBackendType,
+
+    // Google Drive settings
+    pub google_drive_folder: String,
+    pub google_drive_folder_type: GoogleDriveFolderType,
+
+    // Deletion behavior
+    pub deletion_behavior: DeletionBehavior,
+}
+
+impl Default for SyncConfig {
+    fn default() -> Self {
+        Self {
+            ln_progress: true,
+            ln_metadata: true,
+            ln_content: true,
+            ln_files: false,
+            sync_on_chapter_read: false,
+            sync_on_chapter_open: false,
+            sync_on_app_start: false,
+            sync_on_app_resume: false,
+            backend: SyncBackendType::None,
+            google_drive_folder: "Manatan".to_string(),
+            google_drive_folder_type: GoogleDriveFolderType::Public,
+            deletion_behavior: DeletionBehavior::KeepEverywhere,
+        }
+    }
+}
+
+/// Google Drive folder type selection
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum GoogleDriveFolderType {
+    #[default]
+    Public,
+    AppData,
+}
+
+/// Deletion behavior when syncing
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub enum DeletionBehavior {
+    #[default]
+    KeepEverywhere,
+    DeleteEverywhere,
+    AskEachTime,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum SyncBackendType {
+    #[default]
+    None,
+    GoogleDrive,
+    WebDav,
+    SyncYomi,
+}
