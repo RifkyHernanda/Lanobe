@@ -82,7 +82,7 @@ export class RequestManager {
             let cancelled = false;
 
             this.restClient
-                .fetcher('/api/system/version')
+                .fetcher('/api/app/session')
                 .then((response) => response.json())
                 .then((data) => {
                     if (!cancelled) {
@@ -115,26 +115,23 @@ export class RequestManager {
     ] {
         const [loading, setLoading] = useState(false);
 
-        const login = useCallback(
-            async ({ variables }: { variables: { password: string } }) => {
-                setLoading(true);
-                try {
-                    const response = await this.restClient.fetcher('/api/app/login', {
-                        httpMethod: HttpMethod.POST,
-                        data: variables,
-                    });
+        const login = useCallback(async ({ variables }: { variables: { password: string } }) => {
+            setLoading(true);
+            try {
+                const response = await this.restClient.fetcher('/api/app/login', {
+                    httpMethod: HttpMethod.POST,
+                    data: variables,
+                });
 
-                    if (!response.ok) {
-                        throw new Error(`Login failed (${response.status})`);
-                    }
-
-                    return { data: { login: { accessToken: 'session', refreshToken: 'session' } } };
-                } finally {
-                    setLoading(false);
+                if (!response.ok) {
+                    throw new Error(`Login failed (${response.status})`);
                 }
-            },
-            [],
-        );
+
+                return { data: { login: { accessToken: 'session', refreshToken: 'session' } } };
+            } finally {
+                setLoading(false);
+            }
+        }, []);
 
         return [login, { loading }];
     }
