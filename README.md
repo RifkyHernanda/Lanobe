@@ -8,6 +8,9 @@ manga, anime, OCR and extension halves are gone, along with the embedded Suwayom
 runtime — what remains is a single ~20 MB Rust binary and a React PWA, small enough to run
 on a `t2.micro`.
 
+Full specification, plan and UI diagram live in [`.claude/`](.claude/):
+[SPEC.md](.claude/SPEC.md) · [PLAN.md](.claude/PLAN.md) · [CLAUDE.md](.claude/CLAUDE.md) · [ui-layout.excalidraw](.claude/ui-layout.excalidraw)
+
 ## Status
 
 Under active development. Working today:
