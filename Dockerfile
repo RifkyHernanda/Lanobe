@@ -14,7 +14,14 @@ COPY WebUI/package.json WebUI/yarn.lock ./
 RUN yarn install --frozen-lockfile --network-timeout 600000
 
 COPY WebUI/ ./
-RUN cp .env.template .env && yarn build
+
+# `yarn build` runs `yarn setup` first, which reinstalls and copies .env.template
+# into place. Neither is wanted here: dependencies are already installed in the
+# layer above, and the two variables the vite config reads are set directly, so
+# the build does not depend on a dotfile being present.
+ENV PORT=3000 \
+    ALLOWED_HOSTS=""
+RUN npx vite build
 
 # ---- 2. Server ----------------------------------------------------------------
 FROM rust:1-bookworm AS server

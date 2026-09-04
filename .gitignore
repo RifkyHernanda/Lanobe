@@ -68,6 +68,8 @@ web_modules/
 # dotenv environment variable files
 .env
 .env.*
+!.env.template
+!WebUI/.env.template
 !.env.example
 
 # parcel-bundler cache (https://parceljs.org/)
@@ -184,6 +186,8 @@ yarn-debug.log*
 yarn-error.log*
 .env
 .env.*
+!.env.template
+!WebUI/.env.template
 !.env.example
 
 ocr-test-data

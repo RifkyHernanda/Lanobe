@@ -24,8 +24,11 @@ export default defineConfig(({ command }) => ({
         outDir: 'build',
     },
     server: {
-        port: Number(process.env.PORT),
-        allowedHosts: process.env.ALLOWED_HOSTS.split(',').map((s) => s.trim()),
+        port: Number(process.env.PORT ?? 3000),
+        allowedHosts: (process.env.ALLOWED_HOSTS ?? '')
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean),
     },
     resolve: {
         alias: {
