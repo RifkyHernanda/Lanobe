@@ -1,9 +1,11 @@
 /**
- * Boots the built server and asserts the app actually renders.
+ * Boots the built server and asserts every page actually renders.
  *
- * Why this exists: a circular import once left the app showing a blank page while
- * `vite build`, `cargo build`, clippy and every unit test passed. Nothing in the
- * pipeline loads the page, so nothing noticed. This does.
+ * Why this exists, twice over:
+ *  - A circular import once left the app blank while `vite build`, `cargo build`,
+ *    clippy and every unit test passed. Nothing in the pipeline loaded the page.
+ *  - The first version of this script only loaded `/`, and shipped a build where
+ *    /settings and /more both crashed. Checking one route proves one route.
  *
  * Usage: node scripts/smoke-test.mjs [path-to-lanobe-binary]
  */
@@ -15,7 +17,10 @@ import { join } from 'node:path';
 
 const BINARY = process.argv[2] ?? './target/release/lanobe';
 const PORT = 4599;
-const URL = `http://127.0.0.1:${PORT}/`;
+const ORIGIN = `http://127.0.0.1:${PORT}`;
+
+/** Every route reachable from the navigation bar. */
+const ROUTES = ['/', '/ln', '/saved', '/dictionary', '/settings', '/about', '/more'];
 
 const dataDir = mkdtempSync(join(tmpdir(), 'lanobe-smoke-'));
 const failures = [];
@@ -40,7 +45,7 @@ const cleanup = () => {
 const waitForServer = async () => {
     for (let i = 0; i < 60; i += 1) {
         try {
-            const res = await fetch(`${URL}api/system/version`);
+            const res = await fetch(`${ORIGIN}/api/system/version`);
             if (res.ok) return;
         } catch {
             // not up yet
@@ -57,54 +62,62 @@ try {
     // environments ship a prebuilt one instead, pointed at by this variable.
     const executablePath = process.env.LANOBE_SMOKE_CHROMIUM || undefined;
     const browser = await chromium.launch(executablePath ? { executablePath } : {});
-    const page = await browser.newPage();
 
-    const pageErrors = [];
-    const apiResponses = [];
-    page.on('pageerror', (e) => pageErrors.push(e.message));
-    page.on('response', (r) => {
-        const url = r.url();
-        if (url.includes('/api/')) apiResponses.push({ url, status: r.status() });
-    });
+    for (const route of ROUTES) {
+        const page = await browser.newPage();
+        const errors = [];
+        const apiResponses = [];
 
-    await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    // Give React a moment to mount and fire its startup requests.
-    await page.waitForTimeout(4000);
+        page.on('pageerror', (e) => errors.push(e.message));
+        // React's error boundary swallows render errors, so they never reach
+        // 'pageerror'. It logs them with this prefix, which is not localised.
+        page.on('console', (m) => {
+            if (m.type() === 'error' && m.text().includes('Uncaught error')) {
+                errors.push(m.text().split('\n')[0]);
+            }
+        });
+        page.on('response', (r) => {
+            if (r.url().includes('/api/')) apiResponses.push({ url: r.url(), status: r.status() });
+        });
 
-    const rendered = await page.evaluate(() => {
-        const root = document.getElementById('root');
-        return { html: root ? root.innerHTML.length : -1, text: document.body.innerText || '' };
-    });
+        await page.goto(ORIGIN + route, { waitUntil: 'domcontentloaded', timeout: 30000 });
+        // Give React a moment to mount and fire its startup requests.
+        await page.waitForTimeout(3000);
 
-    // 1. The app mounted at all. A TDZ/circular-import crash leaves this at 0.
-    if (rendered.html < 500) {
-        failures.push(`#root has ${rendered.html} chars of HTML - the app did not render.`);
-    }
+        const html = await page.evaluate(() => {
+            const root = document.getElementById('root');
+            return root ? root.innerHTML.length : -1;
+        });
 
-    // 2. No uncaught exceptions. This is what catches an import cycle.
-    if (pageErrors.length) {
-        failures.push(`Uncaught page errors:\n  ${pageErrors.join('\n  ')}`);
-    }
+        // A TDZ/circular-import crash leaves this at 0.
+        if (html < 500) {
+            failures.push(`${route}: #root has ${html} chars - the page did not render.`);
+        }
+        if (errors.length) {
+            failures.push(`${route}: ${errors[0]}`);
+        }
 
-    // 3. It actually talked to the server. Catches the app deadlocking on its
-    //    splash screen with every request stuck in the auth queue.
-    const sessionCall = apiResponses.find((r) => r.url.includes('/api/app/session'));
-    if (!sessionCall) {
-        failures.push(`No /api/app/session request was made. API calls seen: ${
-            apiResponses.map((r) => r.url).join(', ') || '(none)'}`);
-    } else if (sessionCall.status !== 200) {
-        failures.push(`/api/app/session returned ${sessionCall.status}`);
-    }
+        const failed = apiResponses.filter((r) => r.status >= 400);
+        if (failed.length) {
+            failures.push(`${route}: failing API calls - ${
+                failed.map((r) => `${r.status} ${r.url}`).join(', ')}`);
+        }
 
-    // 4. No API call failed.
-    const failed = apiResponses.filter((r) => r.status >= 400);
-    if (failed.length) {
-        failures.push(`Failing API calls:\n  ${failed.map((r) => `${r.status} ${r.url}`).join('\n  ')}`);
-    }
+        // Only the entry route needs to prove the app talks to the server; this
+        // catches the app deadlocking with every request stuck in the auth queue.
+        if (route === '/') {
+            const session = apiResponses.find((r) => r.url.includes('/api/app/session'));
+            if (!session) {
+                failures.push(`/: no /api/app/session request. Saw: ${
+                    apiResponses.map((r) => r.url).join(', ') || '(none)'}`);
+            }
+        }
 
-    if (!failures.length) {
-        console.log(`PASS - app rendered (${rendered.html} chars), ${apiResponses.length} API calls, no errors.`);
-        console.log(`Visible text: ${rendered.text.replace(/\n+/g, ' / ').slice(0, 160)}`);
+        if (!failures.some((f) => f.startsWith(`${route}:`))) {
+            console.log(`  ok   ${route}`);
+        }
+
+        await page.close();
     }
 
     await browser.close();
@@ -115,7 +128,9 @@ try {
 }
 
 if (failures.length) {
-    console.error('FAIL\n');
-    failures.forEach((f) => console.error(`- ${f}\n`));
+    console.error('\nFAIL\n');
+    failures.forEach((f) => console.error(`- ${f}`));
     process.exit(1);
 }
+
+console.log(`\nPASS - ${ROUTES.length} routes rendered with no errors.`);

@@ -41,23 +41,6 @@ export const More = () => {
 
     const hiddenNavBarItemsByMoreGroup = Object.groupBy(hiddenNavBarItems, (item) => item.moreGroup);
 
-    const hiddenItemsMoreGroup = [
-        ...(hiddenNavBarItemsByMoreGroup[NavBarItemMoreGroup.HIDDEN_ITEM] ?? []),
-        {
-            path: AppRoutes.settings.childRoutes.categories.path,
-            title: 'category.title.category_other',
-            SelectedIconComponent: ListAltIcon,
-            IconComponent: ListAltIcon,
-            show: 'both',
-            moreGroup: NavBarItemMoreGroup.HIDDEN_ITEM,
-        },
-    ] satisfies NavbarItem[];
-
-    const finalHiddenNavBarItemsByGroup: typeof hiddenNavBarItemsByMoreGroup = {
-        ...hiddenNavBarItemsByMoreGroup,
-        [NavBarItemMoreGroup.HIDDEN_ITEM]: hiddenItemsMoreGroup,
-    };
-
     return (
         <List sx={{ p: 0 }}>
             {Object.entries(hiddenNavBarItemsByMoreGroup).map(([group, items], index, list) => (

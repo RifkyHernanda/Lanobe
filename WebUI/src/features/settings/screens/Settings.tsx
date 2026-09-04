@@ -6,26 +6,28 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import List from '@mui/material/List';
-import BackupIcon from '@mui/icons-material/Backup';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
-import { useTranslation } from 'react-i18next';
-import CollectionsOutlinedBookmarkIcon from '@mui/icons-material/CollectionsBookmarkOutlined';
-import GetAppOutlinedIcon from '@mui/icons-material/GetAppOutlined';
-import DnsIcon from '@mui/icons-material/Dns';
-import ExploreOutlinedIcon from '@mui/icons-material/ExploreOutlined';
-import DevicesIcon from '@mui/icons-material/Devices';
-import SyncIcon from '@mui/icons-material/Sync';
-import CloudSyncIcon from '@mui/icons-material/CloudSync';
 import PaletteIcon from '@mui/icons-material/Palette';
-import HistoryIcon from '@mui/icons-material/History';
-import ImageIcon from '@mui/icons-material/Image';
+import InfoIcon from '@mui/icons-material/Info';
+import { useTranslation } from 'react-i18next';
 import { ListItemLink } from '@/base/components/lists/ListItemLink.tsx';
 import { AppRoutes } from '@/base/AppRoute.constants.ts';
 import { useAppTitle } from '@/features/navigation-bar/hooks/useAppTitle.ts';
 
+/**
+ * Deliberately short.
+ *
+ * Upstream listed a dozen entries - reader, library, downloads, images, tracking,
+ * sync, backup, browse, history, device, server - all of which belonged to the
+ * manga/anime halves this fork removed. Linking to routes that no longer exist
+ * crashed the page on `.path` of undefined.
+ *
+ * Everything about reading itself (fonts, writing direction, furigana, dictionary
+ * import, Anki targets) lives in the reader's own settings modal, where it can be
+ * changed while looking at the page it affects.
+ */
 export function Settings() {
     const { t } = useTranslation();
 
@@ -39,72 +41,11 @@ export function Settings() {
                 </ListItemIcon>
                 <ListItemText primary={t('settings.appearance.title')} />
             </ListItemLink>
-            <ListItemLink to={AppRoutes.settings.childRoutes.reader.path}>
+            <ListItemLink to={AppRoutes.about.path}>
                 <ListItemIcon>
-                    <AutoStoriesIcon />
+                    <InfoIcon />
                 </ListItemIcon>
-                <ListItemText primary={t('reader.settings.title.reader')} />
-            </ListItemLink>
-            <ListItemLink to={AppRoutes.settings.childRoutes.library.path}>
-                <ListItemIcon>
-                    <CollectionsOutlinedBookmarkIcon />
-                </ListItemIcon>
-                <ListItemText primary={t('library.title')} />
-            </ListItemLink>
-            <ListItemLink to={AppRoutes.settings.childRoutes.download.path}>
-                <ListItemIcon>
-                    <GetAppOutlinedIcon />
-                </ListItemIcon>
-                <ListItemText primary={t('download.title.download')} />
-            </ListItemLink>
-            <ListItemLink to={AppRoutes.settings.childRoutes.images.path}>
-                <ListItemIcon>
-                    <ImageIcon />
-                </ListItemIcon>
-                <ListItemText primary={t('settings.images.title')} />
-            </ListItemLink>
-            <ListItemLink to={AppRoutes.settings.childRoutes.tracking.path}>
-                <ListItemIcon>
-                    <SyncIcon />
-                </ListItemIcon>
-                <ListItemText primary={t('tracking.title')} />
-            </ListItemLink>
-            <ListItemLink to={AppRoutes.settings.childRoutes.sync.path}>
-                <ListItemIcon>
-                    <CloudSyncIcon />
-                </ListItemIcon>
-                <ListItemText primary="Sync" />
-            </ListItemLink>
-            <ListItemLink to={AppRoutes.settings.childRoutes.backup.path}>
-                <ListItemIcon>
-                    <BackupIcon />
-                </ListItemIcon>
-                <ListItemText primary={t('settings.backup.title')} />
-            </ListItemLink>
-
-            <ListItemLink to={AppRoutes.settings.childRoutes.browse.path}>
-                <ListItemIcon>
-                    <ExploreOutlinedIcon />
-                </ListItemIcon>
-                <ListItemText primary={t('global.label.browse')} />
-            </ListItemLink>
-            <ListItemLink to={AppRoutes.settings.childRoutes.history.path}>
-                <ListItemIcon>
-                    <HistoryIcon />
-                </ListItemIcon>
-                <ListItemText primary={t('history.title')} />
-            </ListItemLink>
-            <ListItemLink to={AppRoutes.settings.childRoutes.device.path}>
-                <ListItemIcon>
-                    <DevicesIcon />
-                </ListItemIcon>
-                <ListItemText primary={t('settings.device.title.device')} />
-            </ListItemLink>
-            <ListItemLink to={AppRoutes.settings.childRoutes.server.path}>
-                <ListItemIcon>
-                    <DnsIcon />
-                </ListItemIcon>
-                <ListItemText primary={t('settings.server.title.server')} />
+                <ListItemText primary={t('settings.about.title')} />
             </ListItemLink>
         </List>
     );
