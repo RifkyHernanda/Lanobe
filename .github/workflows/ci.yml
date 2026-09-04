@@ -68,11 +68,56 @@ jobs:
           ALLOWED_HOSTS: ''
         run: npx vite build
 
+  # Loads the built app in a real browser and asserts it renders.
+  #
+  # Every other gate passed while the app showed a blank page: a circular import
+  # crashed React before mount, which no unit test, type check or bundler run can
+  # see. This is the only job that would have caught it.
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+          cache-dependency-path: WebUI/yarn.lock
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build WebUI
+        working-directory: WebUI
+        env:
+          PORT: 3000
+          ALLOWED_HOSTS: ''
+        run: |
+          yarn install --frozen-lockfile
+          npx vite build
+
+      - name: Embed WebUI and build server
+        run: |
+          rm -rf bin/lanobe/resources/webui
+          cp -r WebUI/build bin/lanobe/resources/webui
+          cargo build
+
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Smoke test
+        run: node scripts/smoke-test.mjs ./target/debug/lanobe
+
   # Publishing is gated on the checks above. Previously this lived in its own
   # workflow, so a commit that failed CI still published an image - which is how
   # 4054cd9 shipped despite a red build.
   publish:
-    needs: [rust, webui]
+    needs: [rust, webui, smoke]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:

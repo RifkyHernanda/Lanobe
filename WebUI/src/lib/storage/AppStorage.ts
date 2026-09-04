@@ -8,9 +8,18 @@
 
 import localforage from 'localforage';
 import { jsonSaveParse } from '@/lib/HelperFunctions.ts';
-import { requestManager } from '@/lib/requests/RequestManager.ts';
-import { HttpMethod } from '@/lib/requests/client/RestClient.ts';
+import { HttpMethod } from '@/lib/requests/client/HttpMethod.ts';
 import { LNMetadata, LNProgress, LNParsedBook, LnCategory, LnCategoryMetadata } from '@/features/ln/LN.types';
+
+/**
+ * Resolved on demand rather than imported at module scope.
+ *
+ * BaseClient reads AppStorage synchronously, so a static import of
+ * RequestManager here closes the cycle
+ * AppStorage -> RequestManager -> RestClient -> BaseClient -> AppStorage.
+ * Every call site below is already async, so deferring costs nothing.
+ */
+const getRequestManager = async () => (await import('@/lib/requests/RequestManager.ts')).requestManager;
 
 type StorageBackend = typeof window.localStorage | null;
 
@@ -159,7 +168,9 @@ class ServerStorage<T> {
 
     private async fetchFromServer<R = T>(key: string): Promise<R | null> {
         try {
-            const response = await requestManager.getClient().fetcher(`${this.endpoint}/${encodeURIComponent(key)}`);
+            const response = await (await getRequestManager())
+                .getClient()
+                .fetcher(`${this.endpoint}/${encodeURIComponent(key)}`);
             if (response.status === 404) return null;
             const data = await response.json();
 
@@ -173,7 +184,7 @@ class ServerStorage<T> {
 
     async setItem(key: string, value: T): Promise<T> {
         try {
-            await requestManager.getClient().fetcher(`${this.endpoint}/${encodeURIComponent(key)}`, {
+            await (await getRequestManager()).getClient().fetcher(`${this.endpoint}/${encodeURIComponent(key)}`, {
                 httpMethod: HttpMethod.POST,
                 data: this.wrapPayload(value),
             });
@@ -187,7 +198,7 @@ class ServerStorage<T> {
 
     async removeItem(key: string): Promise<void> {
         try {
-            await requestManager.getClient().fetcher(`${this.endpoint}/${encodeURIComponent(key)}`, {
+            await (await getRequestManager()).getClient().fetcher(`${this.endpoint}/${encodeURIComponent(key)}`, {
                 httpMethod: HttpMethod.DELETE,
             });
             this.memCache.delete(key);
@@ -199,7 +210,7 @@ class ServerStorage<T> {
 
     async keys(): Promise<string[]> {
         if (this.storeName === 'novel_metadata') {
-            const response = await requestManager.getClient().fetcher(this.endpoint);
+            const response = await (await getRequestManager()).getClient().fetcher(this.endpoint);
             const data = (await response.json()) as LNMetadata[];
             return data.map((m) => m.id);
         }
@@ -229,14 +240,14 @@ export class AppStorage {
         async setItem(key: string, file: File | Blob): Promise<void> {
             const formData = new FormData();
             formData.append('file', file);
-            await requestManager.getClient().fetcher(`/api/novel/upload/${encodeURIComponent(key)}`, {
+            await (await getRequestManager()).getClient().fetcher(`/api/novel/upload/${encodeURIComponent(key)}`, {
                 httpMethod: HttpMethod.POST,
                 data: formData,
             });
         },
         async getItem(key: string): Promise<Blob | null> {
             try {
-                const response = await requestManager
+                const response = await (await getRequestManager())
                     .getClient()
                     .fetcher(`/api/novel/file/${encodeURIComponent(key)}`, {
                         checkResponseIsJson: false,
@@ -249,7 +260,7 @@ export class AppStorage {
         },
         async discoverPendingEpubs(): Promise<LNDiscoveredEpub[]> {
             try {
-                const response = await requestManager.getClient().fetcher('/api/novel/discover');
+                const response = await (await getRequestManager()).getClient().fetcher('/api/novel/discover');
                 if (response.status === 404) return [];
                 return (await response.json()) as LNDiscoveredEpub[];
             } catch (e) {
@@ -270,7 +281,7 @@ export class AppStorage {
     static readonly lnContent = {
         async getItem(key: string): Promise<LNParsedBook | null> {
             try {
-                const response = await requestManager
+                const response = await (await getRequestManager())
                     .getClient()
                     .fetcher(`/api/novel/content/${encodeURIComponent(key)}`);
                 if (response.status === 404) return null;
@@ -300,7 +311,7 @@ export class AppStorage {
                 imageBlobs[path] = await base64Promise;
             }
 
-            await requestManager.getClient().fetcher(`/api/novel/content/${encodeURIComponent(key)}`, {
+            await (await getRequestManager()).getClient().fetcher(`/api/novel/content/${encodeURIComponent(key)}`, {
                 httpMethod: HttpMethod.POST,
                 data: { ...content, imageBlobs },
             });
@@ -400,7 +411,7 @@ export class AppStorage {
 
     static async getAllLnMetadata(): Promise<LNMetadata[]> {
         try {
-            const response = await requestManager.getClient().fetcher('/api/novel/metadata');
+            const response = await (await getRequestManager()).getClient().fetcher('/api/novel/metadata');
             const data = (await response.json()) as LNMetadata[];
             // Instant library mirror update
             localStorage.setItem('manatan_novel_metadata_list', JSON.stringify(data));
@@ -429,7 +440,7 @@ export class AppStorage {
     // ========================================================================
 
     static async deleteLnData(bookId: string): Promise<void> {
-        await requestManager.getClient().fetcher(`/api/novel/metadata/${encodeURIComponent(bookId)}`, {
+        await (await getRequestManager()).getClient().fetcher(`/api/novel/metadata/${encodeURIComponent(bookId)}`, {
             httpMethod: HttpMethod.DELETE,
         });
         console.log('[AppStorage] All data deleted for:', bookId);
@@ -631,7 +642,7 @@ export class AppStorage {
 
     static async getLnCategories(): Promise<LnCategory[]> {
         try {
-            const response = await requestManager.getClient().fetcher('/api/novel/categories');
+            const response = await (await getRequestManager()).getClient().fetcher('/api/novel/categories');
             return await response.json();
         } catch (e) {
             return [];
@@ -658,7 +669,7 @@ export class AppStorage {
             lastModified: Date.now(),
         };
 
-        await requestManager.getClient().fetcher('/api/novel/categories', {
+        await (await getRequestManager()).getClient().fetcher('/api/novel/categories', {
             httpMethod: HttpMethod.POST,
             data: newCategory,
         });
@@ -692,7 +703,7 @@ export class AppStorage {
 
     static async getAllLnCategoryMetadata(): Promise<Record<string, LnCategoryMetadata>> {
         try {
-            const response = await requestManager.getClient().fetcher('/api/novel/categories/metadata');
+            const response = await (await getRequestManager()).getClient().fetcher('/api/novel/categories/metadata');
             return await response.json();
         } catch (e) {
             return {};

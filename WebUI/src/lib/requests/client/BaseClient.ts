@@ -9,9 +9,32 @@
 import { AppStorage } from '@/lib/storage/AppStorage.ts';
 import { UserRefreshMutation } from '@/lib/requests/types.ts';
 import { AuthManager } from '@/features/authentication/AuthManager.ts';
-import { AbortableApolloMutationResponse } from '@/lib/requests/RequestManager.ts';
 import { SubpathUtil } from '@/lib/utils/SubpathUtil.ts';
 import { ControlledPromise } from '@/lib/ControlledPromise.ts';
+
+/**
+ * Shape of the token-refresh callback's return value.
+ *
+ * Defined here rather than imported from RequestManager: that import was not
+ * marked `import type` and the symbol no longer exists there, so the bundler kept
+ * a runtime edge RestClient -> RequestManager -> `new RestClient()`, evaluating
+ * the RestClient class while it was still initialising. The result was
+ * "Cannot access '...' before initialization" and a blank page.
+ */
+/**
+ * Endpoints that must never be queued behind authentication.
+ *
+ * Requests are held until auth is initialised, but auth is initialised *by* the
+ * session probe - so queueing the probe deadlocks the app on its splash screen
+ * forever. This list previously named Suwayomi's /api/v1/about, which no longer
+ * exists, which is exactly how that deadlock reappeared.
+ */
+const UNQUEUEABLE_ENDPOINTS = ['/api/app/session', '/api/app/login', '/api/system/version'];
+
+export type AbortableRequest<T> = {
+    response: Promise<{ data?: T | null }>;
+    abortRequest: (reason?: any) => void;
+};
 
 interface QueuedRequest {
     execute: () => void;
@@ -42,7 +65,7 @@ export abstract class BaseClient<Client, ClientConfig, Fetcher> {
     }
 
     protected static async refreshAccessToken(
-        refreshFn: (refreshToken: string) => AbortableApolloMutationResponse<UserRefreshMutation>,
+        refreshFn: (refreshToken: string) => AbortableRequest<UserRefreshMutation>,
     ): Promise<UserRefreshMutation | null | undefined> {
         const refreshToken = AuthManager.getRefreshToken();
 
@@ -87,7 +110,7 @@ export abstract class BaseClient<Client, ClientConfig, Fetcher> {
     }
 
     protected constructor(
-        protected handleRefreshToken: (refreshToken: string) => AbortableApolloMutationResponse<UserRefreshMutation>,
+        protected handleRefreshToken: (refreshToken: string) => AbortableRequest<UserRefreshMutation>,
     ) {}
 
     public getBaseUrl(): string {
@@ -105,7 +128,7 @@ export abstract class BaseClient<Client, ClientConfig, Fetcher> {
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     protected shouldQueueRequest(operationName?: string): boolean {
-        if (operationName?.includes('/api/v1/about')) {
+        if (UNQUEUEABLE_ENDPOINTS.some((endpoint) => operationName?.includes(endpoint))) {
             return false;
         }
         const shouldQueue = AuthManager.shouldQueueRequests();

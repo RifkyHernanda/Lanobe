@@ -195,3 +195,6 @@ ocr-test-data
 # Embedded WebUI build output (produced by `make webui`).
 # build.rs recreates the directory so a bare `cargo build` still works.
 bin/lanobe/resources/webui/
+
+# Playwright installed on demand by the smoke test
+/node_modules/

@@ -6,19 +6,13 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
-import { BaseClient } from '@/lib/requests/client/BaseClient.ts';
+import { BaseClient, type AbortableRequest } from '@/lib/requests/client/BaseClient.ts';
+import { HttpMethod } from '@/lib/requests/client/HttpMethod.ts';
 import { AuthManager } from '@/features/authentication/AuthManager.ts';
 import { UserRefreshMutation } from '@/lib/requests/types.ts';
-import { AbortableApolloMutationResponse } from '@/lib/requests/RequestManager.ts';
 import { makeToast } from '@/base/utils/Toast.ts';
 
-export enum HttpMethod {
-    GET = 'GET',
-    POST = 'POST',
-    PUT = 'PUT',
-    PATCH = 'PATCH',
-    DELETE = 'DELETE',
-}
+export { HttpMethod } from '@/lib/requests/client/HttpMethod.ts';
 
 export interface IRestClient {
     fetcher(
@@ -131,7 +125,7 @@ export class RestClient
             return result;
         }, `${httpMethod} ${url}`);
 
-    constructor(handleRefreshToken: (refreshToken: string) => AbortableApolloMutationResponse<UserRefreshMutation>) {
+    constructor(handleRefreshToken: (refreshToken: string) => AbortableRequest<UserRefreshMutation>) {
         super(handleRefreshToken);
 
         this.createClient();
