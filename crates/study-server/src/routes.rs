@@ -15,8 +15,9 @@ use serde_json::json;
 use crate::{
     state::StudyState,
     store::{
-        self, KanjiSort, ListQuery, NewTerm, Status, TermSort, delete_term, highlight_index,
-        index_version, list_kanji, list_terms, save_term, set_kanji_status, set_term_status, stats,
+        self, KanjiSort, ListQuery, NewTerm, Status, TermSort, bulk_delete_terms,
+        bulk_set_kanji_status, bulk_set_term_status, delete_term, highlight_index, index_version,
+        list_kanji, list_terms, save_term, set_kanji_status, set_term_status, stats,
     },
 };
 
@@ -148,6 +149,66 @@ async fn remove_term(
     Ok(Json(json!({ "ok": true, "indexVersion": version })))
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BulkTermsBody {
+    ids: Vec<i64>,
+    /// "status" or "delete".
+    action: String,
+    status: Option<String>,
+}
+
+async fn bulk_terms(
+    State(state): State<StudyState>,
+    Json(body): Json<BulkTermsBody>,
+) -> ApiResult<Json<serde_json::Value>> {
+    // Bounded so one request cannot pin the write lock for an unbounded time.
+    if body.ids.len() > 1000 {
+        return Err(bad_request("at most 1000 ids per request"));
+    }
+
+    let mut conn = state.conn();
+    let affected = match body.action.as_str() {
+        "delete" => bulk_delete_terms(&mut conn, &body.ids).map_err(db_error)?,
+        "status" => {
+            let raw = body.status.as_deref().unwrap_or_default();
+            let status = Status::parse(raw).ok_or_else(|| bad_request("unknown status"))?;
+            bulk_set_term_status(&mut conn, &body.ids, status).map_err(db_error)?
+        }
+        _ => return Err(bad_request("action must be 'status' or 'delete'")),
+    };
+
+    let version = index_version(&conn).map_err(db_error)?;
+    Ok(Json(
+        json!({ "affected": affected, "indexVersion": version }),
+    ))
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BulkKanjiBody {
+    chars: Vec<String>,
+    status: String,
+}
+
+async fn bulk_kanji(
+    State(state): State<StudyState>,
+    Json(body): Json<BulkKanjiBody>,
+) -> ApiResult<Json<serde_json::Value>> {
+    if body.chars.len() > 1000 {
+        return Err(bad_request("at most 1000 characters per request"));
+    }
+    let status = Status::parse(&body.status).ok_or_else(|| bad_request("unknown status"))?;
+
+    let mut conn = state.conn();
+    let affected = bulk_set_kanji_status(&mut conn, &body.chars, status).map_err(db_error)?;
+    let version = index_version(&conn).map_err(db_error)?;
+
+    Ok(Json(
+        json!({ "affected": affected, "indexVersion": version }),
+    ))
+}
+
 async fn get_kanji(
     State(state): State<StudyState>,
     Query(params): Query<ListParams>,
@@ -247,8 +308,10 @@ pub fn router(state: StudyState) -> axum::Router {
         .route("/terms", post(create_term).get(get_terms))
         .route("/terms/{id}", patch(patch_term))
         .route("/terms/{id}", delete(remove_term))
+        .route("/terms/bulk", post(bulk_terms))
         .route("/kanji", get(get_kanji))
         .route("/kanji", patch(patch_kanji))
+        .route("/kanji/bulk", post(bulk_kanji))
         .route("/highlight-index", get(get_highlight_index))
         .route("/stats", get(get_stats))
         .with_state(state)

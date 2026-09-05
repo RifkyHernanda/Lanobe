@@ -13,8 +13,9 @@ mod store;
 pub use kanji::extract_kanji;
 pub use state::StudyState;
 pub use store::{
-    HighlightBuckets, HighlightIndex, NewTerm, SavedTerm, Status, delete_term, highlight_index,
-    index_version, save_term, set_kanji_status, set_term_status,
+    HighlightBuckets, HighlightIndex, NewTerm, SavedTerm, Status, bulk_delete_terms,
+    bulk_set_kanji_status, bulk_set_term_status, delete_term, highlight_index, index_version,
+    save_term, set_kanji_status, set_term_status,
 };
 
 pub fn build_state(data_dir: &Path) -> anyhow::Result<StudyState> {
@@ -29,7 +30,8 @@ pub fn create_router(state: StudyState) -> Router {
 mod tests {
     use super::*;
     use crate::store::{
-        delete_term, highlight_index, index_version, save_term, set_kanji_status, set_term_status,
+        bulk_delete_terms, bulk_set_kanji_status, bulk_set_term_status, delete_term,
+        highlight_index, index_version, save_term, set_kanji_status, set_term_status,
     };
     use std::{
         path::PathBuf,
@@ -339,6 +341,89 @@ mod tests {
             assert!(!set_kanji_status(&mut conn, "猫", Status::Known).unwrap());
 
             assert_eq!(index_version(&conn).unwrap(), before);
+        });
+    }
+
+    #[test]
+    fn a_bulk_status_change_bumps_the_version_once_not_per_row() {
+        with_state("bulk-version", |state| {
+            let mut conn = state.conn();
+            let ids: Vec<i64> = ["学校", "学生", "先生", "時間"]
+                .iter()
+                .map(|t| save_term(&mut conn, &term(t, "")).unwrap().0)
+                .collect();
+
+            let before = index_version(&conn).unwrap();
+            let affected = bulk_set_term_status(&mut conn, &ids, Status::Known).unwrap();
+
+            assert_eq!(affected, 4);
+            // One user action, one invalidation. Bumping per row would make every
+            // client refetch the highlight index four times over.
+            assert_eq!(index_version(&conn).unwrap(), before + 1);
+
+            let index = highlight_index(&conn).unwrap();
+            assert!(index.terms.unknown.is_empty());
+        });
+    }
+
+    #[test]
+    fn a_bulk_delete_prunes_orphans_but_keeps_shared_kanji() {
+        with_state("bulk-delete", |state| {
+            let mut conn = state.conn();
+            // 学 is in both deleted terms and in the survivor; 校 and 生 are not.
+            let a = save_term(&mut conn, &term("学校", "がっこう")).unwrap().0;
+            let b = save_term(&mut conn, &term("学生", "がくせい")).unwrap().0;
+            save_term(&mut conn, &term("大学", "だいがく")).unwrap();
+
+            let before = index_version(&conn).unwrap();
+            assert_eq!(bulk_delete_terms(&mut conn, &[a, b]).unwrap(), 2);
+            assert_eq!(index_version(&conn).unwrap(), before + 1);
+
+            let kanji = highlight_index(&conn).unwrap().kanji.unknown;
+            assert!(kanji.contains('学'), "shared with 大学, must survive");
+            assert!(kanji.contains('大'));
+            assert!(!kanji.contains('校'));
+            assert!(!kanji.contains('生'));
+        });
+    }
+
+    #[test]
+    fn an_empty_bulk_request_changes_nothing() {
+        with_state("bulk-empty", |state| {
+            let mut conn = state.conn();
+            save_term(&mut conn, &term("世界", "せかい")).unwrap();
+            let before = index_version(&conn).unwrap();
+
+            assert_eq!(
+                bulk_set_term_status(&mut conn, &[], Status::Known).unwrap(),
+                0
+            );
+            assert_eq!(bulk_delete_terms(&mut conn, &[]).unwrap(), 0);
+            assert_eq!(
+                bulk_set_kanji_status(&mut conn, &[], Status::Known).unwrap(),
+                0
+            );
+
+            assert_eq!(index_version(&conn).unwrap(), before);
+        });
+    }
+
+    #[test]
+    fn bulk_kanji_status_moves_only_the_named_characters() {
+        with_state("bulk-kanji", |state| {
+            let mut conn = state.conn();
+            save_term(&mut conn, &term("図書館", "としょかん")).unwrap();
+
+            let affected = bulk_set_kanji_status(
+                &mut conn,
+                &["図".to_string(), "書".to_string()],
+                Status::Known,
+            )
+            .unwrap();
+            assert_eq!(affected, 2);
+
+            let index = highlight_index(&conn).unwrap();
+            assert_eq!(index.kanji.unknown, "館", "the two marked known drop out");
         });
     }
 

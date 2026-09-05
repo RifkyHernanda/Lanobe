@@ -90,6 +90,27 @@ export const studyApi = {
     },
 
     /**
+     * One request for the whole selection, not one per row: the server bumps the
+     * highlight-index version once per call, so a per-row loop would invalidate
+     * every open reader's cached index N times for a single user action.
+     */
+    async bulkTerms(
+        ids: number[],
+        action: 'status' | 'delete',
+        status?: StudyStatus,
+    ): Promise<{ affected: number; indexVersion: number }> {
+        const client = await getClient();
+        const response = await client.post('/api/study/terms/bulk', { ids, action, status });
+        return response.json();
+    },
+
+    async bulkKanji(chars: string[], status: StudyStatus): Promise<{ affected: number; indexVersion: number }> {
+        const client = await getClient();
+        const response = await client.post('/api/study/kanji/bulk', { chars, status });
+        return response.json();
+    },
+
+    /**
      * Revalidates with `If-None-Match`. Returns `null` when the server answers
      * 304, meaning the caller's cached copy is still current.
      */

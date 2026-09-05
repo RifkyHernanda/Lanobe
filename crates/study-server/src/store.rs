@@ -232,6 +232,93 @@ pub fn set_kanji_status(conn: &mut Connection, ch: &str, status: Status) -> rusq
     Ok(changed > 0)
 }
 
+/// Removes kanji no term references any more. Call inside the deleting
+/// transaction; a kanji shared with a surviving term must stay indexed.
+fn prune_orphaned_kanji(tx: &Transaction<'_>) -> rusqlite::Result<()> {
+    tx.execute(
+        "DELETE FROM saved_kanji WHERE char NOT IN (SELECT char FROM term_kanji)",
+        [],
+    )?;
+    Ok(())
+}
+
+/// Bulk status change. One transaction and **one** version bump for the whole
+/// batch — bumping per row would invalidate every client's cached highlight
+/// index N times for a single user action.
+pub fn bulk_set_term_status(
+    conn: &mut Connection,
+    ids: &[i64],
+    status: Status,
+) -> rusqlite::Result<usize> {
+    if ids.is_empty() {
+        return Ok(0);
+    }
+
+    let tx = conn.transaction()?;
+    let timestamp = now();
+    let mut affected = 0;
+    {
+        let mut stmt =
+            tx.prepare("UPDATE saved_term SET status = ?1, updated_at = ?2 WHERE id = ?3")?;
+        for id in ids {
+            affected += stmt.execute(params![status.as_str(), timestamp, id])?;
+        }
+    }
+
+    if affected > 0 {
+        bump_index_version(&tx)?;
+    }
+    tx.commit()?;
+    Ok(affected)
+}
+
+pub fn bulk_delete_terms(conn: &mut Connection, ids: &[i64]) -> rusqlite::Result<usize> {
+    if ids.is_empty() {
+        return Ok(0);
+    }
+
+    let tx = conn.transaction()?;
+    let mut affected = 0;
+    {
+        let mut stmt = tx.prepare("DELETE FROM saved_term WHERE id = ?1")?;
+        for id in ids {
+            affected += stmt.execute(params![id])?;
+        }
+    }
+
+    if affected > 0 {
+        prune_orphaned_kanji(&tx)?;
+        bump_index_version(&tx)?;
+    }
+    tx.commit()?;
+    Ok(affected)
+}
+
+pub fn bulk_set_kanji_status(
+    conn: &mut Connection,
+    chars: &[String],
+    status: Status,
+) -> rusqlite::Result<usize> {
+    if chars.is_empty() {
+        return Ok(0);
+    }
+
+    let tx = conn.transaction()?;
+    let mut affected = 0;
+    {
+        let mut stmt = tx.prepare("UPDATE saved_kanji SET status = ?1 WHERE char = ?2")?;
+        for ch in chars {
+            affected += stmt.execute(params![status.as_str(), ch])?;
+        }
+    }
+
+    if affected > 0 {
+        bump_index_version(&tx)?;
+    }
+    tx.commit()?;
+    Ok(affected)
+}
+
 /// Deletes a term and any kanji it was the last term to reference.
 pub fn delete_term(conn: &mut Connection, id: i64) -> rusqlite::Result<bool> {
     let tx = conn.transaction()?;
@@ -239,13 +326,7 @@ pub fn delete_term(conn: &mut Connection, id: i64) -> rusqlite::Result<bool> {
     let changed = tx.execute("DELETE FROM saved_term WHERE id = ?1", params![id])?;
 
     if changed > 0 {
-        // A kanji shared with a surviving term must stay indexed; only ones left
-        // with no referencing term are removed.
-        tx.execute(
-            "DELETE FROM saved_kanji
-             WHERE char NOT IN (SELECT char FROM term_kanji)",
-            [],
-        )?;
+        prune_orphaned_kanji(&tx)?;
         bump_index_version(&tx)?;
     }
     tx.commit()?;
