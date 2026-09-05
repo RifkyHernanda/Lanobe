@@ -14,7 +14,8 @@ services:
     image: ghcr.io/rifkyhernanda/lanobe:latest
     restart: unless-stopped
     ports:
-      - "4567:4567"
+      # Container always listens on 4567; change only the host side (left).
+      - "5678:4567"
     volumes:
       - ./data:/data
     environment:
