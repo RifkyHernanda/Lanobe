@@ -9,7 +9,7 @@
 import { useTheme } from '@mui/material/styles';
 import Stack, { StackProps } from '@mui/material/Stack';
 import { ComponentProps } from 'react';
-import { SuwayomiLogo } from '@/assets/SuwayomiLogo.tsx';
+import { LanobeLogo } from '@/assets/LanobeLogo.tsx';
 import { ServerAddressSetting } from '@/features/settings/components/ServerAddressSetting.tsx';
 
 import { ThemeMode } from '@/features/theme/AppTheme.types.ts';
@@ -19,7 +19,7 @@ export const SplashScreen = ({
 }: {
     slots?: {
         stackProps?: StackProps;
-        logoProps?: ComponentProps<typeof SuwayomiLogo>;
+        logoProps?: ComponentProps<typeof LanobeLogo>;
         serverAddressProps?: StackProps;
     };
 }) => {
@@ -41,7 +41,7 @@ export const SplashScreen = ({
                 ...slots?.stackProps?.sx,
             }}
         >
-            <SuwayomiLogo
+            <LanobeLogo
                 circleRingColor={
                     theme.palette.mode === ThemeMode.DARK ? theme.palette.primary.light : theme.palette.primary.dark
                 }

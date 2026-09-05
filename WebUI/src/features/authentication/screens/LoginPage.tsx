@@ -46,7 +46,7 @@ export const LoginPage = () => {
                 navigate(redirect ?? AppRoutes.root.path);
             }
         } catch (e) {
-            makeToast(t('tracking.action.login.label.failure', { name: 'Suwayomi' }), 'error', getErrorMessage(e));
+            makeToast(t('tracking.action.login.label.failure', { name: 'Lanobe' }), 'error', getErrorMessage(e));
         }
     };
 

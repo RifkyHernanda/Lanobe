@@ -1,6 +1,6 @@
 {
-  "name": "Manatan",
-  "short_name": "Manatan",
+  "name": "Lanobe",
+  "short_name": "Lanobe",
   "start_url": ".",
   "icons": [
     {
@@ -21,7 +21,7 @@
       "purpose": "maskable"
     }
   ],
-  "theme_color": "#3181C0",
-  "background_color": "#3181C0",
+  "theme_color": "#d9a441",
+  "background_color": "#1a1a1d",
   "display": "standalone"
 }
