@@ -9,6 +9,7 @@ import { BookStats, AppStorage, LNHighlight } from '@/lib/storage/AppStorage';
 
 interface VirtualReaderProps {
     bookId: string;
+    bookTitle?: string;
     items: string[];
     stats: BookStats | null;
     settings: Settings;
@@ -77,6 +78,7 @@ interface SharedPosition {
 
 export const VirtualReader: React.FC<VirtualReaderProps> = ({
     bookId,
+    bookTitle,
     items,
     stats,
     settings,
@@ -304,6 +306,7 @@ export const VirtualReader: React.FC<VirtualReaderProps> = ({
     const readerContent = useMemo(() => {
         const commonProps = {
             bookId,
+            bookTitle,
             chapters: chaptersWithHighlights,
             stats,
             settings,
@@ -334,6 +337,7 @@ export const VirtualReader: React.FC<VirtualReaderProps> = ({
         return <ContinuousReader key={`continuous-${readerKey}`} {...commonProps} />;
     }, [
         activeProgress,
+        bookTitle,
         bookId,
         chapterFilenames,
         chaptersWithHighlights,

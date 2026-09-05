@@ -162,7 +162,12 @@ const getBlockById = (blockId: string): Element | null => {
     return null;
 };
 
-export function useTextLookup() {
+/**
+ * @param source Which book and chapter the tap came from. Carried into the popup
+ *   so saving a word can record where it was met -- the sentence alone is not
+ *   enough to find it again. Optional so non-reader callers still work.
+ */
+export function useTextLookup(source?: { bookId?: string; bookTitle?: string; chapterIndex?: number }) {
     const { settings, setDictPopup } = useOCR();
 
     const getCharacterAtPoint = useCallback(
@@ -227,7 +232,10 @@ export function useTextLookup() {
     );
 
     const getSentenceContext = useCallback(
-        (targetNode: Node, targetOffset: number): { sentence: string; byteOffset: number } | null => {
+        (
+            targetNode: Node,
+            targetOffset: number,
+        ): { sentence: string; byteOffset: number; charOffset: number } | null => {
             // Find block-level ancestor
             let contextElement: Element | null = targetNode.parentElement;
             while (contextElement?.parentElement && !BLOCK_TAGS.has(contextElement.tagName)) {
@@ -239,6 +247,7 @@ export function useTextLookup() {
                 return {
                     sentence: text,
                     byteOffset: textEncoder.encode(text.substring(0, targetOffset)).length,
+                    charOffset: targetOffset,
                 };
             }
 
@@ -267,6 +276,7 @@ export function useTextLookup() {
                 return {
                     sentence: fullText,
                     byteOffset: textEncoder.encode(fullText.substring(0, targetOffset)).length,
+                    charOffset: targetOffset,
                 };
             }
 
@@ -300,9 +310,15 @@ export function useTextLookup() {
             const sentence = sentenceRaw.trim();
             const posInSentence = clickPosition - start - (trimStart > 0 ? trimStart : 0);
 
+            const charOffset = Math.max(0, posInSentence);
+
             return {
                 sentence,
-                byteOffset: textEncoder.encode(sentence.substring(0, Math.max(0, posInSentence))).length,
+                // The lookup endpoint indexes by byte; saving a term records the
+                // character offset. Both are returned so no caller has to guess
+                // which one it is holding.
+                byteOffset: textEncoder.encode(sentence.substring(0, charOffset)).length,
+                charOffset,
             };
         },
         [],
@@ -343,7 +359,7 @@ export function useTextLookup() {
             const sentenceContext = getSentenceContext(charInfo.node, lookupOffset);
             if (!sentenceContext?.sentence.trim()) return false;
 
-            const { sentence, byteOffset } = sentenceContext;
+            const { sentence, byteOffset, charOffset } = sentenceContext;
 
             // Use actual text position for popup, not click coordinates
             const popupX = charInfo.rect.left + charInfo.rect.width / 2;
@@ -370,7 +386,16 @@ export function useTextLookup() {
                     ],
                     source: { kind: 'ln' },
                 },
-                context: { sentence },
+                context: {
+                    sentence,
+                    sentenceOffset: charOffset,
+                    source: {
+                        kind: 'ln',
+                        bookId: source?.bookId,
+                        bookTitle: source?.bookTitle,
+                        chapterIndex: source?.chapterIndex,
+                    },
+                },
             });
 
             const results = await lookupYomitan(
@@ -510,6 +535,11 @@ export function useTextLookup() {
             getCharacterAtPoint,
             getSentenceContext,
             setDictPopup,
+            // Destructured rather than depending on the object, which callers
+            // build inline and would otherwise rebuild tryLookup on every render.
+            source?.bookId,
+            source?.bookTitle,
+            source?.chapterIndex,
         ],
     );
 

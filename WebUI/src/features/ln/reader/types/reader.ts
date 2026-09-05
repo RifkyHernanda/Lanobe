@@ -5,6 +5,8 @@ import { BookStats, LNHighlight } from '@/lib/storage/AppStorage';
 
 export interface BaseReaderProps {
     bookId: string;
+    /** Recorded alongside a saved word so the Saved screen can name the book. */
+    bookTitle?: string;
     chapters: string[];
     stats: BookStats | null;
     settings: Settings;

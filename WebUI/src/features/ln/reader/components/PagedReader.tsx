@@ -148,6 +148,7 @@ const IMAGE_RETRY_LIMIT = 3;
 
 export const PagedReader: React.FC<PagedReaderProps> = ({
     bookId,
+    bookTitle,
     chapters,
     stats,
     settings,
@@ -290,7 +291,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
         ],
     );
 
-    const { tryLookup } = useTextLookup();
+    const { tryLookup } = useTextLookup({ bookId, bookTitle, chapterIndex: currentSection });
 
     const handleContentErrorCapture = useCallback(
         (e: React.SyntheticEvent) => {

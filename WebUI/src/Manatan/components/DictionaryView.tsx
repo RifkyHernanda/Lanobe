@@ -43,6 +43,7 @@ import { DictionaryResult, WordAudioSource, WordAudioSourceSelection } from '@/M
 import { PronunciationSection, extractPronunciationData } from '@/Manatan/components/Pronunciation';
 import { PopupTheme } from '@/features/ln/reader/utils/themes';
 import { CropperModal } from '@/Manatan/components/CropperModal';
+import { SaveTermButton } from '@/features/study/components/SaveTermButton.tsx';
 
 export const StructuredContent: React.FC<{
     contentString: string;
@@ -1737,6 +1738,10 @@ export const DictionaryView: React.FC<DictionaryViewProps> = ({
                                     renderAnkiButtons(entry)
                                 ) : (
                                     <>
+                                        <SaveTermButton
+                                            entry={entry}
+                                            accentColor={popupTheme ? popupTheme.accent : '#7cc8ff'}
+                                        />
                                         {settings.ankiConnectEnabled && (
                                             <AnkiButtons
                                                 entry={entry}

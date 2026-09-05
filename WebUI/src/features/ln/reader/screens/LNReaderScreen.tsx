@@ -565,6 +565,7 @@ export const LNReaderScreen: React.FC = () => {
         >
             <VirtualReader
                 bookId={id!}
+                bookTitle={content.metadata.title}
                 items={content.chapters}
                 stats={content.stats}
                 chapterFilenames={content.chapterFilenames || []}

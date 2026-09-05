@@ -261,9 +261,17 @@ export interface DictPopupContext {
     imgSrc?: string;
     spreadData?: { leftSrc: string; rightSrc: string };
     sentence: string;
+    /**
+     * Character offset of the tapped word within `sentence`. Characters, not
+     * bytes: the lookup request sends a byte offset, and mixing the two slices
+     * a sentence in the middle of a multi-byte character.
+     */
+    sentenceOffset?: number;
     source?: {
         kind: 'manga' | 'ln';
         bookId?: string;
+        /** Denormalised so saving a word needs no second request for it. */
+        bookTitle?: string;
         chapterIndex?: number;
     };
 }

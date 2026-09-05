@@ -47,6 +47,7 @@ type RestorationState =
 
 export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
     bookId,
+    bookTitle,
     chapters,
     stats,
     settings,
@@ -83,8 +84,6 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
         chapters,
         preloadCount: 3,
     });
-
-    const { tryLookup } = useTextLookup();
 
     const theme = useMemo(() => getReaderTheme(settings.lnTheme), [settings.lnTheme]);
 
@@ -165,6 +164,11 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
     // ========================================================================
 
     const [currentChapter, setCurrentChapter] = useState(targetChapter);
+
+    // Must sit below currentChapter, not up with the other hooks: reading a
+    // `const` before its declaration is a temporal dead zone error, and this
+    // codebase has been blanked by that twice already.
+    const { tryLookup } = useTextLookup({ bookId, bookTitle, chapterIndex: currentChapter });
     const [scrollProgress, setScrollProgress] = useState(0);
     const [contentLoaded, setContentLoaded] = useState(false);
     const [currentProgress, setCurrentProgress] = useState(initialProgress?.totalProgress || 0);
