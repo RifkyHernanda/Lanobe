@@ -14,7 +14,7 @@ use std::{
 use anyhow::anyhow;
 use axum::{
     Router,
-    http::{HeaderMap, Method, StatusCode, Uri, header},
+    http::{HeaderMap, HeaderValue, Method, StatusCode, Uri, header},
     response::IntoResponse,
     routing::any,
 };
@@ -22,7 +22,14 @@ use clap::{Parser, Subcommand};
 use directories::ProjectDirs;
 use rust_embed::RustEmbed;
 use serde::Serialize;
-use tower_http::cors::{AllowOrigin, CorsLayer};
+use tower_http::{
+    compression::{
+        CompressionLayer,
+        predicate::{DefaultPredicate, NotForContentType, Predicate},
+    },
+    cors::{AllowOrigin, CorsLayer},
+    set_header::SetResponseHeaderLayer,
+};
 use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 
@@ -190,6 +197,40 @@ async fn run_server(
         ])
         .allow_headers([header::AUTHORIZATION, header::CONTENT_TYPE, header::ACCEPT]);
 
+    // Nothing was compressed before this. Dictionary lookups are 5-34 KB of JSON
+    // that gzip to under 3 KB, and the app bundle is 897 KB that gzips to 280 KB.
+    //
+    // The octet-stream exclusion is the important one: `get_epub` returns a bare
+    // Vec<u8>, which axum types as application/octet-stream, and an EPUB is a zip
+    // container that is already deflated. DefaultPredicate would happily spend CPU
+    // recompressing many MB of it for no gain. Fonts (woff2 is brotli inside) and
+    // audio/video are excluded for the same reason.
+    let compression = CompressionLayer::new().gzip(true).compress_when(
+        DefaultPredicate::new()
+            .and(NotForContentType::const_new("application/octet-stream"))
+            .and(NotForContentType::const_new("application/zip"))
+            .and(NotForContentType::const_new("application/epub+zip"))
+            .and(NotForContentType::const_new("font/"))
+            .and(NotForContentType::const_new("audio/"))
+            .and(NotForContentType::const_new("video/")),
+    );
+
+    // CompressionLayer sets `vary: accept-encoding` only on responses it actually
+    // compressed -- verified: the EPUB and 304s come back without it. Those are
+    // exactly the responses a shared cache could then hand to a client with a
+    // different Accept-Encoding, so tag every response here instead.
+    //
+    // Appending, not overriding: CORS already emits `vary: origin, ...` and
+    // clobbering that would let a cache serve one origin's response to another.
+    // `if_not_present` would be wrong for the same reason -- Vary is already set,
+    // so it would never fire. The cost is a duplicated `accept-encoding` on
+    // compressed responses, which is harmless: HTTP folds repeated Vary lines into
+    // one list and a repeated entry is a no-op.
+    let vary_accept_encoding = SetResponseHeaderLayer::appending(
+        header::VARY,
+        HeaderValue::from_static("accept-encoding"),
+    );
+
     let app = Router::new()
         .merge(protected)
         .nest("/api/app", app_router)
@@ -199,6 +240,12 @@ async fn run_server(
         // missing endpoint into a confusing JSON parse error on the client.
         .route("/api/{*rest}", any(unknown_api_route))
         .fallback(serve_frontend)
+        // Layers apply outermost-last, so this reads inside-out: compression wraps
+        // the routes (including the SPA fallback, which is what makes the bundle
+        // compressible), and CORS stays outermost so it can short-circuit OPTIONS
+        // preflights without them ever entering the compressor.
+        .layer(compression)
+        .layer(vary_accept_encoding)
         .layer(cors);
 
     let listener = tokio::net::TcpListener::bind(format!("{host}:{port}"))
