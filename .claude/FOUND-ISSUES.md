@@ -20,6 +20,7 @@ guesses.** When one is fixed, move it to *Fixed* with the commit that did it.
 | 10 | `rustfmt.toml` sets nightly-only options | low | open |
 | 11 | `yomitan-server` pins its own `tower-http` | low | open |
 | 12 | 8 deinflector tests fail upstream too | known | `#[ignore]`d |
+| 13 | `yarn test` printed a joke and ran nothing | medium | **fixed** |
 
 ---
 
@@ -181,3 +182,4 @@ quality.
 | #8 `ci.yml` pointed at a non-existent `rust-toolchain.toml` | S2 |
 | Re-saving a term erased the book, chapter and glossary captured the first time | S2 (found by running the endpoint; now tested both ways) |
 | #2 `/saved` had no `<Route>` and silently redirected to the library | S3 — smoke test now asserts the screen mounts, verified to fail without the fix |
+| #13 `yarn test` was `node -e "console.log('imagine')"`, so five .test.ts files had never executed | S6 — now `tsx --test`; all 24 inherited tests passed once actually run |

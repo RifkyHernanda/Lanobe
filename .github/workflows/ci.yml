@@ -65,6 +65,11 @@ jobs:
       # override block in .eslintrc.cjs.
       - run: yarn lint
 
+      # node:test via tsx. Until now `yarn test` printed a joke and exited 0,
+      # so the .test.ts files in the tree had never run -- all 24 of them
+      # passed once actually executed.
+      - run: yarn test
+
       - name: Build
         env:
           PORT: 3000
