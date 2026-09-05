@@ -8,12 +8,13 @@ use std::{
     fs,
     net::Ipv4Addr,
     path::{Path, PathBuf},
+    sync::OnceLock,
 };
 
 use anyhow::anyhow;
 use axum::{
     Router,
-    http::{Method, StatusCode, Uri, header},
+    http::{HeaderMap, Method, StatusCode, Uri, header},
     response::IntoResponse,
     routing::any,
 };
@@ -215,31 +216,151 @@ async fn run_server(
     Ok(())
 }
 
-async fn serve_frontend(uri: Uri) -> impl IntoResponse {
+/// Vite fingerprints everything it emits into `assets/` as `name-<8 chars>.ext`,
+/// so those may be cached forever: changing a file changes its URL. Everything
+/// else in the build keeps its name across builds and must be revalidated —
+/// `sw.js` above all, because a year-long cache on the service worker would
+/// leave the app permanently unable to update itself.
+fn is_content_hashed(path: &str) -> bool {
+    let Some(name) = path.strip_prefix("assets/") else {
+        return false;
+    };
+
+    // Vite emits `assets/` flat. Anything nested came from `public/`, which is
+    // copied verbatim and therefore unhashed.
+    if name.contains('/') {
+        return false;
+    }
+
+    let Some((stem, _)) = name.rsplit_once('.') else {
+        return false;
+    };
+
+    // Require `-` plus 8 base64url characters, and at least one character of
+    // name before it. Anchored at the end rather than split on the last `-`:
+    // base64url hashes contain `-` themselves (e.g. `index-B1BY-SEW.js`), so
+    // splitting on the last dash misclassifies a good fraction of real files.
+    let bytes = stem.as_bytes();
+    if bytes.len() < 10 {
+        return false;
+    }
+    let (head, hash) = bytes.split_at(bytes.len() - 8);
+    head[head.len() - 1] == b'-'
+        && hash
+            .iter()
+            .all(|b| b.is_ascii_alphanumeric() || *b == b'-' || *b == b'_')
+}
+
+/// A **weak** validator, deliberately: it identifies the resource rather than one
+/// specific content-coding, so it stays correct when the compression layer gzips
+/// the body underneath us. A strong ETag would have to vary per encoding.
+fn weak_etag(hash: &[u8; 32]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+
+    let mut out = String::with_capacity(20);
+    out.push_str("W/\"");
+    for byte in &hash[..8] {
+        out.push(HEX[(byte >> 4) as usize] as char);
+        out.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    out.push('"');
+    out
+}
+
+fn if_none_match_matches(headers: &HeaderMap, etag: &str) -> bool {
+    let Some(Ok(value)) = headers.get(header::IF_NONE_MATCH).map(|v| v.to_str()) else {
+        return false;
+    };
+
+    value.split(',').any(|candidate| {
+        let candidate = candidate.trim();
+        candidate == "*" || candidate.trim_start_matches("W/") == etag.trim_start_matches("W/")
+    })
+}
+
+/// `index.html` is rewritten and hashed identically on every request, and the SPA
+/// fallback serves it for every unknown path, so do the work once rather than
+/// reallocating the whole document per navigation.
+fn index_html() -> Option<&'static (String, String)> {
+    static INDEX: OnceLock<Option<(String, String)>> = OnceLock::new();
+
+    INDEX
+        .get_or_init(|| {
+            let index = FrontendAssets::get("index.html")?;
+            let html = std::str::from_utf8(index.data.as_ref()).ok()?;
+            Some((
+                html.replace("<head>", "<head><base href=\"/\" />"),
+                // Hashed from the embedded bytes, which still uniquely identify
+                // the rewritten output because the rewrite is deterministic.
+                weak_etag(&index.metadata.sha256_hash()),
+            ))
+        })
+        .as_ref()
+}
+
+async fn serve_frontend(headers: HeaderMap, uri: Uri) -> impl IntoResponse {
     let path = uri.path().trim_start_matches('/');
 
     if !path.is_empty()
         && let Some(content) = FrontendAssets::get(path)
     {
+        let etag = weak_etag(&content.metadata.sha256_hash());
+        let cache_control = if is_content_hashed(path) {
+            "public, max-age=31536000, immutable"
+        } else {
+            "no-cache"
+        };
+
+        if if_none_match_matches(&headers, &etag) {
+            return (
+                StatusCode::NOT_MODIFIED,
+                [
+                    (header::ETAG, etag),
+                    (header::CACHE_CONTROL, cache_control.to_owned()),
+                ],
+            )
+                .into_response();
+        }
+
         let mime = mime_guess::from_path(path).first_or_octet_stream();
         return (
-            [(axum::http::header::CONTENT_TYPE, mime.as_ref())],
+            [
+                (header::CONTENT_TYPE, mime.as_ref().to_owned()),
+                (header::ETAG, etag),
+                (header::CACHE_CONTROL, cache_control.to_owned()),
+            ],
             content.data,
         )
             .into_response();
     }
 
     // SPA fallback: every unknown path renders index.html so client-side routing works.
-    if let Some(index) = FrontendAssets::get("index.html")
-        && let Ok(html) = std::str::from_utf8(index.data.as_ref())
-    {
-        let with_base = html.replace("<head>", "<head><base href=\"/\" />");
-        return ([(axum::http::header::CONTENT_TYPE, "text/html")], with_base).into_response();
+    let Some((html, etag)) = index_html() else {
+        return (
+            StatusCode::NOT_FOUND,
+            "WebUI assets are missing from this build.",
+        )
+            .into_response();
+    };
+
+    if if_none_match_matches(&headers, etag) {
+        return (
+            StatusCode::NOT_MODIFIED,
+            [
+                (header::ETAG, etag.clone()),
+                (header::CACHE_CONTROL, "no-cache".to_owned()),
+            ],
+        )
+            .into_response();
     }
 
     (
-        StatusCode::NOT_FOUND,
-        "WebUI assets are missing from this build.",
+        [
+            (header::CONTENT_TYPE, "text/html".to_owned()),
+            (header::ETAG, etag.clone()),
+            (header::CACHE_CONTROL, "no-cache".to_owned()),
+        ],
+        html.clone(),
     )
         .into_response()
 }
@@ -284,4 +405,101 @@ async fn shutdown_signal() {
     }
 
     info!("Shutdown signal received.");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{if_none_match_matches, is_content_hashed, weak_etag};
+    use axum::http::{HeaderMap, HeaderValue, header};
+
+    #[test]
+    fn vite_hashed_assets_are_immutable() {
+        // Real filenames from a `make webui` build.
+        assert!(is_content_hashed("assets/index-lkkwNXr7.js"));
+        assert!(is_content_hashed("assets/index-CWLzD0OZ.css"));
+        assert!(is_content_hashed("assets/polyfills-Be1mub0e.js"));
+        // @vitejs/plugin-legacy adds an infix but keeps the hash.
+        assert!(is_content_hashed("assets/index-legacy-CyFcTjgM.js"));
+    }
+
+    #[test]
+    fn base64url_hashes_containing_a_dash_are_recognised() {
+        // `index-B1BY-SEW.js` is a real emitted name. Splitting on the last `-`
+        // would read the hash as "SEW" and wrongly mark the file unhashed.
+        assert!(is_content_hashed("assets/index-B1BY-SEW.js"));
+        assert!(is_content_hashed("assets/chunk-a_b-cdef.js"));
+    }
+
+    #[test]
+    fn files_that_keep_their_name_across_builds_are_never_immutable() {
+        // Freezing sw.js for a year would leave the app unable to update itself.
+        assert!(!is_content_hashed("sw.js"));
+        assert!(!is_content_hashed("registerSW.js"));
+        assert!(!is_content_hashed("index.html"));
+        assert!(!is_content_hashed("site.webmanifest"));
+        assert!(!is_content_hashed("favicon.svg"));
+        // Fetched at runtime by i18next, and unhashed because it comes from public/.
+        assert!(!is_content_hashed("locales/en.json"));
+    }
+
+    #[test]
+    fn unhashed_files_under_assets_are_not_immutable() {
+        // Guards the day someone adds WebUI/public/assets/, which would be copied
+        // verbatim into the same prefix without a fingerprint.
+        assert!(!is_content_hashed("assets/logo.png"));
+        assert!(!is_content_hashed("assets/some-file.png"));
+        assert!(!is_content_hashed("assets/nested/index-lkkwNXr7.js"));
+        assert!(!is_content_hashed("assets/noextension"));
+        assert!(!is_content_hashed("assets/.gitkeep"));
+    }
+
+    #[test]
+    fn weak_etag_is_stable_and_differs_per_content() {
+        let a = weak_etag(&[0xab; 32]);
+        let b = weak_etag(&[0xcd; 32]);
+
+        assert_eq!(a, weak_etag(&[0xab; 32]));
+        assert_ne!(a, b);
+        assert!(a.starts_with("W/\""), "must be a weak validator: {a}");
+        assert_eq!(a, "W/\"abababababababab\"");
+    }
+
+    fn headers_with(if_none_match: &str) -> HeaderMap {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::IF_NONE_MATCH,
+            HeaderValue::from_str(if_none_match).expect("valid header"),
+        );
+        headers
+    }
+
+    #[test]
+    fn if_none_match_recognises_its_own_etag() {
+        let etag = weak_etag(&[0x01; 32]);
+
+        assert!(if_none_match_matches(&headers_with(&etag), &etag));
+        assert!(if_none_match_matches(&headers_with("*"), &etag));
+        // Browsers may echo the tag back without the weak prefix.
+        assert!(if_none_match_matches(
+            &headers_with(etag.trim_start_matches("W/")),
+            &etag
+        ));
+        // And may send several.
+        assert!(if_none_match_matches(
+            &headers_with(&format!("W/\"deadbeef\", {etag}")),
+            &etag
+        ));
+    }
+
+    #[test]
+    fn if_none_match_rejects_a_different_or_absent_etag() {
+        let etag = weak_etag(&[0x01; 32]);
+
+        assert!(!if_none_match_matches(&HeaderMap::new(), &etag));
+        assert!(!if_none_match_matches(
+            &headers_with("W/\"deadbeef\""),
+            &etag
+        ));
+        assert!(!if_none_match_matches(&headers_with(""), &etag));
+    }
 }
