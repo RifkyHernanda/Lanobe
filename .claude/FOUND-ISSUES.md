@@ -9,7 +9,7 @@ guesses.** When one is fixed, move it to *Fixed* with the commit that did it.
 | # | Issue | Severity | Status |
 | --- | --- | --- | --- |
 | 1 | Furigana corrupts character offsets | **high** | open — fix in P3 S7 |
-| 2 | `/saved` has no route, silently redirects | medium | open — fix in P3 S3 |
+| 2 | `/saved` has no route, silently redirects | medium | **fixed** |
 | 3 | Dictionary-import "loading" state is unreachable | medium | open |
 | 4 | `mark.highlight` padding shifts paged layout | medium | open — fix in P3 S7 |
 | 5 | A stale lookup can repaint a newer popup | medium | open |
@@ -180,3 +180,4 @@ quality.
 | #7 `make check` ran `cargo test` without `--workspace`, reporting green while skipping every crate but the binary | S2 |
 | #8 `ci.yml` pointed at a non-existent `rust-toolchain.toml` | S2 |
 | Re-saving a term erased the book, chapter and glossary captured the first time | S2 (found by running the endpoint; now tested both ways) |
+| #2 `/saved` had no `<Route>` and silently redirected to the library | S3 — smoke test now asserts the screen mounts, verified to fail without the fix |

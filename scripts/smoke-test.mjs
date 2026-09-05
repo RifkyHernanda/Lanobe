@@ -103,6 +103,27 @@ try {
                 failed.map((r) => `${r.status} ${r.url}`).join(', ')}`);
         }
 
+        // `#root` having content is too weak a check for a route that can
+        // silently redirect: /saved had no <Route> for the whole of P0-P2, fell
+        // through matchAll to the library, and passed this test every time
+        // because the library renders. Assert something only this screen shows.
+        if (route === '/saved') {
+            // Query the element, not innerText: on a fresh data dir the first-run
+            // setup wizard covers the page, and innerText only returns *visible*
+            // text, so a text match reports a false failure here.
+            const tabs = await page.evaluate(() => {
+                const tablist = document.querySelector('[aria-label="Saved vocabulary"]');
+                if (!tablist) return null;
+                return [...tablist.querySelectorAll('[role="tab"]')].map((t) => t.textContent);
+            });
+
+            if (tabs === null) {
+                failures.push('/saved: SavedScreen did not mount - the route is probably redirecting.');
+            } else if (!tabs.includes('Words') || !tabs.includes('Kanji')) {
+                failures.push(`/saved: expected Words and Kanji tabs, saw ${JSON.stringify(tabs)}.`);
+            }
+        }
+
         // Only the entry route needs to prove the app talks to the server; this
         // catches the app deadlocking with every request stuck in the auth queue.
         if (route === '/') {

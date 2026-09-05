@@ -48,11 +48,18 @@ export class RestClient
             httpMethod = HttpMethod.GET,
             config,
             checkResponseIsJson = true,
+            allowedStatuses,
         }: {
             data?: any;
             httpMethod?: HttpMethod;
             config?: RequestInit;
             checkResponseIsJson?: boolean;
+            /**
+             * Statuses to return rather than throw on. Needed for 304: the
+             * highlight index revalidates with If-None-Match, and a 304 is a
+             * success that happens to carry no body.
+             */
+            allowedStatuses?: number[];
         } = {},
     ): Promise<Response> =>
         this.enqueueRequest(async () => {
@@ -108,14 +115,17 @@ export class RestClient
 
             if (result.status === 401) {
                 await BaseClient.refreshAccessToken(this.handleRefreshToken);
-                return this.fetcher(url, { data, httpMethod, config, checkResponseIsJson });
+                return this.fetcher(url, { data, httpMethod, config, checkResponseIsJson, allowedStatuses });
             }
 
-            if (result.status < 200 || result.status >= 300) {
+            const isAllowed = allowedStatuses?.includes(result.status) ?? false;
+
+            if (!isAllowed && (result.status < 200 || result.status >= 300)) {
                 throw new Error(`status ${result.status}: ${result.statusText}`);
             }
 
-            if (checkResponseIsJson) {
+            // A 304 carries no body, so there is nothing to check the type of.
+            if (checkResponseIsJson && !isAllowed) {
                 const contentType = result.headers.get('content-type') ?? '';
                 if (contentType && !contentType.includes('application/json')) {
                     throw new Error('Response is not json');

@@ -36,6 +36,7 @@ const { More } = loadable(() => import('@/features/settings/screens/More.tsx'), 
 const { LNLibrary } = loadable(() => import('@/features/ln/screens/LNLibrary.tsx'), lazyLoadFallback);
 const { LNReaderScreen } = loadable(() => import('@/features/ln/reader/screens/LNReaderScreen.tsx'), lazyLoadFallback);
 const { Dictionary } = loadable(() => import('@/features/dictionary/Dictionary.tsx'), lazyLoadFallback);
+const { SavedScreen } = loadable(() => import('@/features/study/screens/SavedScreen.tsx'), lazyLoadFallback);
 
 const ScrollToTop = () => {
     const { pathname } = useLocation();
@@ -126,6 +127,12 @@ const MainApp = () => {
 
                         <Route path={AppRoutes.ln.match} element={<LNLibrary />} />
                         <Route path={AppRoutes.dictionary.match} element={<Dictionary />} />
+                        {/*
+                          The nav bar has linked to /saved since P0, but no Route
+                          existed, so it fell through matchAll to a redirect and
+                          silently showed the library instead.
+                        */}
+                        <Route path={AppRoutes.saved.match} element={<SavedScreen />} />
                     </Route>
                 </Routes>
             </ErrorBoundary>
