@@ -31,6 +31,7 @@ tracing-subscriber.workspace = true
 lanobe-app-server.workspace = true
 lanobe-audio-server.workspace = true
 lanobe-novel-server.workspace = true
+lanobe-study-server.workspace = true
 lanobe-yomitan-server.workspace = true
 
 [lints]

@@ -125,11 +125,23 @@ pub fn save_term(conn: &mut Connection, new: &NewTerm) -> rusqlite::Result<(i64,
         // Re-saving from a new sentence refreshes the context but keeps the id,
         // so term_kanji and any P4 export record stay pointed at the same row.
         Some(id) => {
+            // Every field COALESCEs over its stored value, so a re-save only
+            // updates what it actually carries. Assigning directly would let
+            // saving the same word from the manual dictionary page -- which has
+            // no book, chapter or sentence -- erase the context captured when it
+            // was first saved while reading, and that context is the whole point
+            // of the record.
             tx.execute(
                 "UPDATE saved_term
-                 SET surface = ?1, gloss_json = ?2, frequency = COALESCE(?3, frequency),
-                     book_id = ?4, book_title = ?5, chapter_index = ?6,
-                     sentence = ?7, sentence_offset = ?8, updated_at = ?9
+                 SET surface       = COALESCE(?1, surface),
+                     gloss_json    = CASE WHEN ?2 IN ('[]', '') THEN gloss_json ELSE ?2 END,
+                     frequency     = COALESCE(?3, frequency),
+                     book_id       = COALESCE(?4, book_id),
+                     book_title    = COALESCE(?5, book_title),
+                     chapter_index = COALESCE(?6, chapter_index),
+                     sentence      = COALESCE(NULLIF(?7, ''), sentence),
+                     sentence_offset = COALESCE(?8, sentence_offset),
+                     updated_at    = ?9
                  WHERE id = ?10",
                 params![
                     new.surface,
@@ -300,5 +312,233 @@ pub fn highlight_index(conn: &Connection) -> rusqlite::Result<HighlightIndex> {
         version: index_version(conn)?,
         kanji,
         terms,
+    })
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SavedKanji {
+    pub char: String,
+    /// How many saved words contain this character. SPEC §5.4's "sort by
+    /// frequency" for the Kanji tab means this, not corpus frequency.
+    pub term_count: i64,
+    pub created_at: i64,
+    pub status: Status,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TermSort {
+    Created,
+    Frequency,
+    Term,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KanjiSort {
+    Created,
+    Count,
+    Char,
+}
+
+#[derive(Debug, Clone)]
+pub struct ListQuery {
+    pub q: Option<String>,
+    pub book: Option<String>,
+    pub status: Option<Status>,
+    pub descending: bool,
+    pub limit: i64,
+    pub offset: i64,
+}
+
+impl Default for ListQuery {
+    fn default() -> Self {
+        Self {
+            q: None,
+            book: None,
+            status: None,
+            descending: true,
+            limit: 100,
+            offset: 0,
+        }
+    }
+}
+
+/// Sort columns are chosen from a fixed set here and never interpolated from
+/// caller input -- `ORDER BY` cannot be a bound parameter, so the only safe way
+/// to make it dynamic is to map an enum onto literals.
+fn term_order(sort: TermSort, descending: bool) -> &'static str {
+    match (sort, descending) {
+        (TermSort::Created, true) => "created_at DESC, id DESC",
+        (TermSort::Created, false) => "created_at ASC, id ASC",
+        // NULLs last either way: an unranked word should not lead the list.
+        (TermSort::Frequency, true) => "frequency IS NULL, frequency DESC, id DESC",
+        (TermSort::Frequency, false) => "frequency IS NULL, frequency ASC, id ASC",
+        (TermSort::Term, true) => "term DESC",
+        (TermSort::Term, false) => "term ASC",
+    }
+}
+
+fn kanji_order(sort: KanjiSort, descending: bool) -> &'static str {
+    match (sort, descending) {
+        (KanjiSort::Created, true) => "created_at DESC, char DESC",
+        (KanjiSort::Created, false) => "created_at ASC, char ASC",
+        (KanjiSort::Count, true) => "term_count DESC, char ASC",
+        (KanjiSort::Count, false) => "term_count ASC, char ASC",
+        (KanjiSort::Char, true) => "char DESC",
+        (KanjiSort::Char, false) => "char ASC",
+    }
+}
+
+fn row_to_term(row: &rusqlite::Row<'_>) -> rusqlite::Result<SavedTerm> {
+    let gloss_json: String = row.get("gloss_json")?;
+    let status: String = row.get("status")?;
+    Ok(SavedTerm {
+        id: row.get("id")?,
+        term: row.get("term")?,
+        reading: row.get("reading")?,
+        surface: row.get("surface")?,
+        gloss: serde_json::from_str(&gloss_json).unwrap_or(serde_json::Value::Null),
+        frequency: row.get("frequency")?,
+        book_id: row.get("book_id")?,
+        book_title: row.get("book_title")?,
+        chapter_index: row.get("chapter_index")?,
+        sentence: row.get("sentence")?,
+        created_at: row.get("created_at")?,
+        status: Status::parse(&status).unwrap_or(Status::Unknown),
+    })
+}
+
+pub fn list_terms(
+    conn: &Connection,
+    query: &ListQuery,
+    sort: TermSort,
+) -> rusqlite::Result<(Vec<SavedTerm>, i64)> {
+    // `?1 IS NULL OR ...` keeps one prepared statement rather than assembling
+    // SQL per filter combination.
+    let filter = "WHERE (?1 IS NULL OR term LIKE '%' || ?1 || '%' OR reading LIKE '%' || ?1 || '%')
+                    AND (?2 IS NULL OR book_id = ?2)
+                    AND (?3 IS NULL OR status = ?3)";
+    let status = query.status.map(Status::as_str);
+
+    let total: i64 = conn.query_row(
+        &format!("SELECT COUNT(*) FROM saved_term {filter}"),
+        params![query.q, query.book, status],
+        |row| row.get(0),
+    )?;
+
+    let sql = format!(
+        "SELECT * FROM saved_term {filter} ORDER BY {} LIMIT ?4 OFFSET ?5",
+        term_order(sort, query.descending)
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let items = stmt
+        .query_map(
+            params![query.q, query.book, status, query.limit, query.offset],
+            row_to_term,
+        )?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+
+    Ok((items, total))
+}
+
+pub fn list_kanji(
+    conn: &Connection,
+    query: &ListQuery,
+    sort: KanjiSort,
+) -> rusqlite::Result<(Vec<SavedKanji>, i64)> {
+    let filter = "WHERE (?1 IS NULL OR k.char = ?1)
+                    AND (?2 IS NULL OR k.status = ?2)";
+    let status = query.status.map(Status::as_str);
+
+    let total: i64 = conn.query_row(
+        &format!("SELECT COUNT(*) FROM saved_kanji k {filter}"),
+        params![query.q, status],
+        |row| row.get(0),
+    )?;
+
+    let sql = format!(
+        "SELECT k.char, k.created_at, k.status,
+                (SELECT COUNT(*) FROM term_kanji tk WHERE tk.char = k.char) AS term_count
+         FROM saved_kanji k {filter} ORDER BY {} LIMIT ?3 OFFSET ?4",
+        kanji_order(sort, query.descending)
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let items = stmt
+        .query_map(params![query.q, status, query.limit, query.offset], |row| {
+            let status: String = row.get("status")?;
+            Ok(SavedKanji {
+                char: row.get("char")?,
+                term_count: row.get("term_count")?,
+                created_at: row.get("created_at")?,
+                status: Status::parse(&status).unwrap_or(Status::Unknown),
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+
+    Ok((items, total))
+}
+
+#[derive(Debug, Clone, Default, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct StatusCounts {
+    pub unknown: i64,
+    pub learning: i64,
+    pub known: i64,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct BookCount {
+    pub id: String,
+    pub title: Option<String>,
+    pub count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct Stats {
+    pub terms: StatusCounts,
+    pub kanji: StatusCounts,
+    pub books: Vec<BookCount>,
+}
+
+fn status_counts(conn: &Connection, table: &str) -> rusqlite::Result<StatusCounts> {
+    let mut counts = StatusCounts::default();
+    let mut stmt = conn.prepare(&format!(
+        "SELECT status, COUNT(*) FROM {table} GROUP BY status"
+    ))?;
+    for row in stmt.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+    })? {
+        let (status, count) = row?;
+        match Status::parse(&status) {
+            Some(Status::Unknown) => counts.unknown = count,
+            Some(Status::Learning) => counts.learning = count,
+            Some(Status::Known) => counts.known = count,
+            None => {}
+        }
+    }
+    Ok(counts)
+}
+
+pub fn stats(conn: &Connection) -> rusqlite::Result<Stats> {
+    let mut stmt = conn.prepare(
+        "SELECT book_id, MAX(book_title), COUNT(*) FROM saved_term
+         WHERE book_id IS NOT NULL GROUP BY book_id ORDER BY COUNT(*) DESC",
+    )?;
+    let books = stmt
+        .query_map([], |row| {
+            Ok(BookCount {
+                id: row.get(0)?,
+                title: row.get(1)?,
+                count: row.get(2)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+
+    Ok(Stats {
+        terms: status_counts(conn, "saved_term")?,
+        kanji: status_counts(conn, "saved_kanji")?,
+        books,
     })
 }

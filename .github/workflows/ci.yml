@@ -12,7 +12,10 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Kept in sync with rust-toolchain.toml. See that file for why this is pinned.
+  # Kept in sync with the Dockerfile's `rust:1.95-bookworm`. Pinned rather than
+  # floating `stable`, because `clippy -D warnings` lets a new release break the
+  # build with no commit. There is deliberately no rust-toolchain.toml; see
+  # .claude/CLAUDE.md for why.
   RUST_VERSION: 1.95.0
 
 jobs:

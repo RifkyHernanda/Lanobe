@@ -160,12 +160,15 @@ async fn run_server(
 
     let app_state = lanobe_app_server::build_state(data_dir)
         .map_err(|err| anyhow!("Failed to initialise app state: {err}"))?;
+    let study_state = lanobe_study_server::build_state(data_dir)
+        .map_err(|err| anyhow!("Failed to initialise study state: {err}"))?;
 
     let yomitan_router = lanobe_yomitan_server::create_router(data_dir.to_path_buf());
     let audio_router = lanobe_audio_server::create_router(data_dir.to_path_buf());
     let novel_router =
         lanobe_novel_server::create_router(data_dir.to_path_buf(), library_path.to_path_buf());
     let app_router = lanobe_app_server::create_router(app_state.clone());
+    let study_router = lanobe_study_server::create_router(study_state);
     let system_router = Router::new().route("/version", any(current_version_handler));
 
     // Everything that exposes library content sits behind the session check. The
@@ -175,6 +178,9 @@ async fn run_server(
         .nest("/api/audio", audio_router)
         .nest("/api/novel", novel_router)
         .nest("/api/yomitan", yomitan_router)
+        // Saved vocabulary is library content, so it belongs behind the session
+        // check with the rest of it, not alongside the public probes.
+        .nest("/api/study", study_router)
         .layer(axum::middleware::from_fn_with_state(
             app_state,
             lanobe_app_server::require_auth,
@@ -195,7 +201,18 @@ async fn run_server(
             Method::DELETE,
             Method::OPTIONS,
         ])
-        .allow_headers([header::AUTHORIZATION, header::CONTENT_TYPE, header::ACCEPT]);
+        // IF_NONE_MATCH and the exposed ETag are what make the highlight-index
+        // revalidation work from `yarn dev`. Same-origin production never needed
+        // them, so leaving them out would produce a bug that only ever appears on
+        // a developer's machine: the preflight rejects the header, and JS cannot
+        // read ETag off a cross-origin response to send back.
+        .allow_headers([
+            header::AUTHORIZATION,
+            header::CONTENT_TYPE,
+            header::ACCEPT,
+            header::IF_NONE_MATCH,
+        ])
+        .expose_headers([header::ETAG]);
 
     // Nothing was compressed before this. Dictionary lookups are 5-34 KB of JSON
     // that gzip to under 3 KB, and the app bundle is 897 KB that gzips to 280 KB.

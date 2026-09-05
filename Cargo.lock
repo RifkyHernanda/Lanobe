@@ -1552,6 +1552,7 @@ dependencies = [
  "lanobe-app-server",
  "lanobe-audio-server",
  "lanobe-novel-server",
+ "lanobe-study-server",
  "lanobe-yomitan-server",
  "mime_guess",
  "rust-embed",
@@ -1628,6 +1629,7 @@ name = "lanobe-study-server"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "axum",
  "rusqlite",
  "serde",
  "serde_json",

@@ -1,10 +1,12 @@
 //! Saved vocabulary and kanji bookmarks — SPEC §5.4.
 //!
-//! Owns `study.db`. Routes arrive in the next step; this is storage only.
+//! Owns `study.db` and serves `/api/study/*`.
 
+use axum::Router;
 use std::path::Path;
 
 mod kanji;
+mod routes;
 mod state;
 mod store;
 
@@ -17,6 +19,10 @@ pub use store::{
 
 pub fn build_state(data_dir: &Path) -> anyhow::Result<StudyState> {
     StudyState::new(data_dir)
+}
+
+pub fn create_router(state: StudyState) -> Router {
+    routes::router(state)
 }
 
 #[cfg(test)]
@@ -127,6 +133,89 @@ mod tests {
             assert_eq!(terms, 1);
             assert_eq!(links, 2);
             assert_eq!(sentence, "毎日勉強します。", "context should refresh");
+        });
+    }
+
+    #[test]
+    fn re_saving_without_context_does_not_erase_the_context_already_stored() {
+        with_state("preserve-context", |state| {
+            let mut conn = state.conn();
+
+            // Saved while reading: full context.
+            let mut first = term("図書館", "としょかん");
+            first.book_id = Some("b1".into());
+            first.book_title = Some("義妹生活５".into());
+            first.chapter_index = Some(3);
+            first.frequency = Some(900);
+            first.gloss = vec![serde_json::json!("library")];
+            let (id, _) = save_term(&mut conn, &first).unwrap();
+
+            // Saved again from the manual dictionary page, which knows no book,
+            // no chapter and no sentence.
+            let bare = NewTerm {
+                term: "図書館".into(),
+                reading: "としょかん".into(),
+                ..Default::default()
+            };
+            save_term(&mut conn, &bare).unwrap();
+
+            let (book, title, chapter, freq, gloss, sentence): (
+                Option<String>,
+                Option<String>,
+                Option<i64>,
+                Option<i64>,
+                String,
+                String,
+            ) = conn
+                .query_row(
+                    "SELECT book_id, book_title, chapter_index, frequency, gloss_json, sentence
+                     FROM saved_term WHERE id = ?1",
+                    [id],
+                    |r| {
+                        Ok((
+                            r.get(0)?,
+                            r.get(1)?,
+                            r.get(2)?,
+                            r.get(3)?,
+                            r.get(4)?,
+                            r.get(5)?,
+                        ))
+                    },
+                )
+                .unwrap();
+
+            assert_eq!(book.as_deref(), Some("b1"));
+            assert_eq!(title.as_deref(), Some("義妹生活５"));
+            assert_eq!(chapter, Some(3));
+            assert_eq!(freq, Some(900));
+            assert_eq!(gloss, "[\"library\"]");
+            assert_eq!(sentence, "これは図書館です。");
+        });
+    }
+
+    #[test]
+    fn re_saving_with_new_context_does_update_it() {
+        with_state("update-context", |state| {
+            let mut conn = state.conn();
+            let mut first = term("電車", "でんしゃ");
+            first.book_id = Some("b1".into());
+            let (id, _) = save_term(&mut conn, &first).unwrap();
+
+            let mut second = term("電車", "でんしゃ");
+            second.book_id = Some("b2".into());
+            second.sentence = "電車が来た。".into();
+            save_term(&mut conn, &second).unwrap();
+
+            let (book, sentence): (Option<String>, String) = conn
+                .query_row(
+                    "SELECT book_id, sentence FROM saved_term WHERE id = ?1",
+                    [id],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )
+                .unwrap();
+
+            assert_eq!(book.as_deref(), Some("b2"), "a real new value must win");
+            assert_eq!(sentence, "電車が来た。");
         });
     }
 
