@@ -72,6 +72,28 @@ you delete an export, grep for its importers. `HttpMethod` lives in its own leaf
 module for this reason, and `AppStorage` reaches `requestManager` through a
 dynamic import.
 
+**A bind mount masks the image's `chown`.** If `./data` does not exist, Docker
+creates it as **root**, while the container runs as uid 1000 (`Dockerfile:74`).
+The `chown -R 1000:1000 /data` in the image is then invisible, because the mount
+is layered over it at runtime, and the server dies on `Failed to create
+/data/library: Permission denied` — restarting every second while
+`docker compose up -d` cheerfully reports "Started". Fix with
+`chown -R 1000:1000 ./data`, or create the directory before the first `up`.
+Always check `docker compose ps` for `Restarting`, not just the `up` output.
+
+**Only the left side of a port mapping is yours to change.** The container always
+listens on 4567 (`LANOBE_PORT`). `"5678:5678"` forwards to a dead port and looks
+exactly like a broken app.
+
+**Cache headers are close to unrevertable.** `/assets/*` is served
+`immutable` for a year, which is safe only because vite content-hashes everything
+it emits there. `index.html`, `sw.js`, `registerSW.js` and `locales/*.json` live
+at the build root, keep their names across builds, and must stay `no-cache` —
+freezing `sw.js` would pin every client to the version of the app it first
+loaded, permanently. `is_content_hashed()` in `bin/lanobe/src/main.rs` draws that
+line and is unit-tested against real emitted filenames; if you ever set
+`rollupOptions.output.*FileNames` in `WebUI/vite.config.ts`, revisit it.
+
 **8 deinflector tests are `#[ignore]`d.** They fail on upstream `45c3bb4` too, so
 they aren't regressions — but they are real bugs in the deinflection rules.
 `cargo test -- --ignored` runs them.

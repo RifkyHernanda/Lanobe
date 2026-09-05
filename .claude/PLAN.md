@@ -10,8 +10,9 @@ is meant to produce and why.
 | P0 — Fork and strip to LN-only | **done** |
 | P1 — app-server: auth + settings | **done** |
 | Docker + CI/CD (pulled forward from P6) | **done** |
-| P2 — Dictionary lookup performance | **next** |
-| P3 — Vocab, kanji bookmarks, auto-highlight | pending — *the core feature* |
+| Rebrand to Lanobe | **done** |
+| P2 — Dictionary lookup performance | **re-scoped after measuring; transport done, client cache deferred** |
+| P3 — Vocab, kanji bookmarks, auto-highlight | **next** — *the core feature* |
 | P4 — Anki `.apkg` export | pending |
 | P5 — Offline PWA and write queue | pending |
 | P6 — EC2 deploy: Caddy + TLS | partial |
@@ -49,22 +50,51 @@ is meant to produce and why.
 - [x] Publish to GHCR, gated on all checks
 - [x] Rust toolchain pinned (a floating `stable` broke the build once)
 
-## P2 — Lookup performance ⬅ next
+## P2 — Lookup performance (re-scoped)
 
 The complaint that started the project: the popup is slow, and it gets worse over
 the internet to EC2.
 
-- [ ] **Baseline first** — measure tap→popup with a dictionary actually installed.
-      Do not optimise an unmeasured path.
-- [ ] Server: LRU cache keyed `(text, index, group, language)`, ~50 MB
-- [ ] Server: `POST /api/yomitan/lookup/batch`
-- [ ] Server: SQLite `mmap_size`, `cache_size = -65536`, `temp_store = MEMORY`
-      (note: `journal_mode = DELETE` is deliberate for Android — make WAL conditional)
-- [ ] Client: `LookupCache` — in-memory map over IndexedDB, same key
-- [ ] Client: `useLookupPrefetch` — batch-fetch visible blocks at idle priority
+- [x] **Baseline first** — measured with JMdict installed (515,737 terms, 177 MB)
+      and a real EPUB. The result contradicted the rest of this phase.
+
+| Measurement | Result |
+| --- | --- |
+| Server lookup, 50 distinct words | p50 0.9 ms, **p95 1.2 ms** |
+| Same words, second pass | p95 1.2 ms — *identical*, so nothing to warm |
+| Query plan | `SEARCH terms USING INDEX idx_term_dict (term=?)` |
+| Warm RTT to the EC2 box | **60–107 ms** |
+| Lookup payload | 5.3–33.8 KB, **uncompressed** |
+| Main JS bundle | 897 KB, **uncompressed** |
+| `Cache-Control`/`ETag` on anything | **none** |
+
+The server does ~1.2 ms of work inside a 60–107 ms round trip — **1–2% of what
+you feel.** The planned server-side LRU would have optimised that 1.2 ms while
+spending ~50 MB of RAM on a 1 GB box. What actually cost: no compression and no
+cacheability. The reference Manatan deploy hides this because Cloudflare
+compresses at its edge; a bare Caddy in front of Lanobe would not.
+
+- [x] Serve `Cache-Control` + weak `ETag`, with `If-None-Match` → 304.
+      897 KB → 0 bytes on revalidation. Hashed `assets/*` are `immutable`;
+      `index.html`, `sw.js` and `locales/*` must stay `no-cache`.
+- [x] gzip responses. Bundle 896,458 → 283,906 B; lookups 5.6–10.7× smaller.
+      EPUBs excluded — they are already-deflated zips typed as octet-stream.
+- [ ] Client: `LookupCache` — designed, deferred until after P3. **Key on the
+      verbatim 24-code-point window at the cursor**, which is exactly what
+      `lookup.rs:121` scans. Do *not* key on the matched headword and probe
+      prefixes: a cached bare `大` would hijack a later tap on `大学` and
+      underline one character instead of two. Wrong, not merely stale.
+- [ ] Client: chain-prefetch from `match_len` after each tap; whole-page prefetch
+      needs `POST /api/yomitan/lookup/batch` and is payload-bound, not
+      request-bound — measure the payload before building it.
 - [ ] Fix `/api/app/meta` being fetched 3× on startup
 - [ ] **Target: p95 < 50 ms warm.** Verify on a throttled profile, not localhost.
 - [ ] Revisit the 8 ignored deinflector tests — they may be hurting lookup quality
+
+**Moved to P6, not dropped:** the server-side LRU and the SQLite pragmas. The
+1.2 ms was measured on an 18 GB laptop against a DB that fits in page cache. On a
+t2.micro with multi-GB dictionaries the same query hits EBS. Re-measure there
+before reviving either.
 
 ## P3 — Vocab, kanji bookmarks, highlighting
 
@@ -103,6 +133,11 @@ The core feature. Nothing else in the project matters as much.
 ## P6 — EC2
 
 - [x] Image published to GHCR
+- [ ] **Re-measure lookup latency on the instance**, then decide whether the
+      server-side LRU cache and SQLite `cache_size`/`mmap_size` tuning are worth
+      their RAM. Deferred here from P2 because they were unjustifiable against a
+      1.2 ms baseline on a laptop, but a multi-GB dictionary set on 1 GB of RAM is
+      a genuinely different question.
 - [ ] `docker-compose.prod.yml` with Caddy + automatic TLS
 - [ ] Provisioning notes: 2 GB swap, 20–30 GB volume
 - [ ] Copy `yomitan.db` up rather than importing on the instance
@@ -115,6 +150,25 @@ The core feature. Nothing else in the project matters as much.
 
 - **No dictionary ships with the app.** First run offers to install one; otherwise
   copy an existing `yomitan.db` in.
+- **`/saved` has no route.** `AppRoutes.saved` exists and the nav bar links to it,
+  but `App.tsx` never registers a `<Route>`, so it falls through `matchAll` and
+  silently redirects to the library. The smoke test cannot see this: it only
+  asserts the page rendered *something*, and the library renders. P3 fixes it.
+- **The dictionary-import "loading" state is dead code.** `apiRequest` throws on
+  any non-2xx (`Manatan/utils/api.ts:64`), but the import-in-progress response is
+  `503 {"error":"loading"}`, so the `'loading'` check below it never runs and all
+  four call sites' `systemLoading` branches are unreachable. During an import you
+  get empty results rather than "still importing".
+- **A slow lookup can overwrite a newer popup.** `useTextLookup.ts` has no
+  sequence guard and no `AbortController`. Tap A then tap B; if A resolves second
+  it merges into B's state, giving B's popup position with A's contents.
+- **Sentence furigana costs ~20 serialized round trips.**
+  `japaneseFurigana.ts:303-350` awaits one lookup per token. At 60–107 ms RTT
+  that is 1.2–2.0 s per sentence — larger than anything else measured. Needs
+  cancellation, not just caching.
+- **`make check` omits `--workspace`.** It runs `cargo clippy --all-targets` and
+  `cargo test`, which is the exact trap documented in `CLAUDE.md` — `cargo test`
+  alone runs zero tests, because `default-members` is `bin/lanobe`.
 - The setup wizard's third step configures anime subtitles — meaningless here,
   should be dropped.
 - 524 `react-hooks` warnings in inherited reader code, surfaced once the plugin was
@@ -133,3 +187,6 @@ The core feature. Nothing else in the project matters as much.
 | `/more` crash | Four identifiers used, never imported — broken upstream too | Inherit bugs knowingly |
 | No dictionary UI | `OCRManager.tsx` deleted; it also hosted the setup wizard | Check what else a file renders before deleting it |
 | CI red on arrival | Floating `stable` toolchain + `-D warnings`; `yarn lint` never run | Never add a gate you have not run |
+| Compose port forwarded nowhere | Host port changed to `5678:5678`; the container only ever listens on 4567 | Change only the left side of a port mapping |
+| Container crash-looped on a fresh clone | Docker created the `./data` bind-mount source as root; the image's `chown` is masked by the mount | `docker compose up` reporting "Started" says nothing — check `ps` for `Restarting` |
+| P2 aimed at the wrong 1.2 ms | Assumed the server was slow without measuring it | The phase said "baseline first" for a reason; the answer was compression and cache headers, neither of which was in the plan |
