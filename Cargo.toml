@@ -5,6 +5,7 @@ members = [
     "crates/app-server",
     "crates/audio-server",
     "crates/novel-server",
+    "crates/study-server",
     "crates/sync-server",
     "crates/yomitan-server",
 ]
@@ -69,6 +70,7 @@ thiserror = "2.0"
 lanobe-app-server = { path = "crates/app-server" }
 lanobe-audio-server = { path = "crates/audio-server" }
 lanobe-novel-server = { path = "crates/novel-server" }
+lanobe-study-server = { path = "crates/study-server" }
 lanobe-sync-server = { path = "crates/sync-server" }
 lanobe-yomitan-server = { path = "crates/yomitan-server" }
 

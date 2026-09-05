@@ -1624,6 +1624,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "lanobe-study-server"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tracing",
+]
+
+[[package]]
 name = "lanobe-sync-server"
 version = "0.1.0"
 dependencies = [
