@@ -5,11 +5,13 @@
 use axum::Router;
 use std::path::Path;
 
+mod apkg;
 mod kanji;
 mod routes;
 mod state;
 mod store;
 
+pub use apkg::{ExportNote, build_apkg};
 pub use kanji::extract_kanji;
 pub use state::StudyState;
 pub use store::{

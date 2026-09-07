@@ -12,15 +12,15 @@ version.workspace = true
 [dependencies]
 anyhow.workspace = true
 axum.workspace = true
-# Word audio resolves to external URLs (jpod101, jisho, wiktionary), so
-# embedding it as deck media means the server fetches those files itself.
-reqwest.workspace = true
 rusqlite.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+# Anki's note checksum is sha1 of the sort field. sha2 cannot provide it.
+sha1 = "0.10"
 thiserror.workspace = true
-tokio.workspace = true
 tracing.workspace = true
+# An .apkg is a zip holding collection.anki2 plus a media manifest.
+zip.workspace = true
 
 [lints]
 workspace = true
