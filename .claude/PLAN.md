@@ -12,8 +12,8 @@ is meant to produce and why.
 | Docker + CI/CD (pulled forward from P6) | **done** |
 | Rebrand to Lanobe | **done** |
 | P2 — Dictionary lookup performance | **re-scoped after measuring; transport done, client cache deferred** |
-| P3 — Vocab, kanji bookmarks, auto-highlight | **next** — *the core feature* |
-| P4 — Anki `.apkg` export | pending |
+| P3 — Vocab, kanji bookmarks, auto-highlight | **done** — *the core feature* |
+| P4 — Anki `.apkg` export | **next** |
 | P5 — Offline PWA and write queue | pending |
 | P6 — EC2 deploy: Caddy + TLS | partial |
 
@@ -100,18 +100,32 @@ before reviving either.
 
 The core feature. Nothing else in the project matters as much.
 
-- [ ] `crates/study-server`, `study.db`, schema per SPEC §4
-- [ ] `POST /api/study/terms` — store term, index each kanji
-- [ ] `GET /api/study/highlight-index` with ETag
-- [ ] CRUD + `GET /api/study/stats`
-- [ ] Save control in the lookup popup (`Manatan/components/DictionaryView.tsx`)
-- [ ] `Saved` screen: Kanji | Words tabs, search, filter, mark known, delete
-- [ ] **Replace `injectHighlights.ts`** — it does `indexOf` on raw HTML and can
-      inject into attributes. TreeWalker over text nodes, skipping `rt`/`rp`.
-- [ ] Matcher: `Set` for kanji + trie for terms, built once per book
-- [ ] Memoise per `blockId + indexETag`
-- [ ] Settings: highlight kanji / terms / only-unknown, and style
-- [ ] Tests: overlapping terms, terms inside ruby, terms spanning inline tags
+- [x] `crates/study-server`, `study.db`, schema per SPEC §4 (S1)
+- [x] `POST /api/study/terms` — store term, index each kanji (S1/S2)
+- [x] `GET /api/study/highlight-index` with ETag → 304 (S2)
+- [x] CRUD, bulk actions, `GET /api/study/stats` (S2/S5)
+- [x] Save control in the lookup popup (S4)
+- [x] `Saved` screen: Words | Kanji | Highlights, search, filter, sort,
+      bulk status, delete (S3/S5/S9)
+- [x] Matcher: `Map` for kanji + trie for terms, built once per **index
+      version** — not per book. The index is global, so per-book would be N
+      identical copies; SPEC's "once per book" is read as "once, not per block"
+- [x] Memoise per `blockId + indexETag` via a `data-ln-hl` stamp (S7)
+- [x] Settings: highlight kanji / terms / only-unknown, and style (S8).
+      CSS-only, so toggling never re-walks the DOM
+- [x] Tests: overlapping terms, terms inside ruby, terms spanning inline tags —
+      all three as pure unit tests plus a real-browser smoke assertion (S6/S7)
+- [x] Migrate legacy highlights into `study.db`, idempotently (S9)
+- [ ] **Replace `injectHighlights.ts`** — still outstanding. See
+      `FOUND-ISSUES.md` #14: legacy offsets are furigana-*inclusive* while the
+      new applier is *exclusive*, so it needs its own inclusive-walker applier
+      rather than reuse
+
+**What P3 turned up.** Six pre-existing bugs, in `FOUND-ISSUES.md`. The one that
+mattered: local reading offsets counted furigana while the block map they feed
+does not, so saved positions drifted in any chapter with ruby. Also `/saved` had
+no route at all and silently redirected, and `yarn test` ran nothing — five test
+files had never executed.
 
 ## P4 — Anki export
 
