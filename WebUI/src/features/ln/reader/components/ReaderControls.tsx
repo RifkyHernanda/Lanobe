@@ -1282,6 +1282,62 @@ export const ReaderControls: React.FC<Props> = ({
                             Display character count and percentage instead of page numbers
                         </Typography>
                     </Box>
+                    {/* Saved-vocabulary highlighting (SPEC 5.4). These are CSS-only
+                        toggles: the marks stay in the DOM and stop painting, so
+                        flipping one never re-walks the text. */}
+                    <Typography variant="subtitle2" sx={{ mt: 2, mb: 1, color: theme.fg }}>
+                        Saved vocabulary
+                    </Typography>
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={settings.lnHighlightKanji ?? true}
+                                onChange={(e) => onUpdateSettings('lnHighlightKanji', e.target.checked)}
+                            />
+                        }
+                        label={<Typography variant="body2">Highlight saved kanji</Typography>}
+                        sx={{ color: theme.fg, mb: 0.5, width: '100%' }}
+                    />
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={settings.lnHighlightTerms ?? true}
+                                onChange={(e) => onUpdateSettings('lnHighlightTerms', e.target.checked)}
+                            />
+                        }
+                        label={<Typography variant="body2">Highlight saved words</Typography>}
+                        sx={{ color: theme.fg, mb: 0.5, width: '100%' }}
+                    />
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={settings.lnHighlightOnlyUnknown ?? false}
+                                onChange={(e) => onUpdateSettings('lnHighlightOnlyUnknown', e.target.checked)}
+                            />
+                        }
+                        label={
+                            <Box>
+                                <Typography variant="body2">Only unknown</Typography>
+                                <Typography variant="caption" sx={{ opacity: 0.6 }}>
+                                    Hide anything moved to learning
+                                </Typography>
+                            </Box>
+                        }
+                        sx={{ color: theme.fg, mb: 1, width: '100%' }}
+                    />
+                    <TextField
+                        select
+                        size="small"
+                        label="Highlight style"
+                        value={settings.lnHighlightStyle ?? 'background'}
+                        onChange={(e) => onUpdateSettings('lnHighlightStyle', e.target.value)}
+                        sx={{ mb: 3, width: '100%' }}
+                    >
+                        <MenuItem value="background">Background</MenuItem>
+                        <MenuItem value="underline">Wavy underline</MenuItem>
+                        <MenuItem value="outline">Outline</MenuItem>
+                    </TextField>
+
                     <FormControlLabel
                         control={
                             <Switch

@@ -4,6 +4,7 @@ import BookmarkAddedIcon from '@mui/icons-material/BookmarkAdded';
 import CircularProgress from '@mui/material/CircularProgress';
 import { useOCR } from '@/Manatan/context/OCRContext';
 import { studyApi } from '@/features/study/studyApi.ts';
+import { isTermInHighlightIndex } from '@/features/study/useHighlightIndex.ts';
 import type { DictionaryResult } from '@/Manatan/types';
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
@@ -17,7 +18,10 @@ type SaveState = 'idle' | 'saving' | 'saved' | 'error';
  */
 export const SaveTermButton = ({ entry, accentColor }: { entry: DictionaryResult; accentColor?: string }) => {
     const { dictPopup } = useOCR();
-    const [state, setState] = useState<SaveState>('idle');
+    // Seeded from the cached highlight index, so a word you saved earlier shows
+    // as saved the moment the popup opens rather than after you click it again.
+    // Reads localStorage synchronously -- no request per popup.
+    const [state, setState] = useState<SaveState>(() => (isTermInHighlightIndex(entry.headword) ? 'saved' : 'idle'));
 
     const handleSave = async (event: React.MouseEvent) => {
         event.stopPropagation();

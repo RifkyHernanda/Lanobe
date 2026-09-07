@@ -49,3 +49,17 @@ mark.ln-study-mark[data-ln-mark='term'] {
 .ln-hl-style-outline mark.ln-study-mark[data-ln-mark='kanji'] {
     --ln-hl-term: var(--ln-hl-kanji, rgba(255, 213, 79, 0.9));
 }
+
+/*
+ * The per-kind and per-status toggles are CSS, not a matcher rebuild. The marks
+ * stay in the DOM and simply stop painting, so flipping a switch costs a class
+ * change rather than re-walking every block -- and it cannot disturb the text
+ * offsets that reading positions depend on.
+ */
+.ln-hl-no-kanji mark.ln-study-mark[data-ln-mark='kanji'],
+.ln-hl-no-terms mark.ln-study-mark[data-ln-mark='term'],
+.ln-hl-only-unknown mark.ln-study-mark[data-ln-status='learning'] {
+    background: none;
+    box-shadow: none;
+    text-decoration: none;
+}

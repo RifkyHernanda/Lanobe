@@ -22,6 +22,7 @@ import { ContinuousReaderProps } from '@/features/ln/reader/types/reader';
 import '@/features/ln/reader/components/ContinuousReader.css';
 import '@/features/study/study.css';
 import { useStudyHighlights } from '@/features/study/useStudyHighlights';
+import { highlightClasses } from '@/features/study/highlightClasses';
 
 // ============================================================================
 // Constants
@@ -1129,7 +1130,7 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
                 >
                     <div
                         ref={contentRef}
-                        className={`continuous-content ${isVertical ? 'vertical' : 'horizontal'} ${!settings.lnEnableFurigana ? 'furigana-hidden' : ''}`}
+                        className={`continuous-content ${isVertical ? 'vertical' : 'horizontal'} ${!settings.lnEnableFurigana ? 'furigana-hidden' : ''} ${highlightClasses(settings)}`}
                         style={contentStyle as React.CSSProperties}
                     >
                         {/* Sanitized EPUB CSS (fonts stripped) */}

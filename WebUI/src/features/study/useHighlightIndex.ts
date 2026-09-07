@@ -35,6 +35,24 @@ function writeCache(value: Cached): void {
 }
 
 /**
+ * Whether a term is in the locally cached index, without a request.
+ *
+ * Used by the popup's save control so a word you already saved shows as saved
+ * on open. **Caveat:** the index deliberately omits `known` entries, so a word
+ * marked known reads as unsaved here. Saving again is harmless -- it upserts and
+ * preserves the stored context -- so the cost is a wrong icon, not wrong data.
+ * Fixing it properly would need a per-popup request, which is the latency this
+ * whole design avoids.
+ */
+export function isTermInHighlightIndex(term: string): boolean {
+    if (!term) return false;
+    const cached = readCache();
+    if (!cached) return false;
+    const { terms } = cached.index;
+    return terms.unknown.includes(term) || terms.learning.includes(term);
+}
+
+/**
  * The saved-vocabulary index, revalidated with `If-None-Match`.
  *
  * Starts from the cached copy so a reopened book marks immediately, then

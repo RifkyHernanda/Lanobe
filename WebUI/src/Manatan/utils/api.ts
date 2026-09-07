@@ -89,7 +89,23 @@ export const lookupYomitan = async (
         const groupParam = groupingMode === 'grouped';
         const languageParam = language ? `&language=${encodeURIComponent(language)}` : '';
         const url = `/api/yomitan/lookup?text=${encodeURIComponent(text)}&index=${index}&group=${groupParam}${languageParam}`;
-        const res = await apiRequest<any>(url);
+
+        // Not via apiRequest: it throws on any non-2xx before the body is read,
+        // and the import-in-progress reply is `503 {"error":"loading"}`. That
+        // made the check below unreachable and every caller's `systemLoading`
+        // state dead code -- during a dictionary import you saw "no results"
+        // rather than "still importing".
+        const fullUrl = url.startsWith('http') ? url : `${requestManager.getBaseUrl()}${url}`;
+        const response = await fetch(fullUrl, {
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+        });
+
+        const body = await response.text();
+        const res = body ? JSON.parse(body) : null;
+
+        if (response.status === 503 && res?.error === 'loading') return 'loading';
+        if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 
         if (res && res.error === 'loading') return 'loading';
         if (res && res.terms) return res as LookupResponse;

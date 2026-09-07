@@ -181,6 +181,12 @@ export interface Settings {
     lnMarginRight?: number;
     // Navigation settings
     lnHideNavButtons?: boolean;
+    // Saved-vocabulary highlighting (SPEC 5.4)
+    lnHighlightKanji?: boolean;
+    lnHighlightTerms?: boolean;
+    lnHighlightOnlyUnknown?: boolean;
+    lnHighlightStyle?: 'background' | 'underline' | 'outline';
+
     lnEnableClickZones?: boolean;
     lnClickZoneSize?: number;
     lnClickZonePosition?: 'full' | 'start' | 'center' | 'end';
@@ -439,6 +445,11 @@ export const DEFAULT_SETTINGS: Settings = {
     lnMarginRight: 40,
     // Navigation defaults
     lnHideNavButtons: false,
+    lnHighlightKanji: true,
+    lnHighlightTerms: true,
+    lnHighlightOnlyUnknown: false,
+    lnHighlightStyle: 'background',
+
     lnEnableClickZones: true,
     lnClickZoneSize: 10,
     lnClickZonePosition: 'full',

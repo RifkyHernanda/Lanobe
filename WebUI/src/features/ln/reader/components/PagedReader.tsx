@@ -15,6 +15,7 @@ import { createChapterBlockLookup, getPositionFromCharOffset } from '@/features/
 import '@/features/ln/reader/components/PagedReader.css';
 import '@/features/study/study.css';
 import { useStudyHighlights } from '@/features/study/useStudyHighlights';
+import { highlightClasses } from '@/features/study/highlightClasses';
 
 // ============================================================================
 // Helpers
@@ -1665,7 +1666,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
                     {/* Content */}
                     <div
                         ref={contentRef}
-                        className={`paged-content ${!settings.lnEnableFurigana ? 'furigana-hidden' : ''} ${isImageOnly ? 'image-only-chapter' : ''}`}
+                        className={`paged-content ${!settings.lnEnableFurigana ? 'furigana-hidden' : ''} ${isImageOnly ? 'image-only-chapter' : ''} ${highlightClasses(settings)}`}
                         style={{ ...contentStyle, opacity: renderPhase === 'measuring' ? 0 : 1 }}
                     >
                         {css && <style>{`@scope (.paged-content) { \n${css}\n }`}</style>}

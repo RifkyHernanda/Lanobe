@@ -47,6 +47,13 @@ export interface LNReaderSettings {
     lnMarginLeft: number;
     lnMarginRight: number;
 
+    // Saved-vocabulary highlighting (SPEC 5.4)
+    lnHighlightKanji: boolean;
+    lnHighlightTerms: boolean;
+    /** Show only `unknown`; hide anything moved to `learning`. */
+    lnHighlightOnlyUnknown: boolean;
+    lnHighlightStyle: 'background' | 'underline' | 'outline';
+
     // Yomitan integration
     enableYomitan: boolean;
     interactionMode: 'hover' | 'click';
@@ -98,6 +105,12 @@ const DEFAULT_LN_SETTINGS: LNReaderSettings = {
     lnMarginBottom: 20,
     lnMarginLeft: 40,
     lnMarginRight: 40,
+
+    // Saved-vocabulary highlighting
+    lnHighlightKanji: true,
+    lnHighlightTerms: true,
+    lnHighlightOnlyUnknown: false,
+    lnHighlightStyle: 'background',
 
     // Yomitan integration
     enableYomitan: true,
@@ -205,6 +218,12 @@ export function getLnSettingsAsFullSettings(lnSettings: LNReaderSettings): Parti
         lnHideNavButtons: lnSettings.lnHideNavButtons,
         lnEnableSwipe: lnSettings.lnEnableSwipe,
         lnDragThreshold: lnSettings.lnDragThreshold,
+
+        // Saved-vocabulary highlighting
+        lnHighlightKanji: lnSettings.lnHighlightKanji,
+        lnHighlightTerms: lnSettings.lnHighlightTerms,
+        lnHighlightOnlyUnknown: lnSettings.lnHighlightOnlyUnknown,
+        lnHighlightStyle: lnSettings.lnHighlightStyle,
 
         // Click zones
         lnEnableClickZones: lnSettings.lnEnableClickZones,

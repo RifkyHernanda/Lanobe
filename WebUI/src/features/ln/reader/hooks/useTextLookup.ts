@@ -2,7 +2,7 @@
  * Text lookup hook for dictionary integration in LN Reader
  */
 
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import type { YomitanLanguage } from '@/Manatan/types';
 import { useOCR } from '@/Manatan/context/OCRContext';
 import { createVisibleTextWalker } from '@/lib/dom/visibleText.ts';
@@ -165,6 +165,13 @@ const getBlockById = (blockId: string): Element | null => {
  */
 export function useTextLookup(source?: { bookId?: string; bookTitle?: string; chapterIndex?: number }) {
     const { settings, setDictPopup } = useOCR();
+
+    // Bumped per tap. Every state write after an await checks it, so a slow
+    // response cannot repaint a popup the user has since opened somewhere else
+    // -- which previously gave the new popup's position with the old contents.
+    // A generation counter rather than an AbortController on purpose: it also
+    // covers awaits that are not fetches.
+    const lookupSeqRef = useRef(0);
 
     const getCharacterAtPoint = useCallback(
         (
@@ -330,6 +337,9 @@ export function useTextLookup(source?: { bookId?: string; bookTitle?: string; ch
             const selection = window.getSelection();
             if (selection && !selection.isCollapsed) return false;
 
+            const seq = lookupSeqRef.current + 1;
+            lookupSeqRef.current = seq;
+
             const charInfo = getCharacterAtPoint(e.clientX, e.clientY);
             if (!charInfo || WHITESPACE_REGEX.test(charInfo.character)) {
                 console.log('[TextLookup] No valid character found at point:', {
@@ -404,6 +414,7 @@ export function useTextLookup(source?: { bookId?: string; bookTitle?: string; ch
             const loadedResults = results === 'loading' ? [] : (results as any).terms || results || [];
 
             if (results === 'loading') {
+                if (seq !== lookupSeqRef.current) return true;
                 setDictPopup((prev) => ({ ...prev, results: [], isLoading: false, systemLoading: true }));
                 return true;
             }
@@ -505,6 +516,10 @@ export function useTextLookup(source?: { bookId?: string; bookTitle?: string; ch
             }
 
             const loadedKanji = (results as any).kanji || [];
+
+            // The tap that started this is no longer the current one, so writing
+            // now would merge these results into a different word's popup.
+            if (seq !== lookupSeqRef.current) return true;
 
             setDictPopup((prev) => ({
                 ...prev,

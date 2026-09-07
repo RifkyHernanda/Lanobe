@@ -10,9 +10,9 @@ guesses.** When one is fixed, move it to *Fixed* with the commit that did it.
 | --- | --- | --- | --- |
 | 1 | Furigana inflated saved reading offsets | **high** | **fixed** (scope narrowed — see below) |
 | 2 | `/saved` has no route, silently redirects | medium | **fixed** |
-| 3 | Dictionary-import "loading" state is unreachable | medium | open |
+| 3 | Dictionary-import "loading" state is unreachable | medium | **fixed** |
 | 4 | `mark.highlight` padding shifts paged layout | medium | **fixed** |
-| 5 | A stale lookup can repaint a newer popup | medium | open |
+| 5 | A stale lookup can repaint a newer popup | medium | **fixed** (reader path) |
 | 6 | Sentence furigana costs ~20 serialised round trips | medium | open |
 | 7 | `make check` omits `--workspace` | low | **fixed** |
 | 8 | `ci.yml` points at a file that does not exist | low | **fixed** |
@@ -89,8 +89,9 @@ Every `results === 'loading'` branch at all four call sites is dead, and the
 `systemLoading` popup state they implement is never shown. During an import you
 see "no results" rather than "still importing".
 
-Fix needs `lookupYomitan` to distinguish a 503-with-`loading` from a real failure,
-which means not routing it through `apiRequest`'s blanket throw.
+Fixed in S8: `lookupYomitan` now does its own fetch and inspects the status and
+body, so a `503` carrying `error: "loading"` returns the `'loading'` sentinel and
+anything else still throws. The other ~15 `apiRequest` callers are untouched.
 
 ## 4. `mark.highlight` padding shifts paged layout — medium
 
@@ -114,9 +115,14 @@ arrives second, its `setDictPopup(prev => ...)` merges A's results into B's stat
 Same shape in `TextBox.tsx:620`, `YomitanPopup.tsx:225/299/370` and
 `Dictionary.tsx:106/251/317`.
 
-Fix is a `useRef` generation counter checked after every await, not an
-`AbortController` — the guard must also cover the IndexedDB await once a lookup
-cache lands.
+Fixed in S8 for the reader path: `useTextLookup` bumps a `useRef` generation per
+tap and checks it before each state write after an await. A counter rather than
+an `AbortController` deliberately — it also covers awaits that are not fetches,
+which matters once a lookup cache adds an IndexedDB read.
+
+**Still open elsewhere:** `TextBox.tsx:620`, `YomitanPopup.tsx:225/299/370` and
+`Dictionary.tsx:106/251/317` have the same shape and are unguarded. The reader is
+the path that matters most, but these should get the same treatment.
 
 ## 6. Sentence furigana costs ~20 serialised round trips — medium
 
@@ -197,4 +203,6 @@ quality.
 | #13 `yarn test` was `node -e "console.log('imagine')"`, so five .test.ts files had never executed | S6 — now `tsx --test`; all 24 inherited tests passed once actually run |
 | #1 furigana-inclusive local offsets mixed into a furigana-exclusive block map | S7 — both walkers now share `lib/dom/visibleText.ts` |
 | #4 `mark.highlight` padding shifted PagedReader's measured page boundaries | S7 |
+| #3 the import "loading" reply was swallowed by `apiRequest`'s blanket throw | S8 |
+| #5 stale lookup responses repainting a newer popup (reader path) | S8 |
 | `useStudyHighlights` did nothing at all: it read a ref that is null on the first commit, and no dependency changes when a ref populates | S7 — found by instrumenting the hook after static inspection kept saying the wiring was correct |
