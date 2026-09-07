@@ -20,6 +20,8 @@ import { SaveablePosition, calculateProgress, createSaveScheduler } from '@/feat
 import { restoreReadingPosition, applyLocalOffset, RestorationPosition } from '@/features/ln/reader/utils/restoration';
 import { ContinuousReaderProps } from '@/features/ln/reader/types/reader';
 import '@/features/ln/reader/components/ContinuousReader.css';
+import '@/features/study/study.css';
+import { useStudyHighlights } from '@/features/study/useStudyHighlights';
 
 // ============================================================================
 // Constants
@@ -48,6 +50,8 @@ type RestorationState =
 export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
     bookId,
     bookTitle,
+    studyMatcher,
+    studyIndexEtag,
     chapters,
     stats,
     settings,
@@ -169,6 +173,8 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
     // `const` before its declaration is a temporal dead zone error, and this
     // codebase has been blanked by that twice already.
     const { tryLookup } = useTextLookup({ bookId, bookTitle, chapterIndex: currentChapter });
+
+    useStudyHighlights(contentRef, studyMatcher, studyIndexEtag ?? 'none', !!studyMatcher);
     const [scrollProgress, setScrollProgress] = useState(0);
     const [contentLoaded, setContentLoaded] = useState(false);
     const [currentProgress, setCurrentProgress] = useState(initialProgress?.totalProgress || 0);

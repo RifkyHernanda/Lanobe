@@ -8,10 +8,10 @@ guesses.** When one is fixed, move it to *Fixed* with the commit that did it.
 
 | # | Issue | Severity | Status |
 | --- | --- | --- | --- |
-| 1 | Furigana corrupts character offsets | **high** | open — fix in P3 S7 |
+| 1 | Furigana inflated saved reading offsets | **high** | **fixed** (scope narrowed — see below) |
 | 2 | `/saved` has no route, silently redirects | medium | **fixed** |
 | 3 | Dictionary-import "loading" state is unreachable | medium | open |
-| 4 | `mark.highlight` padding shifts paged layout | medium | open — fix in P3 S7 |
+| 4 | `mark.highlight` padding shifts paged layout | medium | **fixed** |
 | 5 | A stale lookup can repaint a newer popup | medium | open |
 | 6 | Sentence furigana costs ~20 serialised round trips | medium | open |
 | 7 | `make check` omits `--workspace` | low | **fixed** |
@@ -24,32 +24,43 @@ guesses.** When one is fixed, move it to *Fixed* with the commit that did it.
 
 ---
 
-## 1. Furigana corrupts character offsets — **high**
+## 1. Furigana inflated saved reading offsets — **high**, fixed in S7
 
-Three places build a `TreeWalker` with a `null` filter, so `<rt>` ruby text is
-counted as body text:
+**The scope was narrower than first recorded, and the mechanism different.** Two
+earlier descriptions of this were wrong; this one is traced end to end.
 
-- `WebUI/src/features/ln/reader/utils/blockPosition.ts:95` — **produces** the
-  saved reading position.
-- `WebUI/src/features/ln/reader/utils/restoration.ts:263` — **resolves** an
-  offset that was computed from `getCleanTextContent`, which *strips* `rt, rp`
-  (`blockPosition.ts:16`).
-- `WebUI/src/features/ln/reader/components/PagedReader.tsx:79` —
-  `applyHighlightToBlock` resolves highlight start/end offsets.
+The canonical character space is furigana-**exclusive**: `blockProcessor.ts:277`
+builds every block with `getCleanTextContent`, which strips `rt, rp`, and the
+resulting `startOffset`/`endOffset` drive progress and restoration.
 
-So the codebase holds two incompatible coordinate spaces — furigana-inclusive and
-furigana-exclusive — and the resolvers do not match the producers. In any chapter
-with ruby, a restored position lands late by the cumulative length of the furigana
-before it. Every light novel has ruby; `義妹生活５` has it on the first page.
+But `calculatePreciseBlockOffset` (`blockPosition.ts`) produced its local offset
+with a `null`-filter walker, counting furigana. `blockMap.ts:154` then does:
 
-`WebUI/src/features/ln/reader/hooks/useTextLookup.ts:111` is the only site that
-gets this right, with a walker that rejects `rt, rp`. P3 S7 extracts that walker
-to `lib/dom/visibleText.ts` and must repoint all three sites at it, picking one
-coordinate space.
+```
+chapterCharOffset = block.startOffset + min(localOffset, block.endOffset - block.startOffset)
+```
 
-> Correction to an earlier note: the mismatch is not *between* `blockPosition`
-> and `restoration` — `restoration` imports the clean helper. It is *within*
-> `restoration`, between its cleaned offset and its unfiltered walker.
+— adding a furigana-**inclusive** local offset into a furigana-**exclusive**
+global space, and clamping rather than failing. So in a ruby-bearing block the
+saved `chapterCharOffset` ran ahead by the length of the readings before the
+cursor, silently. That skews progress and makes switching between paged and
+continuous jump. `restoration.ts:234`'s ratio fallback divided the same
+inclusive offset by a clean length, so it could exceed 1 and snap to the block
+end.
+
+Fixed by routing both `calculatePreciseBlockOffset` and `restoration.ts`'s caret
+walker through `lib/dom/visibleText.ts`, so producer and resolver agree with the
+block map.
+
+**Not part of this bug:** `PagedReader.tsx:79` (`applyHighlightToBlock`). Its
+offsets come from `SelectionHandles.tsx:498` via `preRange.toString().length`,
+which *includes* ruby text, and it resolves them with an inclusive walker — so
+that pair is self-consistent. Changing it would have broken legacy highlights.
+They keep their own space until S9 migrates them.
+
+**One-time effect:** positions saved before this fix were inclusive and are now
+read as exclusive, so a bookmark in a ruby-heavy block restores slightly early
+once. It self-corrects as soon as the position is saved again.
 
 ## 2. `/saved` has no route — medium
 
@@ -89,8 +100,9 @@ which means not routing it through `apiRequest`'s blanket throw.
 measuring pass (`PagedReader.tsx:607-660`). So highlighting text currently moves
 page boundaries under the reader.
 
-P3's marks must be strictly layout-neutral — background, `text-decoration` or an
-inset `box-shadow` only.
+Fixed in S7: `padding`, `border` and `border-radius` are now zeroed on
+`mark.highlight`, and the new `mark.ln-study-mark` is layout-neutral by contract
+with a comment in `study.css` saying why nothing else may be added.
 
 ## 5. A stale lookup can repaint a newer popup — medium
 
@@ -183,3 +195,6 @@ quality.
 | Re-saving a term erased the book, chapter and glossary captured the first time | S2 (found by running the endpoint; now tested both ways) |
 | #2 `/saved` had no `<Route>` and silently redirected to the library | S3 — smoke test now asserts the screen mounts, verified to fail without the fix |
 | #13 `yarn test` was `node -e "console.log('imagine')"`, so five .test.ts files had never executed | S6 — now `tsx --test`; all 24 inherited tests passed once actually run |
+| #1 furigana-inclusive local offsets mixed into a furigana-exclusive block map | S7 — both walkers now share `lib/dom/visibleText.ts` |
+| #4 `mark.highlight` padding shifted PagedReader's measured page boundaries | S7 |
+| `useStudyHighlights` did nothing at all: it read a ref that is null on the first commit, and no dependency changes when a ref populates | S7 — found by instrumenting the hook after static inspection kept saying the wiring was correct |

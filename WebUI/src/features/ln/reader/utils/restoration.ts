@@ -1,6 +1,7 @@
 import { BlockIndexMap } from '@/features/ln/reader/types/block';
 import { createChapterBlockLookup, getPositionFromCharOffset } from '@/features/ln/reader/utils/blockMap';
 import { getCleanTextContent } from '@/features/ln/reader/utils/blockPosition';
+import { createVisibleTextWalker } from '@/lib/dom/visibleText.ts';
 
 export function hasChapterBlocks(container: HTMLElement, chapterIndex: number): boolean {
     const blocks = container.querySelectorAll(`[data-block-id^="ch${chapterIndex}-b"]`);
@@ -260,7 +261,10 @@ function applyLocalOffsetCaret(
         let targetNode: Text | null = null;
         let targetNodeStart = 0;
 
-        const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT, null);
+        // Skips furigana, matching calculatePreciseBlockOffset, which produced
+        // this offset. If the two walkers disagree about whether `rt` counts,
+        // restoring a bookmark lands in the wrong place in any block with ruby.
+        const walker = createVisibleTextWalker(block);
 
         while (walker.nextNode()) {
             const node = walker.currentNode as Text;

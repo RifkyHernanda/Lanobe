@@ -628,11 +628,18 @@
    HIGHLIGHTS
    ===================================================== */
 
+/*
+ * No padding or border-radius. PagedReader measures every block with
+ * getBoundingClientRect() to build its page map, so horizontal padding on a
+ * mark shifts page boundaries -- meaning highlighting a passage silently moved
+ * the reader's saved position. Background only.
+ */
 .paged-content mark.highlight,
 .continuous-content mark.highlight,
 .chapter-block mark.highlight {
     background-color: var(--ln-highlight-bg, rgba(255, 235, 59, 0.45));
-    border-radius: 2px;
-    padding: 0 1px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
     color: inherit;
 }

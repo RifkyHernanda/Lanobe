@@ -7,6 +7,8 @@
  * - Viewport-relative position estimation
  */
 
+import { createVisibleTextWalker } from '@/lib/dom/visibleText.ts';
+
 // Universal regex for clean text (matches blockProcessor.ts)
 const NOISE_REGEX = /[^\p{L}\p{N}]+/gu;
 
@@ -90,9 +92,16 @@ export function calculatePreciseBlockOffset(block: Element, container: HTMLEleme
         return calculateBlockLocalOffset(block, container, isVertical);
     }
 
-    // Calculate character offset within the block
+    // Calculate character offset within the block.
+    //
+    // The walker must skip furigana. This offset is handed to
+    // blockMap.getPositionFromBlock, which adds it to the block's startOffset --
+    // and those come from blockProcessor, which counts characters with `rt`/`rp`
+    // stripped. Counting furigana here inflated every position in a ruby-bearing
+    // block by the length of the readings before the cursor, silently, because
+    // the sum is then clamped to the block length.
     let offset = 0;
-    const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT, null);
+    const walker = createVisibleTextWalker(block);
 
     while (walker.nextNode()) {
         const node = walker.currentNode as Text;

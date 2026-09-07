@@ -5,6 +5,7 @@
 import { useCallback } from 'react';
 import type { YomitanLanguage } from '@/Manatan/types';
 import { useOCR } from '@/Manatan/context/OCRContext';
+import { createVisibleTextWalker } from '@/lib/dom/visibleText.ts';
 import { lookupYomitan } from '@/Manatan/utils/api';
 import { isNoSpaceLanguage } from '@/Manatan/utils/language';
 
@@ -107,11 +108,6 @@ const getLookupRootNode = (startNode: Node): Node => {
 
     return contextElement || document.body;
 };
-
-const createVisibleTextWalker = (root: Node) =>
-    document.createTreeWalker(root, NodeFilter.SHOW_TEXT, (node) =>
-        node.parentElement?.closest('rt, rp') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
-    );
 
 const getRootCharIndex = (root: Node, targetNode: Node, targetOffset: number): number | null => {
     const walker = createVisibleTextWalker(root);

@@ -1,0 +1,51 @@
+/*
+ * Marks for saved vocabulary.
+ *
+ * LAYOUT-NEUTRAL BY CONTRACT. PagedReader derives its entire page map from
+ * getBoundingClientRect() during a measuring pass, so padding, margin, border,
+ * or any font/line-height change here silently shifts every page boundary in
+ * the book -- and the reader's saved position with it. Background,
+ * text-decoration and inset box-shadow are safe; nothing else is.
+ */
+
+.paged-content mark.ln-study-mark,
+.continuous-content mark.ln-study-mark,
+.chapter-block mark.ln-study-mark,
+mark.ln-study-mark {
+    padding: 0;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    font: inherit;
+    line-height: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    background: none;
+}
+
+mark.ln-study-mark[data-ln-mark='kanji'] {
+    background-color: var(--ln-hl-kanji, rgba(255, 213, 79, 0.28));
+}
+
+mark.ln-study-mark[data-ln-mark='term'] {
+    background-color: var(--ln-hl-term, rgba(129, 199, 132, 0.28));
+}
+
+/* Style variants: a class on the container, so switching never re-walks the DOM. */
+.ln-hl-style-underline mark.ln-study-mark {
+    background: none;
+    text-decoration: underline wavy var(--ln-hl-term, rgba(129, 199, 132, 0.9));
+    text-underline-offset: 0.25em;
+    /* text-decoration-skip-ink would reflow nothing, but keep it explicit. */
+    text-decoration-thickness: from-font;
+}
+
+.ln-hl-style-outline mark.ln-study-mark {
+    background: none;
+    box-shadow: inset 0 0 0 1px var(--ln-hl-term, rgba(129, 199, 132, 0.9));
+}
+
+.ln-hl-style-underline mark.ln-study-mark[data-ln-mark='kanji'],
+.ln-hl-style-outline mark.ln-study-mark[data-ln-mark='kanji'] {
+    --ln-hl-term: var(--ln-hl-kanji, rgba(255, 213, 79, 0.9));
+}

@@ -33,6 +33,7 @@ import ManatanLogo from '@/Manatan/assets/manatan_logo.png';
 import { AppStorage, LNHighlight } from '@/lib/storage/AppStorage';
 import { useBookContent } from '@/features/ln/reader/hooks/useBookContent';
 import { useHighlights } from '@/features/ln/reader/hooks/useHighlights';
+import { useHighlightIndex } from '@/features/study/useHighlightIndex';
 import { useLnSettings } from '@/features/ln/reader/hooks/useLnSettings';
 import { loadCustomFonts } from '@/features/ln/reader/utils/fontUtils';
 import { getDefaultLnSettings } from '@/features/ln/reader/utils/lnSettings';
@@ -103,6 +104,11 @@ export const LNReaderScreen: React.FC = () => {
         downloadFile,
         refresh,
     } = useHighlights(bookId);
+
+    // Saved vocabulary, fetched once per reader mount and revalidated with an
+    // ETag. It lives here rather than inside the readers so both share one
+    // matcher instead of each building an identical trie.
+    const { matcher: studyMatcher, etag: studyIndexEtag } = useHighlightIndex();
 
     useEffect(() => {
         if (typeof window === 'undefined' || typeof document === 'undefined' || !document.body) {
@@ -566,6 +572,8 @@ export const LNReaderScreen: React.FC = () => {
             <VirtualReader
                 bookId={id!}
                 bookTitle={content.metadata.title}
+                studyMatcher={studyMatcher}
+                studyIndexEtag={studyIndexEtag}
                 items={content.chapters}
                 stats={content.stats}
                 chapterFilenames={content.chapterFilenames || []}

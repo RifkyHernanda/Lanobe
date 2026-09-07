@@ -3,8 +3,13 @@
 import { Settings } from '@/Manatan/types';
 import { BookStats, LNHighlight } from '@/lib/storage/AppStorage';
 
+import type { Matcher } from '@/features/study/matcher';
+
 export interface BaseReaderProps {
     bookId: string;
+    /** Saved-vocabulary matcher, and the index version it was built from. */
+    studyMatcher?: Matcher;
+    studyIndexEtag?: string;
     /** Recorded alongside a saved word so the Saved screen can name the book. */
     bookTitle?: string;
     chapters: string[];

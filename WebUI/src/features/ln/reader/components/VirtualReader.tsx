@@ -1,5 +1,6 @@
 import React, { ReactNode, useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { Settings } from '@/Manatan/types';
+import type { Matcher } from '@/features/study/matcher';
 import { PagedReader } from '@/features/ln/reader/components/PagedReader';
 import { ContinuousReader } from '@/features/ln/reader/components/ContinuousReader';
 import { useUIVisibility } from '@/features/ln/reader/hooks/useUIVisibility';
@@ -10,6 +11,8 @@ import { BookStats, AppStorage, LNHighlight } from '@/lib/storage/AppStorage';
 interface VirtualReaderProps {
     bookId: string;
     bookTitle?: string;
+    studyMatcher?: Matcher;
+    studyIndexEtag?: string;
     items: string[];
     stats: BookStats | null;
     settings: Settings;
@@ -79,6 +82,8 @@ interface SharedPosition {
 export const VirtualReader: React.FC<VirtualReaderProps> = ({
     bookId,
     bookTitle,
+    studyMatcher,
+    studyIndexEtag,
     items,
     stats,
     settings,
@@ -307,6 +312,8 @@ export const VirtualReader: React.FC<VirtualReaderProps> = ({
         const commonProps = {
             bookId,
             bookTitle,
+            studyMatcher,
+            studyIndexEtag,
             chapters: chaptersWithHighlights,
             stats,
             settings,
@@ -339,6 +346,8 @@ export const VirtualReader: React.FC<VirtualReaderProps> = ({
         activeProgress,
         bookTitle,
         bookId,
+        studyMatcher,
+        studyIndexEtag,
         chapterFilenames,
         chaptersWithHighlights,
         cleanedCss,

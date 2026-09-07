@@ -13,6 +13,8 @@ import { useTextLookup } from '@/features/ln/reader/hooks/useTextLookup';
 import { SaveablePosition, calculateProgress, createSaveScheduler } from '@/features/ln/reader/utils/readerSave';
 import { createChapterBlockLookup, getPositionFromCharOffset } from '@/features/ln/reader/utils/blockMap';
 import '@/features/ln/reader/components/PagedReader.css';
+import '@/features/study/study.css';
+import { useStudyHighlights } from '@/features/study/useStudyHighlights';
 
 // ============================================================================
 // Helpers
@@ -149,6 +151,8 @@ const IMAGE_RETRY_LIMIT = 3;
 export const PagedReader: React.FC<PagedReaderProps> = ({
     bookId,
     bookTitle,
+    studyMatcher,
+    studyIndexEtag,
     chapters,
     stats,
     settings,
@@ -292,6 +296,8 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
     );
 
     const { tryLookup } = useTextLookup({ bookId, bookTitle, chapterIndex: currentSection });
+
+    useStudyHighlights(contentRef, studyMatcher, studyIndexEtag ?? 'none', !!studyMatcher);
 
     const handleContentErrorCapture = useCallback(
         (e: React.SyntheticEvent) => {
