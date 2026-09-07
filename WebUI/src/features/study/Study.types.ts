@@ -55,6 +55,26 @@ export interface HighlightIndex {
     terms: { unknown: string[]; learning: string[] };
 }
 
+/**
+ * A free-text selection from the pre-P3 highlight system.
+ *
+ * Kept separate from SavedTerm on purpose: these are whole phrases with no
+ * reading or glossary, and their offsets are furigana-INCLUSIVE, so they must
+ * never be fed to the study matcher.
+ */
+export interface LegacyHighlight {
+    id: string;
+    bookId: string;
+    bookTitle: string | null;
+    chapterIndex: number;
+    blockId: string;
+    text: string;
+    startOffset: number;
+    endOffset: number;
+    createdAt: number;
+    promotedTermId: number | null;
+}
+
 export interface TermListParams {
     q?: string;
     book?: string;

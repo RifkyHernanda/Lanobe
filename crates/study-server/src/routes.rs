@@ -15,9 +15,11 @@ use serde_json::json;
 use crate::{
     state::StudyState,
     store::{
-        self, KanjiSort, ListQuery, NewTerm, Status, TermSort, bulk_delete_terms,
-        bulk_set_kanji_status, bulk_set_term_status, delete_term, highlight_index, index_version,
-        list_kanji, list_terms, save_term, set_kanji_status, set_term_status, stats,
+        self, KanjiSort, LegacyHighlightInput, ListQuery, NewTerm, Status, TermSort,
+        bulk_delete_terms, bulk_set_kanji_status, bulk_set_term_status, delete_term,
+        highlight_index, import_legacy_highlights, index_version, list_kanji,
+        list_legacy_highlights, list_terms, mark_legacy_promoted, save_term, set_kanji_status,
+        set_term_status, stats,
     },
 };
 
@@ -296,6 +298,75 @@ async fn get_highlight_index(
         .into_response())
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LegacyImportBody {
+    book_id: String,
+    book_title: Option<String>,
+    highlights: Vec<LegacyHighlightInput>,
+}
+
+/// Client-driven on purpose: novel-server holds an exclusive sled lock on
+/// novel.db for the process lifetime, so the server cannot walk it itself.
+/// Idempotent on each highlight's own id, so a reader mount can push freely.
+async fn import_legacy(
+    State(state): State<StudyState>,
+    Json(body): Json<LegacyImportBody>,
+) -> ApiResult<Json<serde_json::Value>> {
+    if body.book_id.trim().is_empty() {
+        return Err(bad_request("bookId is required"));
+    }
+    if body.highlights.len() > 5000 {
+        return Err(bad_request("at most 5000 highlights per request"));
+    }
+
+    let mut conn = state.conn();
+    let imported = import_legacy_highlights(
+        &mut conn,
+        &body.book_id,
+        body.book_title.as_deref(),
+        &body.highlights,
+    )
+    .map_err(db_error)?;
+
+    Ok(Json(json!({ "imported": imported })))
+}
+
+async fn get_legacy(
+    State(state): State<StudyState>,
+    Query(params): Query<ListParams>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let query = params.to_query()?;
+    let conn = state.conn();
+    let (items, total) =
+        list_legacy_highlights(&conn, query.book.as_deref(), query.limit, query.offset)
+            .map_err(db_error)?;
+
+    Ok(Json(json!({ "items": items, "total": total })))
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PromoteBody {
+    term_id: i64,
+}
+
+async fn promote_legacy(
+    State(state): State<StudyState>,
+    Path(id): Path<String>,
+    Json(body): Json<PromoteBody>,
+) -> ApiResult<Json<serde_json::Value>> {
+    let conn = state.conn();
+    let ok = mark_legacy_promoted(&conn, &id, body.term_id).map_err(db_error)?;
+    if !ok {
+        return Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({ "error": "not_found", "id": id })),
+        ));
+    }
+    Ok(Json(json!({ "ok": true })))
+}
+
 async fn get_stats(State(state): State<StudyState>) -> ApiResult<Json<store::Stats>> {
     let conn = state.conn();
     Ok(Json(stats(&conn).map_err(db_error)?))
@@ -312,6 +383,9 @@ pub fn router(state: StudyState) -> axum::Router {
         .route("/kanji", get(get_kanji))
         .route("/kanji", patch(patch_kanji))
         .route("/kanji/bulk", post(bulk_kanji))
+        .route("/legacy-highlights", get(get_legacy))
+        .route("/legacy-highlights/import", post(import_legacy))
+        .route("/legacy-highlights/{id}/promote", post(promote_legacy))
         .route("/highlight-index", get(get_highlight_index))
         .route("/stats", get(get_stats))
         .with_state(state)

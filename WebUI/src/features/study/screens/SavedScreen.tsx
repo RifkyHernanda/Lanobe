@@ -18,9 +18,9 @@ import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import { useAppTitle } from '@/features/navigation-bar/hooks/useAppTitle.ts';
 import { useDebounce } from '@/base/hooks/useDebounce.ts';
 import { studyApi } from '@/features/study/studyApi.ts';
-import type { SavedKanji, SavedTerm, StudyStats, StudyStatus } from '@/features/study/Study.types.ts';
+import type { LegacyHighlight, SavedKanji, SavedTerm, StudyStats, StudyStatus } from '@/features/study/Study.types.ts';
 
-type TabKey = 'words' | 'kanji';
+type TabKey = 'words' | 'kanji' | 'highlights';
 
 const STATUS_FILTERS: { value: StudyStatus | 'all'; label: string }[] = [
     { value: 'all', label: 'All' },
@@ -56,6 +56,7 @@ export const SavedScreen = () => {
     const [tab, setTab] = useState<TabKey>('words');
     const [terms, setTerms] = useState<SavedTerm[]>([]);
     const [kanji, setKanji] = useState<SavedKanji[]>([]);
+    const [legacy, setLegacy] = useState<LegacyHighlight[]>([]);
     const [stats, setStats] = useState<StudyStats | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -83,7 +84,11 @@ export const SavedScreen = () => {
             setLoading(true);
             setError(null);
             try {
-                if (which === 'words') {
+                if (which === 'highlights') {
+                    const result = await studyApi.listLegacyHighlights(book === 'all' ? undefined : book);
+                    if (generation !== requestRef.current) return;
+                    setLegacy(result.items);
+                } else if (which === 'words') {
                     const result = await studyApi.listTerms({
                         q: debouncedSearch || undefined,
                         book: book === 'all' ? undefined : book,
@@ -179,8 +184,11 @@ export const SavedScreen = () => {
     };
 
     const books = useMemo(() => stats?.books ?? [], [stats]);
-    const isEmpty = tab === 'words' ? terms.length === 0 : kanji.length === 0;
-    const counts = tab === 'words' ? stats?.terms : stats?.kanji;
+    const isEmpty =
+        // eslint-disable-next-line no-nested-ternary
+        tab === 'words' ? terms.length === 0 : tab === 'kanji' ? kanji.length === 0 : legacy.length === 0;
+    // eslint-disable-next-line no-nested-ternary
+    const counts = tab === 'words' ? stats?.terms : tab === 'kanji' ? stats?.kanji : undefined;
 
     return (
         <Box sx={{ pb: 2 }}>
@@ -192,6 +200,7 @@ export const SavedScreen = () => {
             >
                 <Tab value="words" label="Words" />
                 <Tab value="kanji" label="Kanji" />
+                <Tab value="highlights" label="Highlights" />
             </Tabs>
 
             <Stack sx={{ gap: 1.5, p: 2 }}>
@@ -217,7 +226,7 @@ export const SavedScreen = () => {
                             </MenuItem>
                         ))}
                     </TextField>
-                    {tab === 'words' && (
+                    {tab !== 'kanji' && (
                         <TextField
                             select
                             size="small"
@@ -294,16 +303,40 @@ export const SavedScreen = () => {
 
             {!loading && !error && isEmpty && (
                 <EmptyState
-                    message={tab === 'words' ? 'No saved words' : 'No saved kanji'}
+                    message={
+                        // eslint-disable-next-line no-nested-ternary
+                        tab === 'words' ? 'No saved words' : tab === 'kanji' ? 'No saved kanji' : 'No highlights'
+                    }
                     hint={
-                        search || status !== 'all' || book !== 'all'
-                            ? 'Nothing matches those filters.'
-                            : 'Tap a word while reading and save it from the dictionary popup.'
+                        // eslint-disable-next-line no-nested-ternary
+                        tab === 'highlights'
+                            ? 'Passages you highlighted while reading appear here once the book is opened.'
+                            : search || status !== 'all' || book !== 'all'
+                              ? 'Nothing matches those filters.'
+                              : 'Tap a word while reading and save it from the dictionary popup.'
                     }
                 />
             )}
 
-            {!loading && !error && !isEmpty && (
+            {!loading && !error && !isEmpty && tab === 'highlights' && (
+                <List>
+                    {legacy.map((entry) => (
+                        <ListItem key={entry.id} divider>
+                            <ListItemText
+                                primary={<Typography variant="body1">{entry.text}</Typography>}
+                                secondary={
+                                    <Typography component="span" variant="caption" color="text.secondary">
+                                        {entry.bookTitle ?? entry.bookId} · chapter {entry.chapterIndex}
+                                        {entry.promotedTermId !== null ? ' · saved as a word' : ''}
+                                    </Typography>
+                                }
+                            />
+                        </ListItem>
+                    ))}
+                </List>
+            )}
+
+            {!loading && !error && !isEmpty && tab !== 'highlights' && (
                 <List>
                     {tab === 'words'
                         ? terms.map((entry) => (

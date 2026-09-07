@@ -13,6 +13,7 @@
 import type {
     HighlightIndex,
     KanjiListParams,
+    LegacyHighlight,
     NewTermPayload,
     SavedKanji,
     SavedTerm,
@@ -108,6 +109,33 @@ export const studyApi = {
         const client = await getClient();
         const response = await client.post('/api/study/kanji/bulk', { chars, status });
         return response.json();
+    },
+
+    /**
+     * Copies pre-P3 highlights into study.db so they survive and can be
+     * reviewed across books.
+     *
+     * Driven from the client because novel-server holds an exclusive sled lock
+     * on novel.db for the process lifetime, so the server cannot read them
+     * itself. Idempotent on each highlight's id, which is what makes it safe to
+     * call on every reader mount.
+     */
+    async importLegacyHighlights(
+        bookId: string,
+        bookTitle: string | undefined,
+        highlights: unknown[],
+    ): Promise<{ imported: number }> {
+        const client = await getClient();
+        const response = await client.post('/api/study/legacy-highlights/import', {
+            bookId,
+            bookTitle,
+            highlights,
+        });
+        return response.json();
+    },
+
+    async listLegacyHighlights(book?: string): Promise<{ items: LegacyHighlight[]; total: number }> {
+        return getJson(`/api/study/legacy-highlights${toQueryString({ book })}`);
     },
 
     /**

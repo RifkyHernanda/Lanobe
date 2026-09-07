@@ -13,9 +13,10 @@ mod store;
 pub use kanji::extract_kanji;
 pub use state::StudyState;
 pub use store::{
-    HighlightBuckets, HighlightIndex, NewTerm, SavedTerm, Status, bulk_delete_terms,
-    bulk_set_kanji_status, bulk_set_term_status, delete_term, highlight_index, index_version,
-    save_term, set_kanji_status, set_term_status,
+    HighlightBuckets, HighlightIndex, LegacyHighlight, LegacyHighlightInput, NewTerm, SavedTerm,
+    Status, bulk_delete_terms, bulk_set_kanji_status, bulk_set_term_status, delete_term,
+    highlight_index, import_legacy_highlights, index_version, list_legacy_highlights,
+    mark_legacy_promoted, save_term, set_kanji_status, set_term_status,
 };
 
 pub fn build_state(data_dir: &Path) -> anyhow::Result<StudyState> {
@@ -30,8 +31,9 @@ pub fn create_router(state: StudyState) -> Router {
 mod tests {
     use super::*;
     use crate::store::{
-        bulk_delete_terms, bulk_set_kanji_status, bulk_set_term_status, delete_term,
-        highlight_index, index_version, save_term, set_kanji_status, set_term_status,
+        LegacyHighlightInput, bulk_delete_terms, bulk_set_kanji_status, bulk_set_term_status,
+        delete_term, highlight_index, import_legacy_highlights, index_version,
+        list_legacy_highlights, mark_legacy_promoted, save_term, set_kanji_status, set_term_status,
     };
     use std::{
         path::PathBuf,
@@ -424,6 +426,125 @@ mod tests {
 
             let index = highlight_index(&conn).unwrap();
             assert_eq!(index.kanji.unknown, "館", "the two marked known drop out");
+        });
+    }
+
+    fn legacy(id: &str, text: &str) -> LegacyHighlightInput {
+        LegacyHighlightInput {
+            id: id.to_string(),
+            chapter_index: 2,
+            block_id: "ch2-b7".to_string(),
+            text: text.to_string(),
+            start_offset: 10,
+            end_offset: 10 + text.chars().count() as i64,
+            created_at: 1_700_000_000,
+        }
+    }
+
+    #[test]
+    fn importing_legacy_highlights_is_idempotent() {
+        with_state("legacy-idempotent", |state| {
+            let mut conn = state.conn();
+            let batch = [
+                legacy("hl-1", "とても長い文章です"),
+                legacy("hl-2", "もう一つ"),
+            ];
+
+            let first =
+                import_legacy_highlights(&mut conn, "b1", Some("義妹生活５"), &batch).unwrap();
+            assert_eq!(first, 2);
+
+            // The client pushes on every reader mount, so a second identical
+            // push must add nothing rather than duplicate the whole book.
+            let second =
+                import_legacy_highlights(&mut conn, "b1", Some("義妹生活５"), &batch).unwrap();
+            assert_eq!(second, 0);
+
+            let (items, total) = list_legacy_highlights(&conn, None, 100, 0).unwrap();
+            assert_eq!(total, 2);
+            assert_eq!(items.len(), 2);
+            assert_eq!(items[0].book_title.as_deref(), Some("義妹生活５"));
+        });
+    }
+
+    #[test]
+    fn a_title_arriving_on_a_later_push_backfills_rows_that_lack_one() {
+        with_state("legacy-backfill", |state| {
+            let mut conn = state.conn();
+            let batch = [legacy("hl-1", "文章")];
+
+            // First push lands before book metadata has loaded.
+            import_legacy_highlights(&mut conn, "b1", None, &batch).unwrap();
+            let (items, _) = list_legacy_highlights(&conn, Some("b1"), 10, 0).unwrap();
+            assert_eq!(items[0].book_title, None);
+
+            // Second push carries the title. OR IGNORE alone would drop it and
+            // the Saved screen would show a raw book id forever.
+            import_legacy_highlights(&mut conn, "b1", Some("義妹生活５"), &batch).unwrap();
+            let (items, total) = list_legacy_highlights(&conn, Some("b1"), 10, 0).unwrap();
+            assert_eq!(total, 1, "still not duplicated");
+            assert_eq!(items[0].book_title.as_deref(), Some("義妹生活５"));
+
+            // And a later push without a title must not erase it.
+            import_legacy_highlights(&mut conn, "b1", None, &batch).unwrap();
+            let (items, _) = list_legacy_highlights(&conn, Some("b1"), 10, 0).unwrap();
+            assert_eq!(items[0].book_title.as_deref(), Some("義妹生活５"));
+        });
+    }
+
+    #[test]
+    fn legacy_highlights_never_enter_the_study_matcher() {
+        with_state("legacy-not-indexed", |state| {
+            let mut conn = state.conn();
+            let before = index_version(&conn).unwrap();
+
+            import_legacy_highlights(&mut conn, "b1", None, &[legacy("hl-1", "文章")]).unwrap();
+
+            // They are whole phrases with no reading, in a different offset
+            // space, so they must not appear in the highlight index -- nor
+            // invalidate every client's cached copy.
+            let index = highlight_index(&conn).unwrap();
+            assert!(index.terms.unknown.is_empty());
+            assert!(index.kanji.unknown.is_empty());
+            assert_eq!(index_version(&conn).unwrap(), before);
+
+            let saved: i64 = conn
+                .query_row("SELECT COUNT(*) FROM saved_term", [], |r| r.get(0))
+                .unwrap();
+            assert_eq!(saved, 0);
+        });
+    }
+
+    #[test]
+    fn legacy_highlights_can_be_filtered_by_book_and_promoted() {
+        with_state("legacy-filter", |state| {
+            let mut conn = state.conn();
+            import_legacy_highlights(&mut conn, "b1", None, &[legacy("a", "one")]).unwrap();
+            import_legacy_highlights(&mut conn, "b2", None, &[legacy("b", "two")]).unwrap();
+
+            let (only_b2, total) = list_legacy_highlights(&conn, Some("b2"), 100, 0).unwrap();
+            assert_eq!(total, 1);
+            assert_eq!(only_b2[0].id, "b");
+
+            let (term_id, _) = save_term(&mut conn, &term("文章", "ぶんしょう")).unwrap();
+            assert!(mark_legacy_promoted(&conn, "a", term_id).unwrap());
+            assert!(!mark_legacy_promoted(&conn, "missing", term_id).unwrap());
+
+            let (all, _) = list_legacy_highlights(&conn, Some("b1"), 100, 0).unwrap();
+            assert_eq!(all[0].promoted_term_id, Some(term_id));
+        });
+    }
+
+    #[test]
+    fn an_empty_legacy_import_is_a_no_op() {
+        with_state("legacy-empty", |state| {
+            let mut conn = state.conn();
+            assert_eq!(
+                import_legacy_highlights(&mut conn, "b1", None, &[]).unwrap(),
+                0
+            );
+            let (_, total) = list_legacy_highlights(&conn, None, 100, 0).unwrap();
+            assert_eq!(total, 0);
         });
     }
 

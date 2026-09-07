@@ -105,6 +105,28 @@ CREATE TABLE IF NOT EXISTS export_log (
 );
 CREATE INDEX IF NOT EXISTS export_log_book ON export_log(book_id);
 
+-- Free-text selections from the pre-P3 highlight system, copied here so they
+-- survive and can be reviewed across books. They are NOT saved_term rows: they
+-- are whole phrases with no reading or glossary, and putting a 60-character
+-- sentence into the term trie would blow the matcher's O(n·k) bound.
+--
+-- Their offsets are furigana-INCLUSIVE (produced by Range.toString().length),
+-- unlike saved_term, so they must not be fed to the study matcher.
+CREATE TABLE IF NOT EXISTS legacy_highlight (
+    id            TEXT PRIMARY KEY,
+    book_id       TEXT    NOT NULL,
+    book_title    TEXT,
+    chapter_index INTEGER NOT NULL,
+    block_id      TEXT    NOT NULL,
+    text          TEXT    NOT NULL,
+    start_offset  INTEGER NOT NULL,
+    end_offset    INTEGER NOT NULL,
+    created_at    INTEGER NOT NULL,
+    -- Set when the user promotes one into real vocabulary.
+    promoted_term_id INTEGER REFERENCES saved_term(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS legacy_highlight_book ON legacy_highlight(book_id);
+
 CREATE TABLE IF NOT EXISTS study_meta (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL

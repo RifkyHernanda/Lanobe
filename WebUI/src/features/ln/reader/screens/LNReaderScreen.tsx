@@ -34,6 +34,7 @@ import { AppStorage, LNHighlight } from '@/lib/storage/AppStorage';
 import { useBookContent } from '@/features/ln/reader/hooks/useBookContent';
 import { useHighlights } from '@/features/ln/reader/hooks/useHighlights';
 import { useHighlightIndex } from '@/features/study/useHighlightIndex';
+import { studyApi } from '@/features/study/studyApi';
 import { useLnSettings } from '@/features/ln/reader/hooks/useLnSettings';
 import { loadCustomFonts } from '@/features/ln/reader/utils/fontUtils';
 import { getDefaultLnSettings } from '@/features/ln/reader/utils/lnSettings';
@@ -109,6 +110,18 @@ export const LNReaderScreen: React.FC = () => {
     // ETag. It lives here rather than inside the readers so both share one
     // matcher instead of each building an identical trie.
     const { matcher: studyMatcher, etag: studyIndexEtag } = useHighlightIndex();
+
+    // Copy this book's pre-P3 highlights into study.db so they survive and are
+    // reviewable across books. Driven from here because novel-server holds an
+    // exclusive sled lock on novel.db, so the server cannot read them itself.
+    // The import is idempotent on each highlight's id, so running it on every
+    // reader mount adds nothing after the first time.
+    useEffect(() => {
+        if (highlightsLoading || highlights.length === 0) return;
+        studyApi
+            .importLegacyHighlights(bookId, content?.metadata?.title, highlights)
+            .catch((e) => console.warn('[LNReader] legacy highlight import failed:', e));
+    }, [bookId, highlightsLoading, highlights, content?.metadata?.title]);
 
     useEffect(() => {
         if (typeof window === 'undefined' || typeof document === 'undefined' || !document.body) {

@@ -396,6 +396,143 @@ pub fn highlight_index(conn: &Connection) -> rusqlite::Result<HighlightIndex> {
     })
 }
 
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LegacyHighlightInput {
+    pub id: String,
+    pub chapter_index: i64,
+    pub block_id: String,
+    pub text: String,
+    pub start_offset: i64,
+    pub end_offset: i64,
+    pub created_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LegacyHighlight {
+    pub id: String,
+    pub book_id: String,
+    pub book_title: Option<String>,
+    pub chapter_index: i64,
+    pub block_id: String,
+    pub text: String,
+    pub start_offset: i64,
+    pub end_offset: i64,
+    pub created_at: i64,
+    pub promoted_term_id: Option<i64>,
+}
+
+/// Copies pre-P3 highlights in. Returns how many were new.
+///
+/// Idempotent on the highlight's own id, so the client can push the same book's
+/// highlights on every reader mount without duplicating them -- which is what
+/// makes a client-driven migration safe to run repeatedly. It has to be
+/// client-driven: novel-server holds an exclusive sled lock on novel.db for the
+/// process lifetime, so nothing else can walk it.
+///
+/// Does not bump index_version: these never enter the study matcher.
+pub fn import_legacy_highlights(
+    conn: &mut Connection,
+    book_id: &str,
+    book_title: Option<&str>,
+    highlights: &[LegacyHighlightInput],
+) -> rusqlite::Result<usize> {
+    if highlights.is_empty() {
+        return Ok(0);
+    }
+
+    let tx = conn.transaction()?;
+    let mut inserted = 0;
+    {
+        let mut stmt = tx.prepare(
+            "INSERT OR IGNORE INTO legacy_highlight
+               (id, book_id, book_title, chapter_index, block_id, text,
+                start_offset, end_offset, created_at)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
+        )?;
+        for h in highlights {
+            inserted += stmt.execute(params![
+                h.id,
+                book_id,
+                book_title,
+                h.chapter_index,
+                h.block_id,
+                h.text,
+                h.start_offset,
+                h.end_offset,
+                h.created_at
+            ])?;
+        }
+    }
+
+    // Backfill the title. The client's first push can land before book metadata
+    // has loaded, and OR IGNORE means a later push carrying the title would
+    // otherwise never correct the row -- leaving the Saved screen showing a raw
+    // book id forever. Only fills nulls, so it never overwrites a real title.
+    if let Some(title) = book_title {
+        tx.execute(
+            "UPDATE legacy_highlight SET book_title = ?1
+             WHERE book_id = ?2 AND book_title IS NULL",
+            params![title, book_id],
+        )?;
+    }
+
+    tx.commit()?;
+    Ok(inserted)
+}
+
+pub fn list_legacy_highlights(
+    conn: &Connection,
+    book: Option<&str>,
+    limit: i64,
+    offset: i64,
+) -> rusqlite::Result<(Vec<LegacyHighlight>, i64)> {
+    let filter = "WHERE (?1 IS NULL OR book_id = ?1)";
+
+    let total: i64 = conn.query_row(
+        &format!("SELECT COUNT(*) FROM legacy_highlight {filter}"),
+        params![book],
+        |row| row.get(0),
+    )?;
+
+    let mut stmt = conn.prepare(&format!(
+        "SELECT * FROM legacy_highlight {filter}
+         ORDER BY created_at DESC, id DESC LIMIT ?2 OFFSET ?3"
+    ))?;
+    let items = stmt
+        .query_map(params![book, limit, offset], |row| {
+            Ok(LegacyHighlight {
+                id: row.get("id")?,
+                book_id: row.get("book_id")?,
+                book_title: row.get("book_title")?,
+                chapter_index: row.get("chapter_index")?,
+                block_id: row.get("block_id")?,
+                text: row.get("text")?,
+                start_offset: row.get("start_offset")?,
+                end_offset: row.get("end_offset")?,
+                created_at: row.get("created_at")?,
+                promoted_term_id: row.get("promoted_term_id")?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+
+    Ok((items, total))
+}
+
+/// Links a highlight to the vocabulary row it became.
+pub fn mark_legacy_promoted(
+    conn: &Connection,
+    highlight_id: &str,
+    term_id: i64,
+) -> rusqlite::Result<bool> {
+    let changed = conn.execute(
+        "UPDATE legacy_highlight SET promoted_term_id = ?1 WHERE id = ?2",
+        params![term_id, highlight_id],
+    )?;
+    Ok(changed > 0)
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SavedKanji {

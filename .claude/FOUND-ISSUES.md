@@ -21,6 +21,7 @@ guesses.** When one is fixed, move it to *Fixed* with the commit that did it.
 | 11 | `yomitan-server` pins its own `tower-http` | low | open |
 | 12 | 8 deinflector tests fail upstream too | known | `#[ignore]`d |
 | 13 | `yarn test` printed a joke and ran nothing | medium | **fixed** |
+| 14 | `injectHighlights.ts` does `indexOf` on raw HTML | medium | open |
 
 ---
 
@@ -184,6 +185,25 @@ quality.
 
 ---
 
+## 14. `injectHighlights.ts` does `indexOf` on raw HTML — medium
+
+`WebUI/src/features/ln/reader/utils/injectHighlights.ts` finds legacy highlight
+text by `indexOf` over the raw chapter HTML and splices a `<mark>` in. It can
+therefore match inside an attribute value (`alt="…"`, a `src`, a `data-` value)
+and inject a tag into it, and it is O(n·m) per chapter.
+
+P3 was going to delete it in S7. It did not, for a reason worth recording: the
+new applier works in furigana-**exclusive** offsets, but legacy highlight offsets
+are furigana-**inclusive** (`SelectionHandles.tsx:498` uses
+`preRange.toString().length`, which includes ruby). Feeding legacy offsets to the
+new applier would misplace every one of them.
+
+The fix is a small second applier that reuses the same `splitText` mechanics as
+`applyHighlights.ts` but walks with an *inclusive* filter — removing the raw-HTML
+splice without changing offset semantics. Deliberately not bundled into the
+migration commit, because that would mix "make highlights durable" with "change
+how highlights render".
+
 ## Fixed
 
 | Issue | Fixed by |
@@ -205,4 +225,6 @@ quality.
 | #4 `mark.highlight` padding shifted PagedReader's measured page boundaries | S7 |
 | #3 the import "loading" reply was swallowed by `apiRequest`'s blanket throw | S8 |
 | #5 stale lookup responses repainting a newer popup (reader path) | S8 |
+| Legacy highlights were only in sled, per book, invisible across books | S9 |
+| `INSERT OR IGNORE` meant a book title arriving on a later push could never backfill, leaving a raw book id on the Saved screen forever | S9 (found by reading the output, not by assuming) |
 | `useStudyHighlights` did nothing at all: it read a ref that is null on the first commit, and no dependency changes when a ref populates | S7 — found by instrumenting the hook after static inspection kept saying the wiring was correct |
