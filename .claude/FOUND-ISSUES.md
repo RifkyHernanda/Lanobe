@@ -13,7 +13,7 @@ guesses.** When one is fixed, move it to *Fixed* with the commit that did it.
 | 3 | Dictionary-import "loading" state is unreachable | medium | **fixed** |
 | 4 | `mark.highlight` padding shifts paged layout | medium | **fixed** |
 | 5 | A stale lookup can repaint a newer popup | medium | **fixed** (reader path) |
-| 6 | Sentence furigana costs ~20 serialised round trips | medium | open |
+| 6 | Sentence furigana cost one round trip per token | medium | **fixed** |
 | 7 | `make check` omits `--workspace` | low | **fixed** |
 | 8 | `ci.yml` points at a file that does not exist | low | **fixed** |
 | 9 | `SettingsInjector` is dead code | low | open |
@@ -131,10 +131,28 @@ the path that matters most, but these should get the same treatment.
 (`buildSentenceFuriganaFromLookup`) walks a sentence one token at a time,
 **awaiting a lookup per token**. Called from `DictionaryView.tsx:750`.
 
-At the measured 60–107 ms RTT to the deploy target, a 40-character sentence is
-roughly 20 sequential requests — 1.2–2.0 s. That is larger than any other latency
-measured in this project, including the thing P2 was originally aimed at. Needs
-cancellation and batching, not just caching.
+At the measured 60–107 ms RTT this dominated everything else in the app.
+
+Fixed by `POST /api/yomitan/lookup/batch`. The walk is a greedy chain, so its
+positions are not known ahead of time — but every character position *can* be
+requested at once and the chain then resolved locally from the returned
+`matchLen`. Measured on a real sentence (23 characters, 忘れずに a real JMdict):
+
+| | round trips | latency at 60–107 ms RTT |
+| --- | --- | --- |
+| before | **9** | 540–963 ms |
+| after | **1** | 60–107 ms |
+
+The batch response is compact on purpose — headword, reading and `matchLen`
+only, no glossary — so all 23 positions cost 1,426 B raw / **379 B gzipped**,
+against 5–34 KB for a single full lookup. Some answers go unused; that is much
+cheaper than the round trips they replace.
+
+Cancellation is an `isCancelled` callback rather than an `AbortSignal`, so it
+also covers the local walk after the response lands, and a `null` batch result
+(mid-import or failure) returns the sentence unannotated rather than
+half-annotated. Nine unit tests, including one asserting the whole sentence
+costs exactly one request.
 
 ## 7. `make check` omits `--workspace` — low
 
@@ -225,6 +243,7 @@ how highlights render".
 | #4 `mark.highlight` padding shifted PagedReader's measured page boundaries | S7 |
 | #3 the import "loading" reply was swallowed by `apiRequest`'s blanket throw | S8 |
 | #5 stale lookup responses repainting a newer popup (reader path) | S8 |
+| #6 sentence furigana made one round trip per token (9 for a 23-char sentence) | `POST /api/yomitan/lookup/batch` |
 | Legacy highlights were only in sled, per book, invisible across books | S9 |
 | `INSERT OR IGNORE` meant a book title arriving on a later push could never backfill, leaving a raw book id on the Saved screen forever | S9 (found by reading the output, not by assuming) |
 | `useStudyHighlights` did nothing at all: it read a ref that is null on the first commit, and no dependency changes when a ref populates | S7 — found by instrumenting the hook after static inspection kept saying the wiring was correct |

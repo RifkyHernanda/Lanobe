@@ -84,9 +84,14 @@ compresses at its edge; a bare Caddy in front of Lanobe would not.
       `lookup.rs:121` scans. Do *not* key on the matched headword and probe
       prefixes: a cached bare `大` would hijack a later tap on `大学` and
       underline one character instead of two. Wrong, not merely stale.
+- [x] `POST /api/yomitan/lookup/batch` — compact (headword, reading, matchLen),
+      built for the furigana walk. 23 positions = 379 B gzipped, versus 5–34 KB
+      for one full lookup.
+- [x] Sentence furigana: 9 round trips → 1 (`FOUND-ISSUES` #6). Was the largest
+      single latency in the app, larger than anything this phase first targeted.
 - [ ] Client: chain-prefetch from `match_len` after each tap; whole-page prefetch
-      needs `POST /api/yomitan/lookup/batch` and is payload-bound, not
-      request-bound — measure the payload before building it.
+      is payload-bound rather than request-bound — measure the payload first. The
+      batch endpoint it needs now exists.
 - [ ] Fix `/api/app/meta` being fetched 3× on startup
 - [ ] **Target: p95 < 50 ms warm.** Verify on a throttled profile, not localhost.
 - [ ] Revisit the 8 ignored deinflector tests — they may be hurting lookup quality

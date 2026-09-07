@@ -11,16 +11,23 @@ export type FuriganaSegment = {
     reading: string;
 };
 
-type FuriganaLookupResult = {
-    matchLen?: number;
-    headword?: string;
-    reading?: string;
-};
-
 export type FuriganaLookupOptions = {
     language?: YomitanLanguage;
     groupingMode?: 'grouped' | 'flat';
+    /**
+     * Abandons the walk when the caller has moved on -- a closed popup, a new
+     * tap. Checked between steps so a cancelled build stops doing work rather
+     * than finishing and being thrown away.
+     */
+    isCancelled?: () => boolean;
 };
+
+/** Resolves many cursor positions in one request. */
+export type BatchFuriganaLookup = (
+    text: string,
+    indices: number[],
+    language?: YomitanLanguage,
+) => Promise<{ index: number; headword: string; reading: string; matchLen: number }[] | null>;
 
 const HIRAGANA_RANGE: [number, number] = [0x3040, 0x309f];
 const KATAKANA_RANGE: [number, number] = [0x30a0, 0x30ff];
@@ -300,50 +307,84 @@ export const renderRubyFurigana = (segments: FuriganaSegment[]): string =>
         })
         .join('');
 
+/**
+ * Builds ruby markup for a whole sentence.
+ *
+ * The walk is greedy: each step advances by the match length the dictionary
+ * reports, so the positions are not known in advance. The previous version
+ * therefore awaited one lookup per token -- about 20 serialised round trips for
+ * a sentence, 1.2-2.0s at the measured 60-107ms RTT to the deploy target, and
+ * the largest single latency anywhere in the app.
+ *
+ * Asking for *every* character position in one request removes the chain
+ * entirely: the walk then resolves locally from the returned match lengths. Some
+ * of the answers go unused, but they are ~50 bytes each rather than a full 5-34
+ * KB lookup, so one request carries the whole sentence.
+ */
 export const buildSentenceFuriganaFromLookup = async (
     sentence: string,
-    lookup: (
-        text: string,
-        index: number,
-        grouping: 'grouped' | 'flat',
-        language?: YomitanLanguage,
-    ) => Promise<FuriganaLookupResult[] | 'loading'>,
+    batchLookup: BatchFuriganaLookup,
     options: FuriganaLookupOptions = {},
 ): Promise<string> => {
     if (!sentence) {
         return sentence;
     }
 
-    const { language, groupingMode = 'grouped' } = options;
+    const { language, isCancelled } = options;
     if (language && language !== 'japanese') {
         return sentence;
     }
 
+    // Byte offset of every character boundary: the endpoint indexes by byte,
+    // the walk steps by character.
     const encoder = new TextEncoder();
+    const byteAt: number[] = [];
+    let bytes = 0;
+    for (let i = 0; i < sentence.length; ) {
+        const ch = String.fromCodePoint(sentence.codePointAt(i)!);
+        byteAt[i] = bytes;
+        bytes += encoder.encode(ch).length;
+        i += ch.length;
+    }
+
+    const indices = Object.keys(byteAt).map(Number);
+    const entries = await batchLookup(
+        sentence,
+        indices.map((i) => byteAt[i]),
+        language,
+    );
+
+    // null means mid-import or a failed request: return the sentence plain
+    // rather than half-annotated.
+    if (!entries || isCancelled?.()) {
+        return sentence;
+    }
+
+    const byByteIndex = new Map(entries.map((e) => [e.index, e]));
+
     let result = '';
     let index = 0;
-
     while (index < sentence.length) {
-        const byteIndex = encoder.encode(sentence.substring(0, index)).length;
-        const results = await lookup(sentence, byteIndex, groupingMode, language);
-        if (results === 'loading') {
+        if (isCancelled?.()) {
             return sentence;
         }
 
-        const best = Array.isArray(results) && results.length > 0 ? results[0] : null;
-        const matchLen = best?.matchLen || 0;
-        if (!best || matchLen <= 0) {
-            result += sentence[index];
-            index += 1;
+        const entry = byByteIndex.get(byteAt[index]);
+        const matchLen = entry?.matchLen ?? 0;
+
+        if (!entry || matchLen <= 0) {
+            // Advance a whole code point, or a surrogate pair splits in half.
+            const ch = String.fromCodePoint(sentence.codePointAt(index)!);
+            result += ch;
+            index += ch.length;
             continue;
         }
 
         const end = Math.min(sentence.length, index + matchLen);
         const source = sentence.slice(index, end);
 
-        if (best.reading && best.headword) {
-            const segments = distributeFuriganaInflected(best.headword, best.reading, source);
-            result += renderRubyFurigana(segments);
+        if (entry.reading && entry.headword) {
+            result += renderRubyFurigana(distributeFuriganaInflected(entry.headword, entry.reading, source));
         } else {
             result += source;
         }

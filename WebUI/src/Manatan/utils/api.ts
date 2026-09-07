@@ -117,6 +117,53 @@ export const lookupYomitan = async (
     }
 };
 
+/** One compact entry per requested cursor position. */
+export type BatchLookupEntry = {
+    index: number;
+    headword: string;
+    reading: string;
+    matchLen: number;
+};
+
+/**
+ * Looks up many cursor positions in one request.
+ *
+ * Exists because sentence furigana used to await a lookup per token -- roughly
+ * 20 serialised round trips per sentence, 1.2-2.0s at the measured 60-107ms RTT,
+ * and the largest single latency in the app. The greedy walk cannot know its
+ * positions ahead of time, but it can ask for all of them at once and resolve
+ * the chain locally from matchLen.
+ *
+ * Returns null when the server is mid-import or the request fails, so callers
+ * can fall back rather than render half a sentence.
+ */
+export const lookupYomitanBatch = async (
+    text: string,
+    indices: number[],
+    language?: YomitanLanguage,
+    signal?: AbortSignal,
+): Promise<BatchLookupEntry[] | null> => {
+    if (!text || indices.length === 0) return [];
+
+    try {
+        const url = `${requestManager.getBaseUrl()}/api/yomitan/lookup/batch`;
+        const response = await fetch(url, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, indices, language }),
+            signal,
+        });
+
+        if (!response.ok) return null;
+        const body = await response.json();
+        return Array.isArray(body?.entries) ? (body.entries as BatchLookupEntry[]) : null;
+    } catch (e) {
+        // AbortError included: the caller moved on, which is not a failure.
+        return null;
+    }
+};
+
 export const getDictionaries = async (): Promise<DictionaryMeta[] | null> => {
     try {
         const res = await apiRequest<{ dictionaries: any[]; status: string }>('/api/yomitan/dictionaries');

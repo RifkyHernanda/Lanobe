@@ -19,7 +19,7 @@ import {
     calculateUpdatedFields,
     updateNote,
 } from '@/Manatan/utils/anki';
-import { lookupYomitan } from '@/Manatan/utils/api';
+import { lookupYomitanBatch } from '@/Manatan/utils/api';
 import { buildSentenceFuriganaFromLookup } from '@/Manatan/utils/japaneseFurigana';
 import {
     getWordAudioFilename,
@@ -748,7 +748,7 @@ const AnkiButtons: React.FC<{
         const sentence = dictPopup.context?.sentence || '';
         const needsSentenceFurigana = Object.values(map).includes('Sentence Furigana');
         const sentenceFurigana = needsSentenceFurigana
-            ? await buildSentenceFuriganaFromLookup(sentence, lookupYomitan, {
+            ? await buildSentenceFuriganaFromLookup(sentence, lookupYomitanBatch, {
                   language: settings.yomitanLanguage,
                   groupingMode: settings.resultGroupingMode,
               })

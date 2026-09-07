@@ -1463,6 +1463,123 @@ pub async fn reset_db_handler(
     }
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchLookupParams {
+    pub text: String,
+    /// Byte offsets into `text`, snapped to character boundaries the same way a
+    /// single lookup snaps its `index`.
+    pub indices: Vec<usize>,
+    pub language: Option<DictionaryLanguage>,
+}
+
+/// Just enough to drive furigana and a greedy word walk: no glossary, no
+/// frequencies, no pitch. A full lookup is 5-34 KB; forty of these are ~2 KB.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchLookupEntry {
+    pub index: usize,
+    pub headword: String,
+    pub reading: String,
+    pub match_len: usize,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BatchLookupResponse {
+    pub entries: Vec<BatchLookupEntry>,
+}
+
+/// Frequency, pitch and IPA arrive as pseudo-entries sharing the term table.
+/// The full handler splits them out by content prefix; this compact path wants
+/// only real glossary entries, so it skips them the same way.
+fn is_metadata_entry(record: &Record) -> bool {
+    use wordbase_api::dict::yomitan::structured::Content;
+
+    if let Record::YomitanGlossary(gloss) = record
+        && let Some(Content::String(s)) = gloss.content.first()
+    {
+        return s.starts_with("Frequency: ") || s.starts_with("Pitch:") || s.starts_with("IPA:");
+    }
+    false
+}
+
+/// One request for many cursor positions.
+///
+/// Sentence furigana previously awaited a separate lookup per token: roughly 20
+/// serialised round trips for one sentence, which is 1.2-2.0s at a measured
+/// 60-107ms RTT and was the largest single latency in the app. The walk is a
+/// greedy chain, so its positions are not known ahead of time -- but every
+/// position *can* be asked for at once and the chain resolved locally from
+/// `matchLen`. One round trip instead of twenty.
+pub async fn lookup_batch_handler(
+    State(state): State<ServerState>,
+    Json(params): Json<BatchLookupParams>,
+) -> Result<Json<BatchLookupResponse>, (StatusCode, Json<Value>)> {
+    if state.app.is_loading() {
+        return Err((
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({ "error": "loading", "message": "Dictionaries are importing..." })),
+        ));
+    }
+
+    // Bounded so one request cannot ask for an unbounded scan. Sentences are
+    // capped at 50 characters upstream, so this is generous.
+    const MAX_INDICES: usize = 256;
+    if params.indices.len() > MAX_INDICES {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "too_many_indices", "max": MAX_INDICES })),
+        ));
+    }
+
+    // Same resolution order as the single lookup, so a batch cannot silently
+    // use a different dictionary set than the taps around it.
+    let language = params
+        .language
+        .or_else(|| load_preferred_language(&state.app))
+        .unwrap_or(DictionaryLanguage::Japanese);
+    let deinflect = language.deinflect_language();
+
+    let mut entries = Vec::with_capacity(params.indices.len());
+    for index in params.indices {
+        let raw = state
+            .lookup
+            .search(&state.app, &params.text, index, deinflect);
+
+        // `search` already sorts longest-match-first, so the first real glossary
+        // entry is the one a single lookup would have reported.
+        let best = raw.iter().find(|entry| {
+            entry.0.span_chars.end > 0
+                && !is_metadata_entry(&entry.0.record)
+                && !matches!(&entry.0.term, Term::Reading(_))
+        });
+
+        let (headword, reading, match_len) = match best {
+            Some(entry) => {
+                let (h, r) = match &entry.0.term {
+                    Term::Full(h, r) => (h.to_string(), r.to_string()),
+                    Term::Headword(h) => (h.to_string(), String::new()),
+                    Term::Reading(r) => (r.to_string(), String::new()),
+                };
+                (h, r, entry.0.span_chars.end as usize)
+            }
+            // An explicit miss, so the client can advance one character without
+            // having to tell "no match" from "absent from the response".
+            None => (String::new(), String::new(), 0),
+        };
+
+        entries.push(BatchLookupEntry {
+            index,
+            headword,
+            reading,
+            match_len,
+        });
+    }
+
+    Ok(Json(BatchLookupResponse { entries }))
+}
+
 #[allow(clippy::useless_let_if_seq)]
 pub async fn lookup_handler(
     State(state): State<ServerState>,

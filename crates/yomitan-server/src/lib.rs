@@ -37,6 +37,7 @@ pub fn create_router(data_dir: PathBuf) -> Router {
 
     Router::new()
         .route("/lookup", get(lookup_handler))
+        .route("/lookup/batch", post(handlers::lookup_batch_handler))
         .route("/audio", get(audio_handler))
         .route("/dictionaries", get(list_dictionaries_handler))
         .route("/dict-media/{dict_name}/{*path}", get(dict_media_handler))
