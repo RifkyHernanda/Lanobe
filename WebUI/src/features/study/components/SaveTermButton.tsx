@@ -4,7 +4,7 @@ import BookmarkAddedIcon from '@mui/icons-material/BookmarkAdded';
 import CircularProgress from '@mui/material/CircularProgress';
 import { useOCR } from '@/Manatan/context/OCRContext';
 import { studyApi } from '@/features/study/studyApi.ts';
-import { isTermInHighlightIndex } from '@/features/study/useHighlightIndex.ts';
+import { isTermInHighlightIndex, notifyHighlightIndexChanged } from '@/features/study/useHighlightIndex.ts';
 import type { DictionaryResult } from '@/Manatan/types';
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
@@ -54,6 +54,9 @@ export const SaveTermButton = ({ entry, accentColor }: { entry: DictionaryResult
                 sentenceOffset: offset,
             });
             setState('saved');
+            // Rebuild every open reader's matcher, so the word is marked right
+            // away instead of only after a reload.
+            notifyHighlightIndexChanged();
         } catch (e) {
             console.error('[SaveTermButton] save failed:', e);
             setState('error');

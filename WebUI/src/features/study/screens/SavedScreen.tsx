@@ -18,6 +18,7 @@ import DeleteIcon from '@mui/icons-material/DeleteOutline';
 import { useAppTitle } from '@/features/navigation-bar/hooks/useAppTitle.ts';
 import { useDebounce } from '@/base/hooks/useDebounce.ts';
 import { studyApi } from '@/features/study/studyApi.ts';
+import { notifyHighlightIndexChanged } from '@/features/study/useHighlightIndex.ts';
 import type { LegacyHighlight, SavedKanji, SavedTerm, StudyStats, StudyStatus } from '@/features/study/Study.types.ts';
 
 type TabKey = 'words' | 'kanji' | 'highlights';
@@ -148,6 +149,9 @@ export const SavedScreen = () => {
 
     const afterMutation = useCallback(async () => {
         setSelected(new Set());
+        // Marking known or deleting changes what gets highlighted, so a reader
+        // open in another tab needs to hear about it too.
+        notifyHighlightIndexChanged();
         await Promise.all([load(tab), refreshStats()]);
     }, [load, tab, refreshStats]);
 
@@ -177,6 +181,7 @@ export const SavedScreen = () => {
         try {
             if (tab === 'words') await studyApi.setTermStatus(Number(key), next);
             else await studyApi.setKanjiStatus(key, next);
+            notifyHighlightIndexChanged();
             await Promise.all([load(tab), refreshStats()]);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Status change failed');

@@ -22,6 +22,7 @@ guesses.** When one is fixed, move it to *Fixed* with the commit that did it.
 | 12 | 8 deinflector tests fail upstream too | known | `#[ignore]`d |
 | 13 | `yarn test` printed a joke and ran nothing | medium | **fixed** |
 | 14 | `injectHighlights.ts` does `indexOf` on raw HTML | medium | open |
+| 15 | A saved word was not marked until the page reloaded | medium | **fixed** |
 
 ---
 
@@ -222,6 +223,27 @@ splice without changing offset semantics. Deliberately not bundled into the
 migration commit, because that would mix "make highlights durable" with "change
 how highlights render".
 
+## 15. A saved word was not marked until the page reloaded — medium, fixed
+
+Reported from real use. `useHighlightIndex` fetched once on mount and never
+again, so saving a word bumped `index_version` server-side while the client's
+matcher stayed stale. The word was genuinely saved — it just was not highlighted
+until a reload rebuilt the matcher.
+
+My bug, introduced in S7. Fixed with a module-level listener set
+(`notifyHighlightIndexChanged`) that every mounted reader subscribes to, called
+by the popup's save control and by the Saved screen's status/delete/bulk paths.
+A plain set rather than React context because the writers (the lookup popup) and
+the readers (the reader screens) sit in different subtrees and share no
+provider.
+
+The refetch deliberately skips `If-None-Match`: after a local write the cached
+ETag is exactly what the server would 304 against, so sending it would confirm
+the stale copy as current and change nothing.
+
+Verified end to end without a reload: tapped 雑, clicked save, and a mark
+appeared within 500 ms.
+
 ## Fixed
 
 | Issue | Fixed by |
@@ -244,6 +266,7 @@ how highlights render".
 | #3 the import "loading" reply was swallowed by `apiRequest`'s blanket throw | S8 |
 | #5 stale lookup responses repainting a newer popup (reader path) | S8 |
 | #6 sentence furigana made one round trip per token (9 for a 23-char sentence) | `POST /api/yomitan/lookup/batch` |
+| #15 saving a word did not mark it until reload — my own bug from S7, reported from real use | listener + forced refetch |
 | Legacy highlights were only in sled, per book, invisible across books | S9 |
 | `INSERT OR IGNORE` meant a book title arriving on a later push could never backfill, leaving a raw book id on the Saved screen forever | S9 (found by reading the output, not by assuming) |
 | `useStudyHighlights` did nothing at all: it read a ref that is null on the first commit, and no dependency changes when a ref populates | S7 — found by instrumenting the hook after static inspection kept saying the wiring was correct |

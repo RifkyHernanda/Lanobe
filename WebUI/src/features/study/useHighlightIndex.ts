@@ -53,6 +53,22 @@ export function isTermInHighlightIndex(term: string): boolean {
 }
 
 /**
+ * Anything that changes saved vocabulary calls this, and every mounted reader
+ * refetches the index.
+ *
+ * Without it, saving a word bumped the server's index version while the
+ * client's matcher stayed stale, so a newly saved word did not get marked until
+ * the page was reloaded. A module-level set rather than React context because
+ * the writers (the lookup popup) and the readers (the reader screens) are in
+ * different subtrees and share no provider.
+ */
+const listeners = new Set<() => void>();
+
+export function notifyHighlightIndexChanged(): void {
+    listeners.forEach((listener) => listener());
+}
+
+/**
  * The saved-vocabulary index, revalidated with `If-None-Match`.
  *
  * Starts from the cached copy so a reopened book marks immediately, then
@@ -71,14 +87,16 @@ export function useHighlightIndex(): { matcher: Matcher; etag: string } {
     useEffect(() => {
         let cancelled = false;
 
-        (async () => {
+        /**
+         * @param force Skip `If-None-Match`. After a local write the cached
+         *   ETag is exactly the one the server would 304 against, so sending it
+         *   would confirm the stale copy is "current" and change nothing.
+         */
+        const load = async (force = false) => {
             try {
                 const cached = readCache();
-                const { index, etag } = await studyApi.highlightIndex(cached?.etag);
-                if (cancelled) return;
-
-                // null index means 304: what we already have is current.
-                if (!index) return;
+                const { index, etag } = await studyApi.highlightIndex(force ? undefined : cached?.etag);
+                if (cancelled || !index) return;
 
                 const nextEtag = etag ?? `sv${index.version}`;
                 writeCache({ etag: nextEtag, index });
@@ -87,10 +105,17 @@ export function useHighlightIndex(): { matcher: Matcher; etag: string } {
                 // Offline, or the server is unreachable. Keep the cached matcher
                 // rather than dropping every highlight in the book.
             }
-        })();
+        };
+
+        const onChange = () => {
+            void load(true);
+        };
+        listeners.add(onChange);
+        void load();
 
         return () => {
             cancelled = true;
+            listeners.delete(onChange);
         };
     }, []);
 
